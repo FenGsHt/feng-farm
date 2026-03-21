@@ -1,0 +1,662 @@
+/* 多人种田游戏样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-dark: #1a1f16;
+  --bg-light: #2d3a24;
+  --soil-dark: #8b7765;
+  --soil-light: #c4a882;
+  --accent-green: #7cb342;
+  --accent-brown: #8d6e63;
+  --text-light: #e8f5e9;
+  --text-muted: #a5d6a7;
+  --success: #66bb6a;
+  --error: #ef5350;
+}
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  min-height: 100vh;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* 弹窗 */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-content {
+  background: var(--bg-light);
+  padding: 30px;
+  border-radius: 16px;
+  min-width: 320px;
+  max-width: 90%;
+  border: 2px solid var(--accent-green);
+  box-shadow: 0 0 30px rgba(124, 179, 66, 0.3);
+}
+
+.modal-content h2 {
+  text-align: center;
+  margin-bottom: 10px;
+  font-size: 1.5em;
+}
+
+.modal-content p {
+  text-align: center;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.modal-content input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--accent-brown);
+  border-radius: 8px;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.modal-content input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--accent-green);
+  color: white;
+  flex: 1;
+}
+
+.btn-primary:hover {
+  background: #689f38;
+}
+
+.btn-secondary {
+  background: var(--accent-brown);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #6d4c41;
+}
+
+.btn-small {
+  padding: 8px 16px;
+  background: var(--accent-green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.btn-small:hover {
+  background: #689f38;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  padding: 8px;
+}
+
+.btn-icon:hover {
+  transform: scale(1.1);
+}
+
+/* 主界面 */
+.screen {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--accent-brown);
+}
+
+.header h1 {
+  font-size: 2em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+#player-display {
+  color: var(--accent-green);
+  font-weight: bold;
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 房间列表 */
+.rooms-panel, .crops-panel {
+  background: var(--bg-light);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--accent-brown);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.panel-header h3 {
+  font-size: 1.2em;
+}
+
+.room-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.room-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-dark);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.room-card:hover {
+  background: #243020;
+}
+
+.room-card-info {
+  flex: 1;
+}
+
+.room-card-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.room-card-players {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.btn-join {
+  padding: 8px 16px;
+  background: var(--accent-green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+
+.btn-join:hover {
+  background: #689f38;
+}
+
+.room-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px;
+}
+
+/* 作物图鉴 */
+.crop-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.crop-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  background: var(--bg-dark);
+  border-radius: 8px;
+}
+
+.crop-emoji {
+  font-size: 2em;
+}
+
+.crop-name {
+  font-weight: bold;
+  min-width: 60px;
+}
+
+.crop-info {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+}
+
+.crop-time, .crop-price {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.crop-seed {
+  font-size: 12px;
+  color: var(--accent-brown);
+}
+
+.tips {
+  background: var(--bg-dark);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.tips h4 {
+  margin-bottom: 12px;
+  color: var(--accent-green);
+}
+
+.tips ul {
+  list-style: none;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.tips li {
+  margin-bottom: 8px;
+  padding-left: 16px;
+  position: relative;
+}
+
+.tips li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--accent-green);
+}
+
+/* 游戏界面 */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: var(--bg-light);
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.game-info, .player-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.room-badge {
+  background: var(--accent-brown);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.money-badge {
+  background: var(--accent-green);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: bold;
+}
+
+.game-container {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .game-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 农场地图 */
+.farm-wrapper {
+  position: relative;
+  background: var(--bg-light);
+  border-radius: 12px;
+  padding: 20px;
+  overflow: auto;
+}
+
+.farm-grid {
+  display: grid;
+  gap: 2px;
+  background: #3e2723;
+  padding: 2px;
+  border-radius: 8px;
+}
+
+.plot-cell {
+  aspect-ratio: 1;
+  min-width: 30px;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.plot-cell:hover {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+.plot-cell.has-crop {
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.plot-cell.watered::after {
+  content: '💧';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+}
+
+.plot-cell.ready {
+  animation: ready-pulse 1s infinite;
+}
+
+@keyframes ready-pulse {
+  0%, 100% { box-shadow: 0 0 5px gold; }
+  50% { box-shadow: 0 0 15px gold; }
+}
+
+/* 玩家标记 */
+.players-layer {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  pointer-events: none;
+}
+
+.player-marker {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.player-marker.current {
+  border-width: 3px;
+  box-shadow: 0 0 10px white;
+}
+
+.player-name {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  color: white;
+}
+
+/* 操作面板 */
+.action-panel {
+  background: var(--bg-light);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.action-panel h3 {
+  margin-bottom: 16px;
+  font-size: 1.2em;
+}
+
+.action-section {
+  margin-bottom: 20px;
+}
+
+.action-section h4 {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.crop-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crop-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-brown);
+  border-radius: 8px;
+  color: var(--text-light);
+}
+
+.crop-btn:hover {
+  border-color: var(--accent-green);
+  background: #243020;
+}
+
+.btn-emoji {
+  font-size: 1.5em;
+}
+
+.btn-name {
+  flex: 1;
+  text-align: left;
+}
+
+.btn-cost {
+  color: gold;
+  font-size: 14px;
+}
+
+.action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  color: white;
+}
+
+.water-btn {
+  background: #29b6f6;
+}
+
+.water-btn:hover {
+  background: #0288d1;
+}
+
+.harvest-btn {
+  background: var(--accent-green);
+}
+
+.harvest-btn:hover {
+  background: #689f38;
+}
+
+.reset-btn {
+  background: var(--accent-brown);
+}
+
+.reset-btn:hover {
+  background: #6d4c41;
+}
+
+/* 玩家列表 */
+.players-section {
+  border-top: 1px solid var(--accent-brown);
+  padding-top: 16px;
+}
+
+.players-section h4 {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-dark);
+  border-radius: 6px;
+}
+
+.player-badge.current {
+  border: 1px solid var(--accent-green);
+}
+
+.player-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.player-money {
+  margin-left: auto;
+  color: gold;
+  font-size: 14px;
+}
+
+/* 通知 */
+.notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: var(--bg-light);
+  border-radius: 8px;
+  border: 2px solid var(--accent-green);
+  z-index: 200;
+  animation: slideUp 0.3s;
+}
+
+.notification.success {
+  border-color: var(--success);
+  background: #1b5e20;
+}
+
+.notification.error {
+  border-color: var(--error);
+  background: #b71c1c;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}

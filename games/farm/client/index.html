@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多人种田 | Feng Farm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 名字输入弹窗 -->
+  <div id="name-modal" class="modal">
+    <div class="modal-content">
+      <h2>🌾 欢迎来到 Feng Farm</h2>
+      <p>输入你的名字开始种田</p>
+      <input type="text" id="player-name-input" placeholder="你的名字" maxlength="12">
+      <button id="start-btn" class="btn-primary">开始种田</button>
+    </div>
+  </div>
+
+  <!-- 创建房间弹窗 -->
+  <div id="create-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>🏡 创建新农场</h2>
+      <div class="form-group">
+        <label>农场名称</label>
+        <input type="text" id="room-name-input" placeholder="我的农场" maxlength="20">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>宽度</label>
+          <input type="number" id="width-input" value="12" min="5" max="20">
+        </div>
+        <div class="form-group">
+          <label>高度</label>
+          <input type="number" id="height-input" value="12" min="5" max="20">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="cancel-create-btn" class="btn-secondary">取消</button>
+        <button id="confirm-create-btn" class="btn-primary">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="main-screen" class="screen hidden">
+    <div class="header">
+      <h1>🌾 Feng Farm</h1>
+      <div class="header-actions">
+        <span id="player-display"></span>
+        <button id="refresh-rooms-btn" class="btn-icon">🔄</button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <!-- 房间列表 -->
+      <div class="rooms-panel">
+        <div class="panel-header">
+          <h3>农场列表</h3>
+          <button id="create-room-btn" class="btn-small">+ 创建农场</button>
+        </div>
+        <div id="room-list" class="room-list">
+          <div class="room-empty">加载中...</div>
+        </div>
+      </div>
+
+      <!-- 作物信息 -->
+      <div class="crops-panel">
+        <h3>📖 作物图鉴</h3>
+        <div class="crop-cards">
+          <div class="crop-card">
+            <div class="crop-emoji">🌾</div>
+            <div class="crop-name">小麦</div>
+            <div class="crop-info">
+              <span class="crop-time">⏱️ 30s</span>
+              <span class="crop-price">💰 10</span>
+            </div>
+            <div class="crop-seed">种子: 2金币</div>
+          </div>
+          <div class="crop-card">
+            <div class="crop-emoji">🍅</div>
+            <div class="crop-name">番茄</div>
+            <div class="crop-info">
+              <span class="crop-time">⏱️ 60s</span>
+              <span class="crop-price">💰 25</span>
+            </div>
+            <div class="crop-seed">种子: 5金币</div>
+          </div>
+          <div class="crop-card">
+            <div class="crop-emoji">🌽</div>
+            <div class="crop-name">玉米</div>
+            <div class="crop-info">
+              <span class="crop-time">⏱️ 120s</span>
+              <span class="crop-price">💰 60</span>
+            </div>
+            <div class="crop-seed">种子: 12金币</div>
+          </div>
+        </div>
+        
+        <div class="tips">
+          <h4>💡 游戏提示</h4>
+          <ul>
+            <li>点击空地移动</li>
+            <li>站在空地上可以种植</li>
+            <li>浇水可以加速生长 50%</li>
+            <li>成熟后可以收获卖钱</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 游戏界面 -->
+  <div id="game-screen" class="screen hidden">
+    <div class="game-header">
+      <div class="game-info">
+        <span id="room-name" class="room-badge"></span>
+        <span id="farm-size"></span>
+      </div>
+      <div class="player-info">
+        <span id="money-display" class="money-badge">💰 50</span>
+        <span id="online-count">👥 1</span>
+      </div>
+      <button id="leave-btn" class="btn-secondary">离开</button>
+    </div>
+
+    <div class="game-container">
+      <!-- 农场地图 -->
+      <div class="farm-wrapper">
+        <div id="farm-grid" class="farm-grid"></div>
+        <div id="players-layer" class="players-layer"></div>
+      </div>
+
+      <!-- 操作面板 -->
+      <div class="action-panel">
+        <h3>操作</h3>
+        
+        <div class="action-section">
+          <h4>🌱 种植</h4>
+          <div class="crop-buttons">
+            <button id="plant-wheat" class="crop-btn" data-crop="wheat">
+              <span class="btn-emoji">🌾</span>
+              <span class="btn-name">小麦</span>
+              <span class="btn-cost">2💰</span>
+            </button>
+            <button id="plant-tomato" class="crop-btn" data-crop="tomato">
+              <span class="btn-emoji">🍅</span>
+              <span class="btn-name">番茄</span>
+              <span class="btn-cost">5💰</span>
+            </button>
+            <button id="plant-corn" class="crop-btn" data-crop="corn">
+              <span class="btn-emoji">🌽</span>
+              <span class="btn-name">玉米</span>
+              <span class="btn-cost">12💰</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="action-section">
+          <h4>💧 维护</h4>
+          <button id="water-btn" class="action-btn water-btn">
+            <span class="btn-emoji">💧</span>
+            <span class="btn-name">浇水</span>
+          </button>
+          <button id="harvest-btn" class="action-btn harvest-btn">
+            <span class="btn-emoji">🧺</span>
+            <span class="btn-name">收获</span>
+          </button>
+        </div>
+
+        <div class="action-section">
+          <h4>⚙️ 农场</h4>
+          <button id="reset-btn" class="action-btn reset-btn">
+            <span class="btn-emoji">🔄</span>
+            <span class="btn-name">重置农场</span>
+          </button>
+        </div>
+
+        <!-- 玩家列表 -->
+        <div class="players-section">
+          <h4>👥 在线玩家</h4>
+          <div id="players-list" class="players-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 通知栏 -->
+    <div id="notification" class="notification hidden"></div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
