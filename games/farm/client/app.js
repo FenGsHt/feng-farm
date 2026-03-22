@@ -603,6 +603,73 @@ function init() {
   });
 }
 
+// 键盘控制
+document.addEventListener('keydown', (e) => {
+  // 如果不在游戏界面，不响应键盘
+  if (!gameScreen || !gameScreen.classList.contains('hidden') === false) return;
+  if (!currentPlayer || !gameState || !socket) return;
+  
+  const { width, height } = gameState;
+  const x = currentPlayer.position.x;
+  const y = currentPlayer.position.y;
+  
+  let newX = x;
+  let newY = y;
+  let handled = false;
+  
+  switch (e.key) {
+    // WASD 或方向键移动
+    case 'w':
+    case 'W':
+    case 'ArrowUp':
+      newY = Math.max(0, y - 1);
+      handled = true;
+      break;
+    case 's':
+    case 'S':
+    case 'ArrowDown':
+      newY = Math.min(height - 1, y + 1);
+      handled = true;
+      break;
+    case 'a':
+    case 'A':
+    case 'ArrowLeft':
+      newX = Math.max(0, x - 1);
+      handled = true;
+      break;
+    case 'd':
+    case 'D':
+    case 'ArrowRight':
+      newX = Math.min(width - 1, x + 1);
+      handled = true;
+      break;
+    // 空格键浇水
+    case ' ':
+      e.preventDefault();
+      socket.emit('water');
+      showNotification('💧 浇水', 'info');
+      handled = true;
+      break;
+    // Enter键收获
+    case 'Enter':
+      socket.emit('harvest');
+      showNotification('🌾 收获', 'info');
+      handled = true;
+      break;
+    default:
+      return; // 其他键不阻止默认行为
+  }
+  
+  if (handled) {
+    e.preventDefault();
+    // 移动
+    if (newX !== x || newY !== y) {
+      socket.emit('move', { x: newX, y: newY });
+      highlightPlot(newX, newY);
+    }
+  }
+});
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', init);
 
