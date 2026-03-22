@@ -1,0 +1,87 @@
+name: Deploy Feng Farm
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Prepare remote directory
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "mkdir -p ${{ secrets.SERVER_PATH }}/games/farm/server \
+                      ${{ secrets.SERVER_PATH }}/games/farm/client \
+                      ${{ secrets.SERVER_PATH }}/games/farm/logs && \
+             sudo chown -R \$(whoami) ${{ secrets.SERVER_PATH }}/games/farm || true"
+
+      - name: Deploy client files
+        uses: nick-fields/retry@v2
+        with:
+          max_attempts: 3
+          retry_wait_seconds: 10
+          timeout_minutes: 5
+          command: |
+            scp -i ~/.ssh/id_rsa \
+              games/farm/client/index.html \
+              games/farm/client/app.js \
+              games/farm/client/style.css \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/client/
+
+      - name: Deploy server files
+        uses: nick-fields/retry@v2
+        with:
+          max_attempts: 3
+          retry_wait_seconds: 10
+          timeout_minutes: 5
+          command: |
+            scp -i ~/.ssh/id_rsa \
+              games/farm/server/server.js \
+              games/farm/server/game.js \
+              games/farm/server/package.json \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/server/
+            scp -i ~/.ssh/id_rsa \
+              games/farm/ecosystem.config.js \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/
+
+      - name: Start server with PM2
+        uses: nick-fields/retry@v2
+        with:
+          max_attempts: 3
+          retry_wait_seconds: 10
+          timeout_minutes: 5
+          command: |
+            ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
+               cd ${{ secrets.SERVER_PATH }}/games/farm/server && \
+               npm install --no-audit && \
+               cd ${{ secrets.SERVER_PATH }}/games/farm && \
+               pm2 stop feng-farm-server 2>/dev/null; \
+               pm2 delete feng-farm-server 2>/dev/null; \
+               fuser -k 3007/tcp 2>/dev/null || true; \
+               pm2 start ecosystem.config.js && \
+               pm2 save"
+
+      - name: Notify success
+        if: success()
+        run: |
+          curl -s "https://api.day.app/${{ secrets.BARK_KEY }}/部署成功/Feng%20Farm%20部署完成" || true
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -s "https://api.day.app/${{ secrets.BARK_KEY }}/部署失败/Feng%20Farm%20部署异常" || true
