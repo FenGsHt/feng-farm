@@ -23,7 +23,7 @@ jobs:
 
       - name: Prepare remote directory
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
             "mkdir -p ${{ secrets.SERVER_PATH }}/games/farm/server \
                       ${{ secrets.SERVER_PATH }}/games/farm/client \
                       ${{ secrets.SERVER_PATH }}/games/farm/logs && \
