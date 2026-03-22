@@ -466,4 +466,108 @@ interface RoomInfo {
 interface ActionResult {
   success: boolean;
   action: 'plant' | 'water' | 'harvest';
-  message:
+  message: string;
+}
+
+// 通知
+interface Notification {
+  message: string;
+}
+
+// 错误
+interface ErrorMessage {
+  message: string;
+}
+```
+
+---
+
+## 7. 客户端示例代码
+
+### 7.1 连接与加入房间
+
+```javascript
+const socket = io('http://localhost:3007');
+
+// 连接成功
+socket.on('connect', () => {
+  console.log('已连接到服务器');
+  
+  // 加入房间
+  socket.emit('join-room', {
+    roomId: '公共农场',
+    playerName: '玩家小明'
+  });
+});
+
+// 接收房间列表
+socket.on('room-list', (rooms) => {
+  console.log('可用房间:', rooms);
+});
+
+// 接收玩家信息
+socket.on('player-info', (player) => {
+  console.log('我的信息:', player);
+});
+
+// 接收游戏状态
+socket.on('game-state', (state) => {
+  console.log('游戏状态更新:', state);
+  renderGame(state); // 渲染游戏画面
+});
+```
+
+### 7.2 游戏操作
+
+```javascript
+// 移动
+function moveTo(x, y) {
+  socket.emit('move', { x, y });
+}
+
+// 种植
+function plant(cropType) {
+  socket.emit('plant', { cropType });
+}
+
+// 浇水
+function water() {
+  socket.emit('water');
+}
+
+// 收获
+function harvest() {
+  socket.emit('harvest');
+}
+
+// 操作结果
+socket.on('action-result', (result) => {
+  if (result.success) {
+    showToast('✅ ' + result.message);
+  } else {
+    showToast('❌ ' + result.message);
+  }
+});
+```
+
+---
+
+## 8. 版本历史
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v1.0 | 2026-03-22 | 初始版本，与当前代码同步 |
+
+---
+
+## 9. 相关文档
+
+- [GDD-核心玩法与交互.md](../GDD-核心玩法与交互.md) - 游戏设计文档
+- [architecture.md](./architecture.md) - 系统架构设计
+
+---
+
+**文档版本：** v1.0  
+**更新日期：** 2026-03-22  
+**作者：** DEV  
+**状态：** 与当前代码同步
