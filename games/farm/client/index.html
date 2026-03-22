@@ -44,71 +44,12 @@
     </div>
   </div>
 
-  <!-- 主界面 -->
-  <div id="main-screen" class="screen hidden">
-    <div class="header">
-      <h1>🌾 Feng Farm</h1>
-      <div class="header-actions">
-        <span id="player-display"></span>
-        <button id="refresh-rooms-btn" class="btn-icon">🔄</button>
-      </div>
-    </div>
-
-    <div class="main-content">
-      <!-- 房间列表 -->
-      <div class="rooms-panel">
-        <div class="panel-header">
-          <h3>农场列表</h3>
-          <button id="create-room-btn" class="btn-small">+ 创建农场</button>
-        </div>
-        <div id="room-list" class="room-list">
-          <div class="room-empty">加载中...</div>
-        </div>
-      </div>
-
-      <!-- 作物信息 -->
-      <div class="crops-panel">
-        <h3>📖 作物图鉴</h3>
-        <div class="crop-cards">
-          <div class="crop-card">
-            <div class="crop-emoji">🌾</div>
-            <div class="crop-name">小麦</div>
-            <div class="crop-info">
-              <span class="crop-time">⏱️ 30s</span>
-              <span class="crop-price">💰 10</span>
-            </div>
-            <div class="crop-seed">种子: 2金币</div>
-          </div>
-          <div class="crop-card">
-            <div class="crop-emoji">🍅</div>
-            <div class="crop-name">番茄</div>
-            <div class="crop-info">
-              <span class="crop-time">⏱️ 60s</span>
-              <span class="crop-price">💰 25</span>
-            </div>
-            <div class="crop-seed">种子: 5金币</div>
-          </div>
-          <div class="crop-card">
-            <div class="crop-emoji">🌽</div>
-            <div class="crop-name">玉米</div>
-            <div class="crop-info">
-              <span class="crop-time">⏱️ 120s</span>
-              <span class="crop-price">💰 60</span>
-            </div>
-            <div class="crop-seed">种子: 12金币</div>
-          </div>
-        </div>
-        
-        <div class="tips">
-          <h4>💡 游戏提示</h4>
-          <ul>
-            <li>点击空地移动</li>
-            <li>站在空地上可以种植</li>
-            <li>浇水可以加速生长 50%</li>
-            <li>成熟后可以收获卖钱</li>
-          </ul>
-        </div>
-      </div>
+  <!-- 主界面（简化版） -->
+  <div id="main-screen" class="screen">
+    <div class="loading-container">
+      <div class="loading-spinner">🌾</div>
+      <p>正在连接农场...</p>
+      <button id="enter-game-btn" class="btn-primary hidden">进入农场</button>
     </div>
   </div>
 
@@ -116,14 +57,13 @@
   <div id="game-screen" class="screen hidden">
     <div class="game-header">
       <div class="game-info">
-        <span id="room-name" class="room-badge"></span>
-        <span id="farm-size"></span>
+        <span class="room-badge">🌾 Feng Farm</span>
+        <span id="farm-size" class="farm-size-badge"></span>
       </div>
       <div class="player-info">
         <span id="money-display" class="money-badge">💰 50</span>
-        <span id="online-count">👥 1</span>
+        <span id="online-count" class="online-badge">👥 1</span>
       </div>
-      <button id="leave-btn" class="btn-secondary">离开</button>
     </div>
 
     <div class="game-container">
@@ -170,13 +110,7 @@
           </button>
         </div>
 
-        <div class="action-section">
-          <h4>⚙️ 农场</h4>
-          <button id="reset-btn" class="action-btn reset-btn">
-            <span class="btn-emoji">🔄</span>
-            <span class="btn-name">重置农场</span>
-          </button>
-        </div>
+
 
         <!-- 玩家列表 -->
         <div class="players-section">

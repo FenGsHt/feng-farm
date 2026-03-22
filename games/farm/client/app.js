@@ -1,7 +1,15 @@
-// 多人种田游戏前端
-const SERVER_URL = 'http://150.158.110.168:3007';
-const DEFAULT_ROOM = '公共农场';
+// 多人种田游戏前端 - 简化版（单农场模式）
+const SERVER_URL = window.location.origin;
+const DEFAULT_ROOM = 'Feng Farm';
 const PLAYER_NAME_KEY = 'fengfarm_player_name';
+
+// 游戏配置
+const CONFIG = {
+  initialMoney: 50,
+  cellSize: 45,
+  maxGridWidth: 400,
+  animationDuration: 300
+};
 
 let socket = null;
 let currentRoom = null;
@@ -132,59 +140,129 @@ function updateGameState(state) {
   gameState = state;
   renderFarm();
   renderPlayers();
+  renderPlayerList();
   updateOnlineCount();
+  updateMoneyDisplay();
 }
+
+// 更新金币显示（带动画）
+function updateMoneyDisplay() {
+  if (!gameState || !currentPlayer) return;
+  
+  const player = gameState.players.find(p => p.id === currentPlayer.id);
+  if (!player || !moneyDisplay) return;
+  
+  const currentMoney = parseInt(moneyDisplay.textContent.replace(/[^0-9]/g, '')) || 0;
+  const newMoney = player.money;
+  
+  if (currentMoney !== newMoney) {
+    // 金币变化动画
+    moneyDisplay.classList.add('money-changed');
+    setTimeout(() => moneyDisplay.classList.remove('money-changed'), 300);
+    
+    moneyDisplay.textContent = `💰 ${newMoney}`;
+    currentPlayer.money = newMoney;
+  }
+}
+
+// 当前选中的地块
+let selectedPlot = null;
 
 // 渲染农场地图
 function renderFarm() {
   if (!gameState || !farmGrid) return;
 
-  const { width, height, plots } = gameState;
-  const cellSize = Math.min(50, Math.min(400 / width, 400 / height));
+  const { width, height, plots, crops: cropConfig } = gameState;
+  const cellSize = Math.min(CONFIG.cellSize, Math.min(CONFIG.maxGridWidth / width, CONFIG.maxGridWidth / height));
 
-  farmGrid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
-  farmGrid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
-  farmGrid.innerHTML = '';
+  // 只在首次渲染或尺寸变化时更新 grid 样式
+  if (farmGrid.dataset.width !== String(width) || farmGrid.dataset.height !== String(height)) {
+    farmGrid.style.gridTemplateColumns = `repeat(${width}, ${cellSize}px)`;
+    farmGrid.style.gridTemplateRows = `repeat(${height}, ${cellSize}px)`;
+    farmGrid.dataset.width = width;
+    farmGrid.dataset.height = height;
+    farmGrid.innerHTML = '';
+  }
 
+  // 更新或创建格子
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const plot = plots[y][x];
-      const cell = document.createElement('div');
-      cell.className = 'plot-cell';
-      cell.dataset.x = x;
-      cell.dataset.y = y;
-
-      // 土壤颜色（湿度越高越深）
-      const moistureColor = Math.floor(plot.soilMoisture * 2.55);
-      cell.style.backgroundColor = `rgb(${139 + moistureColor}, ${119 + moistureColor}, 101)`;
-
-      // 显示作物
-      if (plot.crop) {
-        cell.classList.add('has-crop');
+      const cellId = `plot-${x}-${y}`;
+      let cell = document.getElementById(cellId);
+      
+      // 创建新格子
+      if (!cell) {
+        cell = document.createElement('div');
+        cell.id = cellId;
+        cell.className = 'plot-cell';
+        cell.dataset.x = x;
+        cell.dataset.y = y;
         
-        // 生长阶段显示
-        const stages = ['🌱', '🌿', '🌾', plot.emoji];
-        cell.textContent = stages[plot.growthStage] || plot.emoji;
-
-        // 浇水状态
-        if (plot.isWatered) {
-          cell.classList.add('watered');
-        }
-
-        // 成熟状态
-        if (plot.growthStage >= 3) {
-          cell.classList.add('ready');
-        }
+        // 点击移动
+        cell.addEventListener('click', () => {
+          if (currentPlayer && socket) {
+            socket.emit('move', { x, y });
+            highlightPlot(x, y);
+          }
+        });
+        
+        // 悬停显示信息
+        cell.addEventListener('mouseenter', (e) => showPlotTooltip(e, plot, cropConfig));
+        cell.addEventListener('mouseleave', hidePlotTooltip);
+        
+        farmGrid.appendChild(cell);
       }
 
-      // 点击移动
-      cell.addEventListener('click', () => {
-        if (currentPlayer) {
-          socket.emit('move', { x, y });
-        }
-      });
+      // 更新土壤颜色（湿度越高越深）
+      const moistureRatio = plot.soilMoisture / 100;
+      const r = Math.floor(139 + moistureRatio * 60);
+      const g = Math.floor(119 + moistureRatio * 60);
+      const b = Math.floor(101 + moistureRatio * 40);
+      cell.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
 
-      farmGrid.appendChild(cell);
+      // 更新作物显示
+      const oldCrop = cell.dataset.crop;
+      const newCrop = plot.crop || '';
+      
+      if (oldCrop !== newCrop || cell.dataset.growthStage !== String(plot.growthStage)) {
+        cell.dataset.crop = newCrop;
+        cell.dataset.growthStage = plot.growthStage;
+        cell.innerHTML = ''; // 清除旧内容
+        
+        if (plot.crop) {
+          cell.classList.add('has-crop');
+          
+          // 生长阶段图标
+          const stageEmojis = ['🌱', '🌿', '🌾', cropConfig[plot.crop]?.emoji || '🌾'];
+          const emoji = stageEmojis[plot.growthStage] || stageEmojis[3];
+          
+          const cropSpan = document.createElement('span');
+          cropSpan.className = 'crop-emoji';
+          cropSpan.textContent = emoji;
+          cell.appendChild(cropSpan);
+
+          // 浇水标记
+          if (plot.isWatered) {
+            cell.classList.add('watered');
+            const waterMark = document.createElement('span');
+            waterMark.className = 'water-mark';
+            waterMark.textContent = '💧';
+            cell.appendChild(waterMark);
+          } else {
+            cell.classList.remove('watered');
+          }
+
+          // 成熟发光效果
+          if (plot.growthStage >= 3) {
+            cell.classList.add('ready');
+          } else {
+            cell.classList.remove('ready');
+          }
+        } else {
+          cell.classList.remove('has-crop', 'watered', 'ready');
+        }
+      }
     }
   }
 
@@ -192,6 +270,65 @@ function renderFarm() {
   if (farmSizeDisplay) {
     farmSizeDisplay.textContent = `${width}×${height}`;
   }
+}
+
+// 高亮选中的地块
+function highlightPlot(x, y) {
+  document.querySelectorAll('.plot-cell').forEach(cell => {
+    cell.classList.remove('selected');
+  });
+  const cell = document.getElementById(`plot-${x}-${y}`);
+  if (cell) {
+    cell.classList.add('selected');
+    selectedPlot = { x, y };
+  }
+}
+
+// 显示地块信息提示
+function showPlotTooltip(e, plot, cropConfig) {
+  const tooltip = document.getElementById('plot-tooltip') || createTooltip();
+  
+  let content = '';
+  if (plot.crop && cropConfig[plot.crop]) {
+    const crop = cropConfig[plot.crop];
+    const stageNames = ['种子', '幼苗', '生长中', '成熟'];
+    content = `
+      <div class="tooltip-title">${crop.emoji} ${crop.name}</div>
+      <div class="tooltip-row">阶段: ${stageNames[plot.growthStage]}</div>
+      <div class="tooltip-row">湿度: ${plot.soilMoisture}%</div>
+      <div class="tooltip-row">${plot.isWatered ? '💧 已浇水' : '💧 未浇水'}</div>
+      ${plot.growthStage >= 3 ? `<div class="tooltip-row ready-text">✨ 可收获 (+${crop.sellPrice}💰)</div>` : ''}
+    `;
+  } else {
+    content = `
+      <div class="tooltip-title">🟫 空地</div>
+      <div class="tooltip-row">湿度: ${plot.soilMoisture}%</div>
+      <div class="tooltip-row">点击移动至此</div>
+    `;
+  }
+  
+  tooltip.innerHTML = content;
+  tooltip.classList.remove('hidden');
+  
+  // 定位提示框
+  const rect = e.target.getBoundingClientRect();
+  tooltip.style.left = `${rect.left + rect.width / 2}px`;
+  tooltip.style.top = `${rect.top - 10}px`;
+}
+
+// 隐藏地块提示
+function hidePlotTooltip() {
+  const tooltip = document.getElementById('plot-tooltip');
+  if (tooltip) tooltip.classList.add('hidden');
+}
+
+// 创建提示框
+function createTooltip() {
+  const tooltip = document.createElement('div');
+  tooltip.id = 'plot-tooltip';
+  tooltip.className = 'plot-tooltip hidden';
+  document.body.appendChild(tooltip);
+  return tooltip;
 }
 
 // 渲染玩家位置
@@ -227,33 +364,114 @@ function renderPlayers() {
   });
 }
 
-// 渲染在线玩家列表
+// 渲染玩家位置（带平滑动画）
+const playerElements = new Map();
+
 function renderPlayers() {
+  if (!gameState || !playersLayer || !farmGrid) return;
+
+  const { width, height, players } = gameState;
+  const cellSize = Math.min(CONFIG.cellSize, Math.min(CONFIG.maxGridWidth / width, CONFIG.maxGridWidth / height));
+
+  // 更新或创建玩家标记
+  players.forEach(player => {
+    let marker = playerElements.get(player.id);
+    
+    if (!marker) {
+      marker = document.createElement('div');
+      marker.className = 'player-marker';
+      marker.id = `player-${player.id}`;
+      
+      // 玩家颜色圆点
+      const dot = document.createElement('div');
+      dot.className = 'player-dot';
+      dot.style.backgroundColor = player.color;
+      marker.appendChild(dot);
+      
+      // 玩家名标签
+      const nameLabel = document.createElement('span');
+      nameLabel.className = 'player-name-label';
+      nameLabel.textContent = player.name;
+      nameLabel.style.backgroundColor = player.color;
+      marker.appendChild(nameLabel);
+      
+      // 标记当前玩家
+      if (currentPlayer && player.id === currentPlayer.id) {
+        marker.classList.add('current-player');
+        nameLabel.textContent += ' (你)';
+      }
+      
+      playersLayer.appendChild(marker);
+      playerElements.set(player.id, marker);
+    }
+    
+    // 计算位置（带偏移使标记居中在格子上）
+    const targetX = player.position.x * cellSize + cellSize / 2;
+    const targetY = player.position.y * cellSize + cellSize / 2;
+    
+    // 使用 CSS transition 实现平滑移动
+    marker.style.transition = `all ${CONFIG.animationDuration}ms ease-out`;
+    marker.style.left = `${targetX}px`;
+    marker.style.top = `${targetY}px`;
+    marker.style.width = `${cellSize * 0.6}px`;
+    marker.style.height = `${cellSize * 0.6}px`;
+  });
+  
+  // 移除离线的玩家标记
+  playerElements.forEach((marker, playerId) => {
+    if (!players.find(p => p.id === playerId)) {
+      marker.remove();
+      playerElements.delete(playerId);
+    }
+  });
+}
+
+// 渲染在线玩家列表（侧边栏）
+function renderPlayerList() {
   if (!gameState || !playersList) return;
 
-  playersList.innerHTML = '';
+  // 保留现有元素，只更新数据
+  const existingBadges = new Map();
+  playersList.querySelectorAll('.player-badge').forEach(badge => {
+    const id = badge.dataset.playerId;
+    if (id) existingBadges.set(id, badge);
+  });
+  
   gameState.players.forEach(player => {
-    const badge = document.createElement('div');
-    badge.className = 'player-badge';
-    if (currentPlayer && player.id === currentPlayer.id) {
-      badge.classList.add('current');
+    let badge = existingBadges.get(player.id);
+    
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'player-badge';
+      badge.dataset.playerId = player.id;
+      
+      const colorDot = document.createElement('span');
+      colorDot.className = 'player-dot';
+      colorDot.style.backgroundColor = player.color;
+      
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'player-name';
+      
+      const moneySpan = document.createElement('span');
+      moneySpan.className = 'player-money';
+      
+      badge.appendChild(colorDot);
+      badge.appendChild(nameSpan);
+      badge.appendChild(moneySpan);
+      playersList.appendChild(badge);
     }
-
-    const colorDot = document.createElement('span');
-    colorDot.className = 'player-dot';
-    colorDot.style.backgroundColor = player.color;
-
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = player.name;
-
-    const moneySpan = document.createElement('span');
-    moneySpan.className = 'player-money';
-    moneySpan.textContent = `💰${player.money}`;
-
-    badge.appendChild(colorDot);
-    badge.appendChild(nameSpan);
-    badge.appendChild(moneySpan);
-    playersList.appendChild(badge);
+    
+    // 更新内容
+    badge.classList.toggle('current', currentPlayer && player.id === currentPlayer.id);
+    badge.querySelector('.player-name').textContent = player.name;
+    badge.querySelector('.player-money').textContent = `💰${player.money}`;
+  });
+  
+  // 移除离线的玩家
+  existingBadges.forEach((badge, playerId) => {
+    if (!gameState.players.find(p => p.id === playerId)) {
+      badge.remove();
+    }
   });
 }
 
@@ -343,11 +561,7 @@ document.getElementById('cancel-create-btn')?.addEventListener('click', () => {
 
 document.getElementById('confirm-create-btn')?.addEventListener('click', createRoom);
 
-document.getElementById('refresh-rooms-btn')?.addEventListener('click', () => {
-  socket?.emit('get-rooms');
-});
-
-document.getElementById('leave-btn')?.addEventListener('click', leaveRoom);
+// 简化版：不需要刷新和离开按钮
 
 // 作物按钮
 document.getElementById('plant-wheat')?.addEventListener('click', () => socket?.emit('plant', { cropType: 'wheat' }));
@@ -359,29 +573,37 @@ document.getElementById('water-btn')?.addEventListener('click', () => socket?.em
 document.getElementById('harvest-btn')?.addEventListener('click', () => socket?.emit('harvest'));
 document.getElementById('reset-btn')?.addEventListener('click', () => socket?.emit('new-farm'));
 
-// 初始化
+// 初始化 - 简化版：自动进入农场
 function init() {
   const savedName = localStorage.getItem(PLAYER_NAME_KEY);
+  
+  // 自动恢复名字或显示输入框
   if (savedName) {
     currentPlayerName = savedName;
     nameModal.classList.add('hidden');
+    initSocket();
+    // 连接成功后自动加入
+    setTimeout(() => {
+      if (socket?.connected) {
+        joinDefaultRoom();
+      }
+    }, 500);
   } else {
     nameModal.classList.remove('hidden');
-    setTimeout(() => playerNameInput.focus(), 100);
+    setTimeout(() => playerNameInput?.focus(), 100);
+    initSocket();
   }
   
-  initSocket();
-  
-  // 监听游戏状态变化，切换界面
-  const originalEmit = socket?.emit;
+  // 监听游戏状态，自动切换到游戏界面
   socket?.on('game-state', (state) => {
     updateGameState(state);
-    if (currentRoom && gameScreen.classList.contains('hidden')) {
+    if (currentRoom && mainScreen?.classList.contains('hidden') === false) {
       switchToGame();
     }
   });
 }
 
-init();
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', init);
 
 console.log('[Farm] Client initialized');

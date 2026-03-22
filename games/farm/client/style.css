@@ -660,3 +660,155 @@ button {
     opacity: 1;
   }
 }
+
+/* ========== 简化版新增样式 ========== */
+
+/* 加载页面 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 20px;
+}
+
+.loading-spinner {
+  font-size: 64px;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* 地块选中效果 */
+.plot-cell.selected {
+  box-shadow: 0 0 0 3px var(--accent-green), 0 0 15px var(--accent-green);
+  z-index: 10;
+}
+
+.plot-cell .crop-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.plot-cell .water-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.plot-cell.ready {
+  animation: glow 1.5s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.3) drop-shadow(0 0 5px gold); }
+}
+
+/* 地块提示框 */
+.plot-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: var(--bg-light);
+  border: 2px solid var(--accent-green);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  z-index: 300;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  min-width: 140px;
+}
+
+.plot-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: var(--accent-green);
+}
+
+.tooltip-title {
+  font-weight: bold;
+  margin-bottom: 6px;
+  color: var(--accent-green);
+  font-size: 14px;
+}
+
+.tooltip-row {
+  margin: 3px 0;
+  color: var(--text-muted);
+}
+
+.tooltip-row.ready-text {
+  color: gold;
+  font-weight: bold;
+}
+
+/* 玩家标记改进 */
+.player-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.player-marker .player-dot {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.player-marker.current-player .player-dot {
+  box-shadow: 0 0 0 3px var(--accent-green), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.player-marker .player-name-label {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 金币变化动画 */
+.money-badge.money-changed {
+  animation: moneyPulse 0.3s ease-out;
+}
+
+@keyframes moneyPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); color: gold; }
+  100% { transform: scale(1); }
+}
+
+/* 农场尺寸标签 */
+.farm-size-badge {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-left: 10px;
+}
+
+/* 在线人数标签 */
+.online-badge {
+  font-size: 14px;
+  margin-left: 10px;
+}
