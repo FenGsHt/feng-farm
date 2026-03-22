@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'feng-farm-server',
     script: './server/server.js',
-    cwd: '/opt/indeed.com/games/farm',
+    cwd: '/opt/1panel/www/sites/indeed-flow-prod/games/farm',
     instances: 1,
     autorestart: true,
     watch: false,
