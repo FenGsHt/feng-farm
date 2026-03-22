@@ -69,9 +69,10 @@ jobs:
               "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
                cd ${{ secrets.SERVER_PATH }}/games/farm/server && \
                npm install --no-audit && \
+               npm install -g pm2 && \
                cd ${{ secrets.SERVER_PATH }}/games/farm && \
-               pm2 stop feng-farm-server 2>/dev/null; \
-               pm2 delete feng-farm-server 2>/dev/null; \
+               pm2 stop feng-farm-server 2>/dev/null || true; \
+               pm2 delete feng-farm-server 2>/dev/null || true; \
                fuser -k 3007/tcp 2>/dev/null || true; \
                pm2 start ecosystem.config.js && \
                pm2 save"
