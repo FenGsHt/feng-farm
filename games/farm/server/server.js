@@ -20,7 +20,14 @@ const DEFAULT_ROOM = '公共农场';
 roomManager.createRoom(DEFAULT_ROOM, 12, 12);
 roomManager.rooms.get(DEFAULT_ROOM).persist = true;
 
-app.use(express.static('../client'));
+// 静态文件服务
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../client')));
+
+// 根路由
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/index.html'));
+});
 
 // 广播房间列表
 function broadcastRoomList() {
