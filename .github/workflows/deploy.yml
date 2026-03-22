@@ -19,11 +19,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          touch ~/.ssh/known_hosts
 
       - name: Prepare remote directory
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
             "mkdir -p ${{ secrets.SERVER_PATH }}/games/farm/server \
                       ${{ secrets.SERVER_PATH }}/games/farm/client \
                       ${{ secrets.SERVER_PATH }}/games/farm/logs && \
@@ -36,7 +36,7 @@ jobs:
           retry_wait_seconds: 10
           timeout_minutes: 5
           command: |
-            scp -i ~/.ssh/id_rsa \
+            scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
               games/farm/client/index.html \
               games/farm/client/app.js \
               games/farm/client/style.css \
@@ -49,12 +49,12 @@ jobs:
           retry_wait_seconds: 10
           timeout_minutes: 5
           command: |
-            scp -i ~/.ssh/id_rsa \
+            scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
               games/farm/server/server.js \
               games/farm/server/game.js \
               games/farm/server/package.json \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/server/
-            scp -i ~/.ssh/id_rsa \
+            scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
               games/farm/ecosystem.config.js \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/
 
@@ -65,7 +65,7 @@ jobs:
           retry_wait_seconds: 10
           timeout_minutes: 5
           command: |
-            ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
               "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
                cd ${{ secrets.SERVER_PATH }}/games/farm/server && \
                npm install --no-audit && \
