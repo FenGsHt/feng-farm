@@ -518,6 +518,7 @@ const SCALE_STEP = 0.1;
 // 初始化 Socket
 function initSocket() {
   socket = io(SERVER_URL, {
+    path: "/socket.io/",
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000
