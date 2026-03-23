@@ -60,6 +60,9 @@
         <span class="room-badge">🌾 Feng Farm</span>
         <span id="farm-size" class="farm-size-badge"></span>
         <span id="game-time" class="game-time-badge">📅 第 1 天</span>
+        <!-- 天气显示 -->
+        <span id="weather-display" class="weather-badge">☀️ 晴天</span>
+        <button id="open-tasks-btn" class="btn-tasks">📋 任务</button>
       </div>
       <div class="player-info">
         <span id="money-display" class="money-badge">💰 50</span>
@@ -78,23 +81,36 @@
       <div class="action-panel">
         <h3>操作</h3>
         
-        <div class="action-section">
-          <h4>🌱 种植</h4>
-          <div class="crop-buttons">
+        <!-- 谷物分类 -->
+        <div class="action-category" onclick="toggleSection('crops-grain')">
+          <h4>🌾 谷物 <span class="toggle-icon">▼</span></h4>
+          <div id="crops-grain" class="crop-buttons">
             <button id="plant-wheat" class="crop-btn" data-crop="wheat">
               <span class="btn-emoji">🌾</span>
               <span class="btn-name">小麦</span>
               <span class="btn-cost">2💰</span>
             </button>
-            <button id="plant-tomato" class="crop-btn" data-crop="tomato">
-              <span class="btn-emoji">🍅</span>
-              <span class="btn-name">番茄</span>
-              <span class="btn-cost">5💰</span>
-            </button>
             <button id="plant-corn" class="crop-btn" data-crop="corn">
               <span class="btn-emoji">🌽</span>
               <span class="btn-name">玉米</span>
               <span class="btn-cost">12💰</span>
+            </button>
+            <button id="plant-rice" class="crop-btn" data-crop="rice">
+              <span class="btn-emoji">🍚</span>
+              <span class="btn-name">水稻</span>
+              <span class="btn-cost">8💰</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 蔬菜分类 -->
+        <div class="action-category" onclick="toggleSection('crops-vegetable')">
+          <h4>🥬 蔬菜 <span class="toggle-icon">▼</span></h4>
+          <div id="crops-vegetable" class="crop-buttons">
+            <button id="plant-tomato" class="crop-btn" data-crop="tomato">
+              <span class="btn-emoji">🍅</span>
+              <span class="btn-name">番茄</span>
+              <span class="btn-cost">5💰</span>
             </button>
             <button id="plant-carrot" class="crop-btn" data-crop="carrot">
               <span class="btn-emoji">🥕</span>
@@ -106,15 +122,65 @@
               <span class="btn-name">茄子</span>
               <span class="btn-cost">6💰</span>
             </button>
+            <button id="plant-cucumber" class="crop-btn" data-crop="cucumber">
+              <span class="btn-emoji">🥒</span>
+              <span class="btn-name">黄瓜</span>
+              <span class="btn-cost">4💰</span>
+            </button>
+            <button id="plant-pumpkin" class="crop-btn" data-crop="pumpkin">
+              <span class="btn-emoji">🎃</span>
+              <span class="btn-name">南瓜</span>
+              <span class="btn-cost">15💰</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 水果分类 -->
+        <div class="action-category" onclick="toggleSection('crops-fruit')">
+          <h4>🍎 水果 <span class="toggle-icon">▼</span></h4>
+          <div id="crops-fruit" class="crop-buttons">
             <button id="plant-strawberry" class="crop-btn" data-crop="strawberry">
               <span class="btn-emoji">🍓</span>
               <span class="btn-name">草莓</span>
               <span class="btn-cost">4💰</span>
             </button>
+            <button id="plant-watermelon" class="crop-btn" data-crop="watermelon">
+              <span class="btn-emoji">🍉</span>
+              <span class="btn-name">西瓜</span>
+              <span class="btn-cost">10💰</span>
+            </button>
+            <button id="plant-grape" class="crop-btn" data-crop="grape">
+              <span class="btn-emoji">🍇</span>
+              <span class="btn-name">葡萄</span>
+              <span class="btn-cost">20💰</span>
+            </button>
+            <button id="plant-apple" class="crop-btn" data-crop="apple">
+              <span class="btn-emoji">🍎</span>
+              <span class="btn-name">苹果</span>
+              <span class="btn-cost">30💰</span>
+            </button>
           </div>
         </div>
 
-        <div class="action-section">
+        <!-- 经济作物分类 -->
+        <div class="action-category" onclick="toggleSection('crops-cash')">
+          <h4>☁️ 经济作物 <span class="toggle-icon">▼</span></h4>
+          <div id="crops-cash" class="crop-buttons">
+            <button id="plant-cotton" class="crop-btn" data-crop="cotton">
+              <span class="btn-emoji">☁️</span>
+              <span class="btn-name">棉花</span>
+              <span class="btn-cost">14💰</span>
+            </button>
+            <button id="plant-tea" class="crop-btn" data-crop="tea">
+              <span class="btn-emoji">🍵</span>
+              <span class="btn-name">茶叶</span>
+              <span class="btn-cost">18💰</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 维护区域 -->
+        <div class="action-section maintenance-section">
           <h4>💧 维护</h4>
           <button id="water-btn" class="action-btn water-btn">
             <span class="btn-emoji">💧</span>
@@ -143,6 +209,33 @@
             </button>
             <button id="buy-cow-btn" class="animal-buy-btn">
               <span>🐄</span> 400💰
+            </button>
+          </div>
+        </div>
+
+        <!-- 害虫防治 -->
+        <div class="action-section">
+          <h4>🐛 害虫防治 <span id="pest-count" class="pest-count">0</span></h4>
+          <div class="pest-buttons">
+            <button id="buy-pesticide-btn" class="pest-btn" title="驱除当前格子及周围的害虫">
+              <span class="btn-emoji">🧴</span>
+              <span class="btn-name">杀虫剂</span>
+              <span class="btn-cost">20💰</span>
+            </button>
+            <button id="use-pesticide-btn" class="pest-btn action-btn-small" title="在当前格子使用杀虫剂">
+              <span>🧴 使用</span>
+            </button>
+          </div>
+          <div class="pest-buttons">
+            <button id="buy-bug-net-btn" class="pest-btn" title="防止害虫入侵，持续5分钟">
+              <span class="btn-emoji">🕸️</span>
+              <span class="btn-name">防虫网</span>
+              <span class="btn-cost">50💰</span>
+            </button>
+            <button id="buy-scarecrow-btn" class="pest-btn" title="驱赶害虫，持续10分钟">
+              <span class="btn-emoji">🎃</span>
+              <span class="btn-name">稻草人</span>
+              <span class="btn-cost">100💰</span>
             </button>
           </div>
         </div>
@@ -192,6 +285,33 @@
       </div>
     </div>
 
+    <!-- 任务面板弹窗 -->
+    <div id="tasks-modal" class="modal hidden">
+      <div class="modal-content tasks-modal-content">
+        <div class="tasks-header">
+          <h2>📋 任务中心</h2>
+          <button id="close-tasks-btn" class="btn-icon">✕</button>
+        </div>
+        
+        <div class="tasks-tabs">
+          <button class="tasks-tab active" data-tab="daily">📅 每日任务</button>
+          <button class="tasks-tab" data-tab="achievements">🏆 成就</button>
+        </div>
+        
+        <div id="tasks-content" class="tasks-content">
+          <!-- 每日任务列表 -->
+          <div id="daily-tasks-list" class="tasks-list"></div>
+          <!-- 成就列表 -->
+          <div id="achievements-list" class="achievements-list hidden"></div>
+        </div>
+        
+        <div class="tasks-footer">
+          <div class="tasks-hint">完成任务可领取金币奖励</div>
+          <div id="total-rewards" class="total-rewards">💰 累计获得: 0</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 通知栏 -->
     <div id="notification" class="notification hidden"></div>
     
@@ -232,6 +352,40 @@
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // 分类折叠/展开功能
+    function toggleSection(sectionId) {
+      const section = document.getElementById(sectionId);
+      const category = section.parentElement;
+      const icon = category.querySelector('.toggle-icon');
+      
+      if (section.classList.contains('collapsed')) {
+        // 展开
+        section.classList.remove('collapsed');
+        category.classList.remove('collapsed');
+        if (icon) icon.textContent = '▼';
+      } else {
+        // 收起
+        section.classList.add('collapsed');
+        category.classList.add('collapsed');
+        if (icon) icon.textContent = '▶';
+      }
+    }
+
+    // 页面加载时默认收起所有分类（保留第一个展开）
+    document.addEventListener('DOMContentLoaded', function() {
+      const categories = document.querySelectorAll('.action-category');
+      categories.forEach((cat, index) => {
+        if (index > 0) {
+          const buttons = cat.querySelector('.crop-buttons');
+          const icon = cat.querySelector('.toggle-icon');
+          buttons.classList.add('collapsed');
+          cat.classList.add('collapsed');
+          if (icon) icon.textContent = '▶';
+        }
+      });
+    });
+  </script>
   <script src="app.js"></script>
 </body>
 </html>

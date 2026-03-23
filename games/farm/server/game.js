@@ -2,6 +2,93 @@
 const dataStore = require('./dataStore');
 const antiCheat = require('./antiCheat');
 
+// ========== 天气系统 ==========
+const WEATHER_TYPES = {
+  sunny: { 
+    name: '晴天', 
+    emoji: '☀️', 
+    description: '作物正常生长，土壤水分蒸发较快',
+    moistureChange: -5, // 每tick湿度变化
+    growthMultiplier: 1.0,
+    pestChance: 0.1,
+    color: '#FFF9C4'
+  },
+  rainy: { 
+    name: '雨天', 
+    emoji: '🌧️', 
+    description: '自动浇水，作物生长加速！土壤保持湿润',
+    moistureChange: +10,
+    growthMultiplier: 1.3,
+    pestChance: 0.05,
+    color: '#90CAF9'
+  },
+  stormy: { 
+    name: '暴风雨', 
+    emoji: '⛈️', 
+    description: '作物可能被损坏！需要及时保护',
+    moistureChange: +20,
+    growthMultiplier: 0.7,
+    pestChance: 0.3,
+    damageChance: 0.2, // 作物损坏几率
+    color: '#5C6BC0'
+  },
+  foggy: { 
+    name: '雾天', 
+    emoji: '🌫️', 
+    description: '害虫活跃期，注意防治！',
+    moistureChange: 0,
+    growthMultiplier: 0.9,
+    pestChance: 0.4,
+    color: '#B0BEC5'
+  },
+  snowy: { 
+    name: '雪天', 
+    emoji: '❄️', 
+    description: '只有抗寒作物才能生长！',
+    moistureChange: -10,
+    growthMultiplier: 0.3,
+    pestChance: 0.02,
+    damageChance: 0.3,
+    coldOnly: ['wheat'], // 只允许耐寒作物
+    color: '#E1F5FE'
+  }
+};
+
+// ========== 害虫系统 ==========
+const PEST_TYPES = {
+  aphid: {
+    name: '蚜虫',
+    emoji: '🐛',
+    description: '常见害虫，啃食幼嫩作物',
+    damage: 1,
+    spreadRate: 0.3,
+    killPrice: 5
+  },
+  locust: {
+    name: '蝗虫',
+    emoji: '🦗',
+    description: '成群出现，造成大面积损害！',
+    damage: 2,
+    spreadRate: 0.5,
+    killPrice: 15
+  },
+  rat: {
+    name: '老鼠',
+    emoji: '🐀',
+    description: '悄悄出现，偷吃成熟的作物',
+    damage: 3,
+    stealChance: 0.3,
+    killPrice: 25
+  }
+};
+
+// 抗虫道具
+const ANTI_PEST_ITEMS = {
+  'pesticide': { name: '杀虫剂', price: 20, emoji: '🧴', effect: 'kill_pest' },
+  'bug_net': { name: '防虫网', price: 50, emoji: '🕸️', effect: 'prevent_pest', duration: 300 },
+  'scarer': { name: '稻草人', price: 100, emoji: '🎃', effect: 'scare_pest', duration: 600 }
+};
+
 // 每日任务配置
 const DAILY_TASKS = [
   { id: 'plant_10', name: '辛勤耕耘', desc: '种植10次', reward: 50, type: 'plant', target: 10 },
@@ -24,37 +111,79 @@ const ACHIEVEMENTS = [
 
 // 作物配置
 const CROPS = {
+  // 谷物
   wheat: { name: '小麦', growthTime: 30, sellPrice: 10, seedPrice: 2, emoji: '🌾', category: 'grain' },
-  tomato: { name: '番茄', growthTime: 60, sellPrice: 25, seedPrice: 5, emoji: '🍅', category: 'vegetable' },
   corn: { name: '玉米', growthTime: 120, sellPrice: 60, seedPrice: 12, emoji: '🌽', category: 'grain' },
+  rice: { name: '水稻', growthTime: 90, sellPrice: 45, seedPrice: 8, emoji: '🍚', category: 'grain' },
+  // 蔬菜
+  tomato: { name: '番茄', growthTime: 60, sellPrice: 25, seedPrice: 5, emoji: '🍅', category: 'vegetable' },
   carrot: { name: '胡萝卜', growthTime: 20, sellPrice: 15, seedPrice: 3, emoji: '🥕', category: 'vegetable' },
   eggplant: { name: '茄子', growthTime: 45, sellPrice: 30, seedPrice: 6, emoji: '🍆', category: 'vegetable' },
-  strawberry: { name: '草莓', growthTime: 35, sellPrice: 20, seedPrice: 4, emoji: '🍓', category: 'fruit' }
+  cucumber: { name: '黄瓜', growthTime: 40, sellPrice: 20, seedPrice: 4, emoji: '🥒', category: 'vegetable' },
+  pumpkin: { name: '南瓜', growthTime: 150, sellPrice: 80, seedPrice: 15, emoji: '🎃', category: 'vegetable' },
+  // 水果
+  strawberry: { name: '草莓', growthTime: 35, sellPrice: 20, seedPrice: 4, emoji: '🍓', category: 'fruit' },
+  watermelon: { name: '西瓜', growthTime: 100, sellPrice: 50, seedPrice: 10, emoji: '🍉', category: 'fruit' },
+  grape: { name: '葡萄', growthTime: 180, sellPrice: 100, seedPrice: 20, emoji: '🍇', category: 'fruit' },
+  apple: { name: '苹果', growthTime: 300, sellPrice: 150, seedPrice: 30, emoji: '🍎', category: 'fruit' },
+  // 经济作物
+  cotton: { name: '棉花', growthTime: 200, sellPrice: 70, seedPrice: 14, emoji: '☁️', category: 'cash' },
+  tea: { name: '茶叶', growthTime: 250, sellPrice: 90, seedPrice: 18, emoji: '🍵', category: 'cash' }
 };
 
 // 动物配置
 const ANIMALS = {
+  // 家禽
   chicken: { name: '鸡', growthTime: 60, sellPrice: 30, buyPrice: 50, emoji: '🐔', product: '鸡蛋', productPrice: 5 },
+  duck: { name: '鸭', growthTime: 80, sellPrice: 45, buyPrice: 80, emoji: '🦆', product: '鸭蛋', productPrice: 8 },
+  // 畜牧
   sheep: { name: '羊', growthTime: 120, sellPrice: 100, buyPrice: 200, emoji: '🐑', product: '羊毛', productPrice: 20 },
-  cow: { name: '牛', growthTime: 180, sellPrice: 200, buyPrice: 400, emoji: '🐄', product: '牛奶', productPrice: 30 }
+  cow: { name: '牛', growthTime: 180, sellPrice: 200, buyPrice: 400, emoji: '🐄', product: '牛奶', productPrice: 30 },
+  pig: { name: '猪', growthTime: 150, sellPrice: 150, buyPrice: 300, emoji: '🐖', product: '猪肉', productPrice: 40 },
+  horse: { name: '马', growthTime: 240, sellPrice: 350, buyPrice: 700, emoji: '🐴', product: '马奶', productPrice: 50 },
+  // 特殊
+  rabbit: { name: '兔子', growthTime: 90, sellPrice: 60, buyPrice: 120, emoji: '🐰', product: '兔毛', productPrice: 15 },
+  bee: { name: '蜜蜂', growthTime: 45, sellPrice: 40, buyPrice: 80, emoji: '🐝', product: '蜂蜜', productPrice: 25 }
 };
 
 // 商店物品配置
 const SHOP_ITEMS = {
-  // 种子
+  // 谷物种子
   'seed-wheat': { type: 'seed', crop: 'wheat', name: '小麦种子', price: 2, emoji: '🌾' },
-  'seed-tomato': { type: 'seed', crop: 'tomato', name: '番茄种子', price: 5, emoji: '🍅' },
   'seed-corn': { type: 'seed', crop: 'corn', name: '玉米种子', price: 12, emoji: '🌽' },
+  'seed-rice': { type: 'seed', crop: 'rice', name: '水稻种子', price: 8, emoji: '🍚' },
+  // 蔬菜种子
+  'seed-tomato': { type: 'seed', crop: 'tomato', name: '番茄种子', price: 5, emoji: '🍅' },
   'seed-carrot': { type: 'seed', crop: 'carrot', name: '胡萝卜种子', price: 3, emoji: '🥕' },
   'seed-eggplant': { type: 'seed', crop: 'eggplant', name: '茄子种子', price: 6, emoji: '🍆' },
+  'seed-cucumber': { type: 'seed', crop: 'cucumber', name: '黄瓜种子', price: 4, emoji: '🥒' },
+  'seed-pumpkin': { type: 'seed', crop: 'pumpkin', name: '南瓜种子', price: 15, emoji: '🎃' },
+  // 水果种子
   'seed-strawberry': { type: 'seed', crop: 'strawberry', name: '草莓种子', price: 4, emoji: '🍓' },
+  'seed-watermelon': { type: 'seed', crop: 'watermelon', name: '西瓜种子', price: 10, emoji: '🍉' },
+  'seed-grape': { type: 'seed', crop: 'grape', name: '葡萄种子', price: 20, emoji: '🍇' },
+  'seed-apple': { type: 'seed', crop: 'apple', name: '苹果种子', price: 30, emoji: '🍎' },
+  // 经济作物
+  'seed-cotton': { type: 'seed', crop: 'cotton', name: '棉花种子', price: 14, emoji: '☁️' },
+  'seed-tea': { type: 'seed', crop: 'tea', name: '茶树种子', price: 18, emoji: '🍵' },
   // 道具
   'fertilizer': { type: 'item', name: '化肥', price: 10, emoji: '🧪', effect: 'growth_boost' },
   'water_can': { type: 'item', name: '高级水壶', price: 50, emoji: '🚿', effect: 'auto_water' },
-  // 动物
+  // 害虫防治道具
+  'pesticide': { type: 'item', name: '杀虫剂', price: 20, emoji: '🧴', effect: 'kill_pest' },
+  'bug_net': { type: 'item', name: '防虫网', price: 50, emoji: '🕸️', effect: 'prevent_pest' },
+  'scarecrow': { type: 'item', name: '稻草人', price: 100, emoji: '🎃', effect: 'scare_pest' },
+  // 动物 - 家禽
   'animal-chicken': { type: 'animal', animal: 'chicken', name: '小鸡', price: 50, emoji: '🐔' },
+  'animal-duck': { type: 'animal', animal: 'duck', name: '小鸭', price: 80, emoji: '🦆' },
+  // 动物 - 畜牧
   'animal-sheep': { type: 'animal', animal: 'sheep', name: '小羊', price: 200, emoji: '🐑' },
-  'animal-cow': { type: 'animal', animal: 'cow', name: '小牛', price: 400, emoji: '🐄' }
+  'animal-cow': { type: 'animal', animal: 'cow', name: '小牛', price: 400, emoji: '🐄' },
+  'animal-pig': { type: 'animal', animal: 'pig', name: '小猪', price: 300, emoji: '🐖' },
+  'animal-horse': { type: 'animal', animal: 'horse', name: '小马', price: 700, emoji: '🐴' },
+  // 动物 - 特殊
+  'animal-rabbit': { type: 'animal', animal: 'rabbit', name: '小兔', price: 120, emoji: '🐰' },
+  'animal-bee': { type: 'animal', animal: 'bee', name: '蜜蜂群', price: 80, emoji: '🐝' }
 };
 
 // 地块类
@@ -277,8 +406,20 @@ class FarmGame {
     this.startTime = Date.now();
     this.lastDailyReset = Date.now(); // 每日重置时间
     
+    // ========== 天气系统 ==========
+    this.weather = 'sunny'; // 当前天气
+    this.weatherChangeTimer = 0; // 天气变化计时器
+    this.weatherDuration = 300; // 天气持续时间（秒）
+    
+    // ========== 害虫系统 ==========
+    this.pests = []; // 活跃的害虫 [{type, x, y, turnsRemaining}]
+    this.pestSpawnTimer = 0; // 害虫生成计时器
+    
     // 玩家统计数据（用于排行榜）
     this.playerStats = new Map(); // socketId -> { harvests: 0, level: 1, cropsPlanted: 0 }
+    
+    // ========== 动物地图显示系统 ==========
+    this.wanderingAnimals = []; // 在地图上 wandering 的动物 [{id, type, x, y, owner, moveTimer}]
     
     // 初始化地块
     for (let y = 0; y < height; y++) {
@@ -289,16 +430,230 @@ class FarmGame {
       this.plots.push(row);
     }
     
-    // 初始化动物栏 (6个栏位)
-    for (let i = 0; i < 6; i++) {
+    // 初始化动物栏 (12个栏位)
+    for (let i = 0; i < 12; i++) {
       this.animalPens.push(new AnimalPen(i));
     }
     
     // 启动生长更新循环
     this.startGrowthLoop();
     
+    // 启动动物移动循环
+    this.startAnimalMovementLoop();
+    
     // 启动每日任务重置检查（每分钟检查一次）
     this.startDailyResetCheck();
+    
+    // 启动天气变化循环（每5秒检查一次天气变化）
+    this.startWeatherLoop();
+    
+    // 启动害虫生成循环
+    this.startPestLoop();
+  }
+  
+  // ========== 天气系统方法 ==========
+  
+  // 启动天气循环
+  startWeatherLoop() {
+    setInterval(() => {
+      this.updateWeather();
+    }, 5000);
+  }
+  
+  // 更新天气
+  updateWeather() {
+    const weatherData = WEATHER_TYPES[this.weather];
+    this.weatherChangeTimer++;
+    
+    // 每隔一段时间随机改变天气
+    if (this.weatherChangeTimer >= this.weatherDuration / 5) {
+      this.changeWeather();
+      this.weatherChangeTimer = 0;
+    }
+    
+    // 更新所有地块的湿度
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const plot = this.plots[y][x];
+        plot.soilMoisture = Math.max(0, Math.min(100, plot.soilMoisture + weatherData.moistureChange));
+        
+        // 暴风雨或雪天可能损坏作物
+        if (weatherData.damageChance && plot.crop && Math.random() < weatherData.damageChance * 0.01) {
+          // 作物被损坏
+          plot.crop = null;
+          plot.plantedAt = null;
+          plot.growthStage = 0;
+          plot.owner = null;
+          plot.isWatered = false;
+        }
+      }
+    }
+  }
+  
+  // 改变天气
+  changeWeather() {
+    const weatherKeys = Object.keys(WEATHER_TYPES);
+    const newWeather = weatherKeys[Math.floor(Math.random() * weatherKeys.length)];
+    this.weather = newWeather;
+    console.log(`[Weather] Weather changed to: ${WEATHER_TYPES[newWeather].emoji} ${WEATHER_TYPES[newWeather].name}`);
+  }
+  
+  // 获取天气信息
+  getWeatherInfo() {
+    const w = WEATHER_TYPES[this.weather];
+    return {
+      type: this.weather,
+      name: w.name,
+      emoji: w.emoji,
+      description: w.description,
+      color: w.color
+    };
+  }
+  
+  // ========== 害虫系统方法 ==========
+  
+  // 启动害虫循环
+  startPestLoop() {
+    setInterval(() => {
+      this.updatePests();
+    }, 10000); // 每10秒更新一次害虫
+  }
+  
+  // 更新害虫
+  updatePests() {
+    const weatherData = WEATHER_TYPES[this.weather];
+    
+    // 减少害虫持续时间，移除到期的害虫
+    this.pests = this.pests.filter(pest => {
+      pest.turnsRemaining--;
+      return pest.turnsRemaining > 0;
+    });
+    
+    // 对作物造成伤害
+    this.pests.forEach(pest => {
+      const pestData = PEST_TYPES[pest.type];
+      const plot = this.plots[pest.y]?.[pest.x];
+      
+      if (plot && plot.crop && plot.growthStage < 3) {
+        // 降低生长阶段
+        plot.growthStage = Math.max(0, plot.growthStage - pestData.damage);
+      }
+      
+      // 老鼠可能偷吃成熟作物
+      if (pest.type === 'rat' && plot && plot.crop && plot.growthStage >= 3) {
+        if (Math.random() < pestData.stealChance) {
+          plot.crop = null;
+          plot.plantedAt = null;
+          plot.growthStage = 0;
+        }
+      }
+      
+      // 害虫蔓延
+      if (Math.random() < pestData.spreadRate * 0.5) {
+        this.spreadPest(pest);
+      }
+    });
+    
+    // 根据天气生成新害虫
+    if (Math.random() < weatherData.pestChance) {
+      this.spawnPest();
+    }
+  }
+  
+  // 生成害虫
+  spawnPest() {
+    const x = Math.floor(Math.random() * this.width);
+    const y = Math.floor(Math.random() * this.height);
+    const pestTypes = Object.keys(PEST_TYPES);
+    const type = pestTypes[Math.floor(Math.random() * pestTypes.length)];
+    
+    // 检查是否已有害虫
+    const existing = this.pests.find(p => p.x === x && p.y === y);
+    if (!existing) {
+      // 检查该位置是否有玩家具有保护
+      let hasProtection = false;
+      this.players.forEach(player => {
+        if (player.position.x === x && player.position.y === y) {
+          if (this.hasPestProtection(player.id)) {
+            hasProtection = true;
+          }
+        }
+      });
+      
+      if (!hasProtection) {
+        this.pests.push({
+          type,
+          x,
+          y,
+          turnsRemaining: 30 // 持续30个周期（约5分钟）
+        });
+      }
+    }
+  }
+  
+  // 害虫蔓延
+  spreadPest(pest) {
+    const directions = [[0,1], [0,-1], [1,0], [-1,0]];
+    const dir = directions[Math.floor(Math.random() * directions.length)];
+    const newX = pest.x + dir[0];
+    const newY = pest.y + dir[1];
+    
+    if (newX >= 0 && newX < this.width && newY >= 0 && newY < this.height) {
+      const existing = this.pests.find(p => p.x === newX && p.y === newY);
+      if (!existing) {
+        this.pests.push({
+          type: pest.type,
+          x: newX,
+          y: newY,
+          turnsRemaining: pest.turnsRemaining - 1
+        });
+      }
+    }
+  }
+  
+  // 驱除害虫
+  killPest(x, y) {
+    const pestIndex = this.pests.findIndex(p => p.x === x && p.y === y);
+    if (pestIndex !== -1) {
+      const pest = this.pests[pestIndex];
+      const pestData = PEST_TYPES[pest.type];
+      this.pests.splice(pestIndex, 1);
+      return { success: true, message: `驱除了${pestData.emoji}${pestData.name}`, cost: pestData.killPrice };
+    }
+    return { success: false, message: '这里没有害虫' };
+  }
+  
+  // 使用杀虫剂（范围驱除）
+  usePesticide(x, y) {
+    let killed = 0;
+    const range = 2; // 2格范围
+    
+    this.pests = this.pests.filter(pest => {
+      const dist = Math.abs(pest.x - x) + Math.abs(pest.y - y);
+      if (dist <= range) {
+        killed++;
+        return false;
+      }
+      return true;
+    });
+    
+    if (killed > 0) {
+      return { success: true, message: `杀虫剂驱除了${killed}只害虫！` };
+    }
+    return { success: false, message: '附近没有害虫' };
+  }
+  
+  // 获取害虫信息
+  getPestsInfo() {
+    return this.pests.map(p => ({
+      ...p,
+      ...PEST_TYPES[p.type]
+    }));
+  }
+  
+  // 检查某地块是否有害虫
+  hasPest(x, y) {
+    return this.pests.some(p => p.x === x && p.y === y);
   }
 
   // 检查并执行每日重置
@@ -574,7 +929,7 @@ class FarmGame {
     const player = {
       id: socketId,
       name: savedPlayer && savedPlayer.name || playerName,
-      money: savedPlayer && savedPlayer.money || 50, // 初始资金，如果没有保存数据则为50
+      money: savedPlayer && savedPlayer.money || 5000, // 初始资金5000测试
       color: savedPlayer && savedPlayer.color || colors[this.players.size % colors.length],
       position: savedPlayer && savedPlayer.position || { x: 0, y: 0 },
       inventory: savedPlayer && savedPlayer.inventory || {}, // 背包物品 { cropType: count }
@@ -935,7 +1290,97 @@ class FarmGame {
       return { success: true, message: '使用化肥，作物瞬间成熟！' };
     }
     
+    // 害虫防治道具
+    if (item.effect === 'kill_pest') {
+      // 杀虫剂：驱除当前格子及周围的害虫
+      const result = this.usePesticide(x, y);
+      
+      player.items[itemId]--;
+      if (player.items[itemId] <= 0) delete player.items[itemId];
+      
+      // 保存数据
+      dataStore.savePlayer(socketId, { 
+        name: player.name, 
+        money: player.money, 
+        color: player.color, 
+        position: player.position,
+        inventory: player.inventory,
+        items: player.items
+      });
+      
+      return result;
+    }
+    
+    if (item.effect === 'prevent_pest') {
+      // 防虫网：防止害虫入侵
+      if (!player.pestProtection) player.pestProtection = {};
+      player.pestProtection.bugNet = true;
+      player.pestProtection.bugNetUntil = Date.now() + 300 * 1000; // 5分钟
+      
+      player.items[itemId]--;
+      if (player.items[itemId] <= 0) delete player.items[itemId];
+      
+      // 保存数据
+      dataStore.savePlayer(socketId, { 
+        name: player.name, 
+        money: player.money, 
+        color: player.color, 
+        position: player.position,
+        inventory: player.inventory,
+        items: player.items
+      });
+      
+      return { success: true, message: '防虫网已放置，5分钟内害虫无法入侵！' };
+    }
+    
+    if (item.effect === 'scare_pest') {
+      // 稻草人：驱赶害虫
+      if (!player.pestProtection) player.pestProtection = {};
+      player.pestProtection.scarecrow = true;
+      player.pestProtection.scarecrowUntil = Date.now() + 600 * 1000; // 10分钟
+      
+      // 驱赶当前周围所有害虫
+      const range = 3;
+      let scareCount = 0;
+      this.pests = this.pests.filter(pest => {
+        const dist = Math.abs(pest.x - x) + Math.abs(pest.y - y);
+        if (dist <= range) {
+          scareCount++;
+          return false;
+        }
+        return true;
+      });
+      
+      player.items[itemId]--;
+      if (player.items[itemId] <= 0) delete player.items[itemId];
+      
+      // 保存数据
+      dataStore.savePlayer(socketId, { 
+        name: player.name, 
+        money: player.money, 
+        color: player.color, 
+        position: player.position,
+        inventory: player.inventory,
+        items: player.items
+      });
+      
+      const scareMsg = scareCount > 0 ? `驱赶了${scareCount}只害虫！` : '';
+      return { success: true, message: `稻草人已放置，10分钟内害虫不敢靠近！${scareMsg}` };
+    }
+    
     return { success: false, message: '该道具无法在此使用' };
+  }
+  
+  // 检查玩家是否有害虫保护
+  hasPestProtection(socketId) {
+    const player = this.players.get(socketId);
+    if (!player || !player.pestProtection) return false;
+    
+    const now = Date.now();
+    const bugNetActive = player.pestProtection.bugNet && player.pestProtection.bugNetUntil > now;
+    const scarecrowActive = player.pestProtection.scarecrow && player.pestProtection.scarecrowUntil > now;
+    
+    return bugNetActive || scarecrowActive;
   }
 
   // 购买动物
@@ -1164,6 +1609,10 @@ class FarmGame {
       shopItems: SHOP_ITEMS,
       gameDay: gameDay,
       gameTime: elapsedSeconds,
+      // 天气系统
+      weather: this.getWeatherInfo(),
+      // 害虫系统
+      pests: this.getPestsInfo(),
       // 任务配置
       taskConfig: {
         dailyTasks: DAILY_TASKS,
@@ -1176,19 +1625,24 @@ class FarmGame {
 // 房间管理器
 class RoomManager {
   constructor() {
-    this.rooms = new Map(); // roomId -> { game, players }
+    this.rooms = new Map(); // roomId -> { game, players, persist }
   }
 
   createRoom(roomId, width = 10, height = 10) {
     if (this.rooms.has(roomId)) {
-      return this.rooms.get(roomId);
+      const room = this.rooms.get(roomId);
+      // 如果房间存在但没有游戏实例，创建它
+      if (!room.game) {
+        room.game = new FarmGame(width, height);
+      }
+      return room;
     }
     
     const room = {
       id: roomId,
       game: new FarmGame(width, height),
       players: new Map(), // socketId -> player
-      persist: false
+      persist: true // 房间永久存在，不因为玩家数量为0而删除
     };
     this.rooms.set(roomId, room);
     return room;
@@ -1198,8 +1652,10 @@ class RoomManager {
     return this.rooms.get(roomId);
   }
 
+  // 不再自动删除房间 - 房间持久化
   removeRoom(roomId) {
-    this.rooms.delete(roomId);
+    // 房间永久存在，不删除
+    // this.rooms.delete(roomId);
   }
 
   addPlayer(roomId, socketId, playerName) {
@@ -1218,10 +1674,8 @@ class RoomManager {
     room.game.removePlayer(socketId);
     room.players.delete(socketId);
     
-    // 如果房间没人且不是持久房间，删除房间
-    if (room.players.size === 0 && !room.persist) {
-      this.removeRoom(roomId);
-    }
+    // 房间持久化：玩家退出后房间依然存在，时间继续流逝
+    // 不再删除房间
   }
 
   getPlayersList(roomId) {

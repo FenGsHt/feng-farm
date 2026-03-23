@@ -18,6 +18,15 @@ let currentPlayerName = '';
 let gameState = null;
 let currentShopTab = 'seeds';
 
+// 天气粒子系统
+let weatherParticlesContainer = null;
+let weatherInterval = null;
+
+// 动物系统
+let animalElements = new Map();
+let animalMoveInterval = null;
+let animalPositions = {}; // penIndex -> {x, y}
+
 // ========== 音效系统 (Web Audio API) ==========
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -91,9 +100,255 @@ function playSound(type) {
         oscillator.start(audioCtx.currentTime);
         oscillator.stop(audioCtx.currentTime + 0.15);
         break;
+        
+      case 'buy':
+        // 购买 - 愉快的上升音
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.12);
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.12);
+        break;
+        
+      case 'sell':
+        // 出售 - 下降音
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.15);
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.15);
+        break;
+        
+      case 'pesticide':
+        // 使用杀虫剂 - 喷雾声
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(2000, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.3);
+        break;
+        
+      case 'build':
+        // 建造/放置 - 敲击声
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.08);
+        gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.08);
+        break;
+        
+      case 'lightning':
+        // 闪电 - 雷声
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(80, audioCtx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5);
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+        break;
+        
+      case 'success':
+        // 成功 - 胜利号角
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(392, audioCtx.currentTime); // G4
+        oscillator.frequency.setValueAtTime(523, audioCtx.currentTime + 0.15); // C5
+        oscillator.frequency.setValueAtTime(659, audioCtx.currentTime + 0.3); // E5
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.4);
+        break;
     }
   } catch (e) {
     console.log('[Farm] Sound error:', e);
+  }
+}
+
+// ========== 天气粒子系统 ==========
+function createWeatherParticles() {
+  if (!weatherParticlesContainer) {
+    weatherParticlesContainer = document.createElement('div');
+    weatherParticlesContainer.className = 'weather-particles';
+    document.body.appendChild(weatherParticlesContainer);
+  }
+  return weatherParticlesContainer;
+}
+
+function clearWeatherParticles() {
+  if (weatherParticlesContainer) {
+    weatherParticlesContainer.innerHTML = '';
+  }
+  if (weatherInterval) {
+    clearInterval(weatherInterval);
+    weatherInterval = null;
+  }
+  
+  // 移除雾天效果
+  document.querySelector('.game-container')?.classList.remove('foggy');
+  document.querySelector('.fog-overlay')?.remove();
+}
+
+function startRain() {
+  clearWeatherParticles();
+  const container = createWeatherParticles();
+  
+  // 创建初始雨滴
+  for (let i = 0; i < 50; i++) {
+    createRainDrop(container);
+  }
+  
+  // 持续生成雨滴
+  weatherInterval = setInterval(() => {
+    if (document.querySelectorAll('.rain-drop').length < 100) {
+      createRainDrop(container);
+    }
+  }, 50);
+}
+
+function createRainDrop(container) {
+  const drop = document.createElement('div');
+  drop.className = 'rain-drop';
+  drop.style.left = Math.random() * 100 + 'vw';
+  drop.style.setProperty('--rain-duration', (0.5 + Math.random() * 0.5) + 's');
+  drop.style.animationDelay = Math.random() * 0.5 + 's';
+  container.appendChild(drop);
+  
+  // 动画结束后移除
+  setTimeout(() => drop.remove(), 1000);
+}
+
+function startSnow() {
+  clearWeatherParticles();
+  const container = createWeatherParticles();
+  
+  // 创建初始雪花
+  for (let i = 0; i < 30; i++) {
+    createSnowFlake(container);
+  }
+  
+  // 持续生成雪花
+  weatherInterval = setInterval(() => {
+    if (document.querySelectorAll('.snow-flake').length < 60) {
+      createSnowFlake(container);
+    }
+  }, 100);
+}
+
+function createSnowFlake(container) {
+  const flake = document.createElement('div');
+  flake.className = 'snow-flake';
+  flake.style.left = Math.random() * 100 + 'vw';
+  flake.style.setProperty('--snow-duration', (3 + Math.random() * 4) + 's');
+  flake.style.animationDelay = Math.random() * 3 + 's';
+  flake.style.width = (4 + Math.random() * 6) + 'px';
+  flake.style.height = flake.style.width;
+  container.appendChild(flake);
+  
+  // 动画结束后移除
+  setTimeout(() => flake.remove(), 7000);
+}
+
+function triggerLightning() {
+  // 播放闪电音效
+  playSound('lightning');
+  
+  // 创建闪电闪光效果
+  const flash = document.createElement('div');
+  flash.className = 'lightning-flash';
+  document.body.appendChild(flash);
+  
+  // 多次闪烁
+  let flashCount = 0;
+  const flashInterval = setInterval(() => {
+    flash.style.opacity = flashCount % 2 === 0 ? '0.8' : '0.2';
+    flashCount++;
+    if (flashCount >= 4) {
+      clearInterval(flashInterval);
+      flash.remove();
+    }
+  }, 100);
+}
+
+function startFog() {
+  clearWeatherParticles();
+  const container = createWeatherParticles();
+  
+  // 添加雾天覆盖层
+  const fogOverlay = document.createElement('div');
+  fogOverlay.className = 'fog-overlay';
+  document.body.appendChild(fogOverlay);
+  
+  // 添加到游戏容器
+  document.querySelector('.game-container')?.classList.add('foggy');
+  
+  // 创建飘动的雾元素
+  for (let i = 0; i < 10; i++) {
+    const fog = document.createElement('div');
+    fog.style.cssText = `
+      position: absolute;
+      width: ${100 + Math.random() * 200}px;
+      height: 60px;
+      background: radial-gradient(ellipse, rgba(176, 190, 197, 0.3) 0%, transparent 70%);
+      left: ${Math.random() * 100}vw;
+      top: ${Math.random() * 50}vh;
+      animation: fog-drift ${8 + Math.random() * 4}s ease-in-out infinite;
+    `;
+    container.appendChild(fog);
+  }
+}
+
+// 添加雾漂移动画到CSS
+const fogStyle = document.createElement('style');
+fogStyle.textContent = `
+  @keyframes fog-drift {
+    0%, 100% { transform: translateX(0) translateY(0); }
+    50% { transform: translateX(30px) translateY(10px); }
+  }
+`;
+document.head.appendChild(fogStyle);
+
+function startStorm() {
+  // 暴风雨 = 大雨 + 闪电
+  startRain();
+  
+  // 随机闪电
+  weatherInterval = setInterval(() => {
+    if (Math.random() < 0.3) { // 30%概率闪电
+      triggerLightning();
+    }
+  }, 3000);
+}
+
+// 根据天气类型启动相应的粒子效果
+function renderWeatherParticles(weatherType) {
+  clearWeatherParticles();
+  
+  switch(weatherType) {
+    case 'rainy':
+      startRain();
+      break;
+    case 'snowy':
+      startSnow();
+      break;
+    case 'stormy':
+      startStorm();
+      break;
+    case 'foggy':
+      startFog();
+      break;
+    case 'sunny':
+    default:
+      clearWeatherParticles();
+      break;
   }
 }
 
@@ -146,6 +401,64 @@ function createParticlesAtElement(element, type) {
   const x = rect.left + rect.width / 2;
   const y = rect.top + rect.height / 2;
   createParticles(x, y, type);
+}
+
+// ========== 浇水水滴效果 ==========
+function showWaterDropEffect(plotCell) {
+  if (!plotCell) return;
+  
+  // 创建多个水滴
+  for (let i = 0; i < 5; i++) {
+    const drop = document.createElement('div');
+    drop.className = 'water-drop';
+    
+    const rect = plotCell.getBoundingClientRect();
+    drop.style.left = (rect.left + rect.width / 2 + (Math.random() - 0.5) * 20) + 'px';
+    drop.style.top = (rect.top + 5) + 'px';
+    
+    document.body.appendChild(drop);
+    
+    setTimeout(() => drop.remove(), 600);
+  }
+}
+
+// ========== 种子发芽动画 ==========
+function showSeedSproutAnimation(plotCell) {
+  if (!plotCell) return;
+  
+  const sprout = document.createElement('div');
+  sprout.className = 'seed-sprout';
+  sprout.textContent = '🌱';
+  
+  const rect = plotCell.getBoundingClientRect();
+  sprout.style.left = (rect.left + rect.width / 2 - 6) + 'px';
+  sprout.style.top = (rect.top + rect.height / 2 - 6) + 'px';
+  
+  document.body.appendChild(sprout);
+  
+  setTimeout(() => sprout.remove(), 800);
+}
+
+// ========== 商店飞入动画 ==========
+function showShopFlyAnimation(shopItem, itemId) {
+  if (!shopItem) return;
+  
+  // 创建飞入元素
+  const flyingItem = shopItem.cloneNode(true);
+  flyingItem.classList.add('flying');
+  
+  const rect = shopItem.getBoundingClientRect();
+  flyingItem.style.left = rect.left + 'px';
+  flyingItem.style.top = rect.top + 'px';
+  
+  document.body.appendChild(flyingItem);
+  
+  // 动画结束后移除
+  setTimeout(() => {
+    flyingItem.remove();
+    // 播放金币音效
+    playSound('coin');
+  }, 600);
 }
 
 // ========== 操作成功动画 ==========
@@ -239,17 +552,30 @@ function initSocket() {
       showNotification(`✅ ${result.message}`, 'success');
       // 根据消息类型播放音效和粒子
       const msg = result.message.toLowerCase();
+      const currentPlot = currentPlayer ? document.getElementById(`plot-${currentPlayer.position.x}-${currentPlayer.position.y}`) : null;
+      
       if (msg.includes('种植') || msg.includes('plant')) {
         playSound('plant');
-        if (currentPlayer) createParticlesAtElement(document.getElementById(`plot-${currentPlayer.position.x}-${currentPlayer.position.y}`), 'plant');
+        if (currentPlot) {
+          createParticlesAtElement(currentPlot, 'plant');
+          // 种子发芽动画
+          showSeedSproutAnimation(currentPlot);
+        }
       } else if (msg.includes('浇水') || msg.includes('water')) {
         playSound('water');
-        if (currentPlayer) createParticlesAtElement(document.getElementById(`plot-${currentPlayer.position.x}-${currentPlayer.position.y}`), 'water');
+        if (currentPlot) {
+          createParticlesAtElement(currentPlot, 'water');
+          // 浇水水滴效果
+          showWaterDropEffect(currentPlot);
+        }
       } else if (msg.includes('收获') || msg.includes('harvest')) {
         playSound('harvest');
-        if (currentPlayer) createParticlesAtElement(document.getElementById(`plot-${currentPlayer.position.x}-${currentPlayer.position.y}`), 'harvest');
+        if (currentPlot) createParticlesAtElement(currentPlot, 'harvest');
       } else if (msg.includes('金币') || msg.includes('money') || msg.includes('coin')) {
         playSound('coin');
+      } else if (msg.includes('杀虫剂') || msg.includes('pesticide')) {
+        playSound('pesticide');
+        if (currentPlot) createParticlesAtElement(currentPlot, 'water');
       }
     } else {
       showNotification(`❌ ${result.message}`, 'error');
@@ -277,6 +603,31 @@ function initSocket() {
 
   socket.on('error', (error) => {
     showNotification(error.message || '发生错误', 'error');
+  });
+
+  // ===== 好友系统 =====
+  socket.on('friend-result', (result) => {
+    if (result.success) {
+      showNotification(result.message, 'success');
+      // Clear input
+      const input = document.getElementById('friend-name-input');
+      if (input) input.value = '';
+    } else {
+      showNotification(result.message, 'error');
+    }
+  });
+
+  socket.on('friends-list', (friends) => {
+    renderFriendsList(friends);
+  });
+
+  socket.on('friends-list-detailed', (friends) => {
+    renderFriendsDetailed(friends);
+  });
+
+  // ===== 排行榜系统 =====
+  socket.on('leaderboard-data', ({ type, data }) => {
+    renderLeaderboard(data, type);
   });
 }
 
@@ -346,6 +697,19 @@ function updateGameState(state) {
   updateOnlineCount();
   updateMoneyDisplay();
   updateGameTimeDisplay();
+  renderWeather();
+  renderPests();
+  renderAnimalsOnMap();
+  
+  // 启动动物移动（如果还没启动）
+  if (!animalMoveInterval) {
+    startAnimalMovement();
+  }
+  
+  // 刷新好友列表（如果已连接）
+  if (socket && socket.connected) {
+    socket.emit('get-friends');
+  }
 }
 
 // 更新游戏时间显示
@@ -353,6 +717,87 @@ function updateGameTimeDisplay() {
   if (!gameState || !gameTimeDisplay) return;
   const day = gameState.gameDay || 1;
   gameTimeDisplay.textContent = `📅 第 ${day} 天`;
+}
+
+// ========== 天气系统渲染 ==========
+function renderWeather() {
+  const weatherDisplay = document.getElementById('weather-display');
+  if (!weatherDisplay || !gameState || !gameState.weather) return;
+  
+  const weather = gameState.weather;
+  weatherDisplay.textContent = `${weather.emoji} ${weather.name}`;
+  weatherDisplay.title = weather.description || '';
+  
+  // 移除旧的天气样式类
+  weatherDisplay.classList.remove('sunny', 'rainy', 'stormy', 'foggy', 'snowy');
+  weatherDisplay.classList.add(weather.type || 'sunny');
+  
+  // 添加描述作为子元素
+  let descEl = weatherDisplay.querySelector('.weather-desc');
+  if (!descEl && weather.description) {
+    descEl = document.createElement('span');
+    descEl.className = 'weather-desc';
+    weatherDisplay.appendChild(descEl);
+  }
+  if (descEl) {
+    descEl.textContent = weather.description;
+  }
+  
+  // 触发天气粒子效果
+  renderWeatherParticles(weather.type);
+}
+
+// ========== 害虫系统渲染 ==========
+function renderPests() {
+  const pestCountEl = document.getElementById('pest-count');
+  if (!gameState || !gameState.pests) return;
+  
+  const pests = gameState.pests;
+  
+  // 更新害虫数量显示
+  if (pestCountEl) {
+    pestCountEl.textContent = pests.length;
+    pestCountEl.dataset.count = pests.length;
+  }
+  
+  // 在地图上显示害虫位置
+  document.querySelectorAll('.plot-cell').forEach(cell => {
+    cell.classList.remove('has-pest');
+  });
+  
+  pests.forEach(pest => {
+    const cell = document.getElementById(`plot-${pest.x}-${pest.y}`);
+    if (cell) {
+      cell.classList.add('has-pest');
+    }
+  });
+}
+
+// ========== 害虫防治事件 ==========
+function initPestControlEvents() {
+  // 购买杀虫剂
+  document.getElementById('buy-pesticide-btn')?.addEventListener('click', () => {
+    playSound('buy');
+    socket.emit('buy-item', { itemId: 'pesticide', quantity: 1 });
+  });
+  
+  // 使用杀虫剂
+  document.getElementById('use-pesticide-btn')?.addEventListener('click', () => {
+    playSound('pesticide');
+    socket.emit('use-item', { itemId: 'pesticide' });
+  });
+  
+  // 购买防虫网
+  document.getElementById('buy-bug-net-btn')?.addEventListener('click', () => {
+    playSound('buy');
+    socket.emit('buy-item', { itemId: 'bug_net', quantity: 1 });
+  });
+  
+  // 购买稻草人
+  document.getElementById('buy-scarecrow-btn')?.addEventListener('click', () => {
+    playSound('buy');
+    socket.emit('buy-item', { itemId: 'scarecrow', quantity: 1 });
+  });
 }
 
 // 更新金币显示（带动画）
@@ -738,11 +1183,20 @@ function updateOnlineCount() {
 function showNotification(message, type = 'info') {
   notification.textContent = message;
   notification.className = `notification ${type}`;
-  notification.classList.remove('hidden');
-
-  setTimeout(() => {
-    notification.classList.add('hidden');
-  }, 3000);
+  notification.classList.remove('hidden', 'slide-out');
+  
+  // 清除之前的定时器
+  if (notification.hideTimer) {
+    clearTimeout(notification.hideTimer);
+  }
+  
+  notification.hideTimer = setTimeout(() => {
+    notification.classList.add('slide-out');
+    setTimeout(() => {
+      notification.classList.add('hidden');
+      notification.classList.remove('slide-out');
+    }, 300);
+  }, 2700);
 }
 
 // 切换到游戏界面
@@ -782,10 +1236,22 @@ startBtn?.addEventListener('click', () => {
   localStorage.setItem(PLAYER_NAME_KEY, currentPlayerName);
   nameModal.classList.add('hidden');
   
+  // 使用 waitForSocketConnection 确保无论连接状态如何都能加入房间
+  waitForSocketConnection();
+});
+
+// 确保 socket 连接成功时自动加入房间
+function waitForSocketConnection() {
   if (socket && socket.connected) {
     joinDefaultRoom();
+  } else {
+    // 监听一次连接事件
+    socket?.once('connect', () => {
+      console.log('[Farm] Socket connected, joining room...');
+      joinDefaultRoom();
+    });
   }
-});
+}
 
 playerNameInput?.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') startBtn.click();
@@ -801,22 +1267,25 @@ document.getElementById('cancel-create-btn')?.addEventListener('click', () => {
 
 document.getElementById('confirm-create-btn')?.addEventListener('click', createRoom);
 
-// 简化版：不需要刷新和离开按钮
-
-// 作物按钮
+// 作物按钮 - 谷物
 document.getElementById('plant-wheat')?.addEventListener('click', () => {
   playSound('plant');
   socket?.emit('plant', { cropType: 'wheat' });
-});
-document.getElementById('plant-tomato')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'tomato' });
 });
 document.getElementById('plant-corn')?.addEventListener('click', () => {
   playSound('plant');
   socket?.emit('plant', { cropType: 'corn' });
 });
-// 新增作物按钮
+document.getElementById('plant-rice')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'rice' });
+});
+
+// 作物按钮 - 蔬菜
+document.getElementById('plant-tomato')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'tomato' });
+});
 document.getElementById('plant-carrot')?.addEventListener('click', () => {
   playSound('plant');
   socket?.emit('plant', { cropType: 'carrot' });
@@ -825,9 +1294,41 @@ document.getElementById('plant-eggplant')?.addEventListener('click', () => {
   playSound('plant');
   socket?.emit('plant', { cropType: 'eggplant' });
 });
+document.getElementById('plant-cucumber')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'cucumber' });
+});
+document.getElementById('plant-pumpkin')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'pumpkin' });
+});
+
+// 作物按钮 - 水果
 document.getElementById('plant-strawberry')?.addEventListener('click', () => {
   playSound('plant');
   socket?.emit('plant', { cropType: 'strawberry' });
+});
+document.getElementById('plant-watermelon')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'watermelon' });
+});
+document.getElementById('plant-grape')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'grape' });
+});
+document.getElementById('plant-apple')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'apple' });
+});
+
+// 作物按钮 - 经济作物
+document.getElementById('plant-cotton')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'cotton' });
+});
+document.getElementById('plant-tea')?.addEventListener('click', () => {
+  playSound('plant');
+  socket?.emit('plant', { cropType: 'tea' });
 });
 
 // 操作按钮
@@ -888,6 +1389,7 @@ function renderInventory() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const cropType = btn.dataset.crop;
+      playSound('sell');
       socket.emit('sell-item', { cropType, quantity: 1 });
     });
   });
@@ -922,7 +1424,14 @@ function renderShopItems(shopItems) {
       <span class="item-price">${item.price}</span>
     `;
     itemEl.addEventListener('click', () => {
-      socket.emit('buy-item', { itemId, quantity: 1 });
+      // 播放购买音效
+      playSound('buy');
+      // 飞入动画
+      showShopFlyAnimation(itemEl, itemId);
+      // 发送购买请求
+      setTimeout(() => {
+        socket.emit('buy-item', { itemId, quantity: 1 });
+      }, 300);
     });
     shopItemsContainer.appendChild(itemEl);
   });
@@ -969,6 +1478,7 @@ function renderSellTab(container) {
   container.querySelectorAll('.sell-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const cropType = btn.dataset.crop;
+      playSound('sell');
       socket.emit('sell-item', { cropType, quantity: 1 });
     });
   });
@@ -989,6 +1499,16 @@ function closeShop() {
   const shopModal = document.getElementById('shop-modal');
   if (shopModal) {
     shopModal.classList.add('hidden');
+  }
+}
+
+// 折叠/展开分类
+function toggleSection(id) {
+  const section = document.getElementById(id);
+  const header = section?.previousElementSibling;
+  if (section && header) {
+    section.classList.toggle('collapsed');
+    header.querySelector('.toggle-icon').textContent = section.classList.contains('collapsed') ? '▶' : '▼';
   }
 }
 
@@ -1017,18 +1537,200 @@ function initShopEvents() {
   
   // 动物购买按钮
   document.getElementById('buy-chicken-btn')?.addEventListener('click', () => {
-    playSound('coin');
+    playSound('buy');
     socket.emit('buy-animal', { animalType: 'chicken' });
   });
   
   document.getElementById('buy-sheep-btn')?.addEventListener('click', () => {
-    playSound('coin');
+    playSound('buy');
     socket.emit('buy-animal', { animalType: 'sheep' });
   });
   
   document.getElementById('buy-cow-btn')?.addEventListener('click', () => {
-    playSound('coin');
+    playSound('buy');
     socket.emit('buy-animal', { animalType: 'cow' });
+  });
+}
+
+// ===== 好友系统 =====
+let currentLeaderboardType = 'money';
+
+function initFriendsEvents() {
+  const openFriendsBtn = document.getElementById('open-friends-btn');
+  const closeFriendsBtn = document.getElementById('close-friends-btn');
+  const friendsModal = document.getElementById('friends-modal');
+  const addFriendBtn = document.getElementById('add-friend-btn');
+  const friendNameInput = document.getElementById('friend-name-input');
+  
+  // Open friends modal
+  openFriendsBtn?.addEventListener('click', () => {
+    friendsModal?.classList.remove('hidden');
+    socket.emit('get-friends');
+  });
+  
+  // Close friends modal
+  closeFriendsBtn?.addEventListener('click', () => {
+    friendsModal?.classList.add('hidden');
+  });
+  
+  // Click outside to close
+  friendsModal?.addEventListener('click', (e) => {
+    if (e.target === friendsModal) friendsModal.classList.add('hidden');
+  });
+  
+  // Add friend
+  addFriendBtn?.addEventListener('click', () => {
+    const name = friendNameInput?.value.trim();
+    if (name) {
+      socket.emit('add-friend', { friendName: name });
+    }
+  });
+  
+  // Enter key to add friend
+  friendNameInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addFriendBtn?.click();
+  });
+  
+  // Open leaderboard
+  const openLeaderboardBtn = document.getElementById('open-leaderboard-btn');
+  const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
+  const leaderboardModal = document.getElementById('leaderboard-modal');
+  
+  openLeaderboardBtn?.addEventListener('click', () => {
+    leaderboardModal?.classList.remove('hidden');
+    socket.emit('get-leaderboard', currentLeaderboardType);
+  });
+  
+  closeLeaderboardBtn?.addEventListener('click', () => {
+    leaderboardModal?.classList.add('hidden');
+  });
+  
+  leaderboardModal?.addEventListener('click', (e) => {
+    if (e.target === leaderboardModal) leaderboardModal.classList.add('hidden');
+  });
+  
+  // Leaderboard tabs
+  document.querySelectorAll('.leaderboard-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.leaderboard-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentLeaderboardType = tab.dataset.type;
+      socket.emit('get-leaderboard', currentLeaderboardType);
+    });
+  });
+}
+
+// Render friends list (sidebar compact view)
+function renderFriendsList(friends) {
+  const friendsListEl = document.getElementById('friends-list');
+  if (!friendsListEl) return;
+  
+  if (!friends || friends.length === 0) {
+    friendsListEl.innerHTML = '<div class="no-friends">暂无好友</div>';
+    return;
+  }
+  
+  friendsListEl.innerHTML = '';
+  friends.forEach(friendName => {
+    const badge = document.createElement('div');
+    badge.className = 'friend-badge';
+    badge.innerHTML = `
+      <span class="friend-status online"></span>
+      <span class="friend-name">${friendName}</span>
+    `;
+    friendsListEl.appendChild(badge);
+  });
+}
+
+// Render detailed friends list (modal view with online status)
+function renderFriendsDetailed(friends) {
+  const friendsModalList = document.getElementById('friends-modal-list');
+  if (!friendsModalList) return;
+  
+  if (!friends || friends.length === 0) {
+    friendsModalList.innerHTML = '<div class="no-friends">暂无好友，添加一个吧！</div>';
+    return;
+  }
+  
+  friendsModalList.innerHTML = '';
+  friends.forEach(friend => {
+    const item = document.createElement('div');
+    item.className = 'friends-modal-item';
+    item.innerHTML = `
+      <span class="friend-status ${friend.online ? 'online' : 'offline'}"></span>
+      <div class="friend-info">
+        <div class="friend-name">${friend.name}</div>
+        ${friend.online ? `<div class="friend-money">💰 ${friend.money}</div>` : '<div class="friend-money">离线</div>'}
+      </div>
+      <div class="friend-actions">
+        ${friend.online ? `<button class="visit-btn" data-friend="${friend.name}">访问</button>` : ''}
+        <button class="remove-btn" data-friend="${friend.name}">删除</button>
+      </div>
+    `;
+    
+    // Visit button
+    const visitBtn = item.querySelector('.visit-btn');
+    if (visitBtn) {
+      visitBtn.addEventListener('click', () => {
+        socket.emit('visit-friend', { friendName: friend.name });
+        document.getElementById('friends-modal')?.classList.add('hidden');
+        showNotification(`正在访问 ${friend.name} 的农场...`);
+      });
+    }
+    
+    // Remove button
+    const removeBtn = item.querySelector('.remove-btn');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        if (confirm(`确定要删除好友 ${friend.name} 吗？`)) {
+          socket.emit('remove-friend', { friendName: friend.name });
+        }
+      });
+    }
+    
+    friendsModalList.appendChild(item);
+  });
+}
+
+// Render leaderboard
+function renderLeaderboard(data, type) {
+  const leaderboardList = document.getElementById('leaderboard-list');
+  if (!leaderboardList) return;
+  
+  if (!data || data.length === 0) {
+    leaderboardList.innerHTML = '<div class="no-leaderboard">暂无数据</div>';
+    return;
+  }
+  
+  leaderboardList.innerHTML = '';
+  data.forEach((player, index) => {
+    const item = document.createElement('div');
+    item.className = `leaderboard-item ${index < 3 ? 'top-' + (index + 1) : ''}`;
+    
+    const rank = index + 1;
+    let valueDisplay = '';
+    
+    if (type === 'money') {
+      valueDisplay = `<span class="leaderboard-value money">💰 ${player.money}</span>`;
+    } else if (type === 'level') {
+      valueDisplay = `<span class="leaderboard-value">⭐ Lv.${player.level}</span>`;
+    } else if (type === 'harvests') {
+      valueDisplay = `<span class="leaderboard-value harvests">🌾 ${player.harvests}</span>`;
+    }
+    
+    item.innerHTML = `
+      <div class="leaderboard-rank ${index < 3 ? 'top-' + (index + 1) : ''}">${rank}</div>
+      <div class="leaderboard-info">
+        <div class="leaderboard-name">${player.name}</div>
+        <div class="leaderboard-stats">
+          <span class="leaderboard-level">Lv.${player.level}</span> · 
+          💰${player.money} · 🌾${player.harvests}
+        </div>
+      </div>
+      ${valueDisplay}
+    `;
+    
+    leaderboardList.appendChild(item);
   });
 }
 
@@ -1097,6 +1799,121 @@ function renderAnimalPen() {
   });
 }
 
+// 渲染动物到地图上
+function renderAnimalsOnMap() {
+  if (!gameState?.animalPens || !farmGrid) return;
+  
+  const { width, height } = gameState;
+  const cellSize = Math.min(CONFIG.cellSize, Math.min(CONFIG.maxGridWidth / width, CONFIG.maxGridWidth / height));
+  
+  // 获取或创建动物层
+  let animalsLayer = document.getElementById('animals-layer');
+  if (!animalsLayer) {
+    animalsLayer = document.createElement('div');
+    animalsLayer.id = 'animals-layer';
+    animalsLayer.className = 'players-layer';
+    animalsLayer.style.cssText = 'position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px; pointer-events: none; z-index: 20;';
+    
+    // 找到 players-layer 并在其后插入
+    const playersLayer = document.getElementById('players-layer');
+    if (playersLayer && playersLayer.parentNode) {
+      playersLayer.parentNode.insertBefore(animalsLayer, playersLayer.nextSibling);
+    }
+  }
+  
+  // 遍历动物栏，渲染动物到地图
+  gameState.animalPens.forEach((pen, index) => {
+    if (!pen.animal) return;
+    
+    // 初始化位置（随机位置或在第一次渲染时）
+    if (!animalPositions[index]) {
+      animalPositions[index] = {
+        x: Math.floor(Math.random() * width),
+        y: Math.floor(Math.random() * height)
+      };
+    }
+    
+    const pos = animalPositions[index];
+    
+    // 检查是否已有该动物的DOM元素
+    let animalEl = animalElements.get(index);
+    
+    if (!animalEl) {
+      // 创建动物元素
+      animalEl = document.createElement('div');
+      animalEl.className = 'animal-marker';
+      animalEl.style.cssText = `
+        position: absolute;
+        font-size: 24px;
+        transform: translate(-50%, -50%);
+        transition: all 0.5s ease-out;
+        z-index: 20;
+        pointer-events: none;
+      `;
+      animalsLayer.appendChild(animalEl);
+      animalElements.set(index, animalEl);
+    }
+    
+    // 更新动物表情和位置
+    animalEl.textContent = pen.emoji || '🐄';
+    const targetX = pos.x * cellSize + cellSize / 2;
+    const targetY = pos.y * cellSize + cellSize / 2;
+    animalEl.style.left = targetX + 'px';
+    animalEl.style.top = targetY + 'px';
+  });
+  
+  // 移除不再存在的动物的DOM元素
+  animalElements.forEach((el, index) => {
+    if (!gameState.animalPens[index] || !gameState.animalPens[index].animal) {
+      el.remove();
+      animalElements.delete(index);
+      delete animalPositions[index];
+    }
+  });
+}
+
+// 动物随机移动
+function startAnimalMovement() {
+  // 清除之前的定时器
+  if (animalMoveInterval) {
+    clearInterval(animalMoveInterval);
+  }
+  
+  // 每3-5秒随机移动动物
+  animalMoveInterval = setInterval(() => {
+    if (!gameState?.animalPens || !gameState.width || !gameState.height) return;
+    
+    const { width, height } = gameState;
+    
+    Object.keys(animalPositions).forEach(index => {
+      const penIndex = parseInt(index);
+      const pen = gameState.animalPens[penIndex];
+      if (!pen || !pen.animal) return;
+      
+      const currentPos = animalPositions[penIndex];
+      
+      // 随机选择移动方向：上、下、左、右 或 不动
+      const directions = [
+        { dx: 0, dy: -1 },  // 上
+        { dx: 0, dy: 1 },   // 下
+        { dx: -1, dy: 0 },  // 左
+        { dx: 1, dy: 0 },  // 右
+        { dx: 0, dy: 0 }   // 不动
+      ];
+      
+      const dir = directions[Math.floor(Math.random() * directions.length)];
+      const newX = Math.max(0, Math.min(width - 1, currentPos.x + dir.dx));
+      const newY = Math.max(0, Math.min(height - 1, currentPos.y + dir.dy));
+      
+      // 更新位置
+      animalPositions[penIndex] = { x: newX, y: newY };
+    });
+    
+    // 重新渲染动物位置
+    renderAnimalsOnMap();
+  }, 3000 + Math.random() * 2000); // 3-5秒随机间隔
+}
+
 // 初始化 - 简化版：自动进入农场
 function init() {
   const savedName = localStorage.getItem(PLAYER_NAME_KEY);
@@ -1106,12 +1923,10 @@ function init() {
     currentPlayerName = savedName;
     nameModal.classList.add('hidden');
     initSocket();
-    // 连接成功后自动加入
+    // 连接成功后自动加入（使用 waitForSocketConnection 确保处理连接中状态）
     setTimeout(() => {
-      if (socket?.connected) {
-        joinDefaultRoom();
-      }
-    }, 500);
+      waitForSocketConnection();
+    }, 300);
   } else {
     nameModal.classList.remove('hidden');
     setTimeout(() => playerNameInput?.focus(), 100);
@@ -1120,6 +1935,12 @@ function init() {
   
   // 初始化商店事件
   initShopEvents();
+  
+  // 初始化好友系统事件
+  initFriendsEvents();
+  
+  // 初始化害虫防治事件
+  initPestControlEvents();
   
   // 监听游戏状态，自动切换到游戏界面
   socket?.on('game-state', (state) => {

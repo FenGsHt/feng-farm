@@ -348,6 +348,51 @@ io.on('connection', (socket) => {
       io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
+
+  // ====== 任务系统 ======
+  // 获取任务列表
+  socket.on('get-tasks', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const tasks = room.game.getPlayerTasks(socket.id);
+    socket.emit('tasks-data', tasks);
+  });
+  
+  // 领取任务奖励
+  socket.on('claim-task', ({ taskId }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.claimTaskReward(socket.id, taskId);
+    socket.emit('task-claim-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+      // 更新任务数据
+      const tasks = room.game.getPlayerTasks(socket.id);
+      socket.emit('tasks-data', tasks);
+    }
+  });
+  
+  // 领取成就奖励
+  socket.on('claim-achievement', ({ achievementId }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.claimAchievementReward(socket.id, achievementId);
+    socket.emit('achievement-claim-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+      // 更新任务数据
+      const tasks = room.game.getPlayerTasks(socket.id);
+      socket.emit('tasks-data', tasks);
+    }
+  });
   
   // New farm (reset)
   socket.on('new-farm', () => {
@@ -383,7 +428,7 @@ app.get('/api/crops', (req, res) => {
   res.json(CROPS);
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3007;
 httpServer.listen(PORT, () => {
   console.log(`🌾 Farm Game Server running on http://localhost:${PORT}`);
   console.log(`📁 Socket.IO enabled for real-time multiplayer`);

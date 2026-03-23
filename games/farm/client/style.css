@@ -147,6 +147,13 @@ button {
 
 .btn-small:hover {
   background: #689f38;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-small:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn-icon {
@@ -158,6 +165,116 @@ button {
 
 .btn-icon:hover {
   transform: scale(1.1);
+}
+
+/* ========== 按钮交互效果 ========== */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* 作物按钮悬停效果 */
+.crop-btn {
+  transition: all 0.2s ease;
+}
+
+.crop-btn:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(124, 179, 66, 0.4);
+}
+
+.crop-btn:active {
+  transform: translateX(2px);
+}
+
+/* 商店物品悬停效果 */
+.shop-item {
+  transition: all 0.2s ease;
+}
+
+.shop-item:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+.shop-item:active {
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* 商店物品购买飞入动画 */
+.shop-item.flying {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  animation: fly-to-wallet 0.6s ease-in-out forwards;
+}
+
+@keyframes fly-to-wallet {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(0.3) translateY(-100px);
+    opacity: 0;
+  }
+}
+
+/* ========== 通知增强 ========== */
+.notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: var(--bg-light);
+  border-radius: 8px;
+  border: 2px solid var(--accent-green);
+  z-index: 200;
+  animation: slideUp 0.3s ease-out;
+  max-width: 300px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.notification.slide-out {
+  animation: slideDown 0.3s ease-in forwards;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-50%) translateY(20px);
+    opacity: 0;
+  }
+}
+
+/* 通知进入动画强化 */
+@keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
 }
 
 /* 主界面 */
@@ -509,6 +626,81 @@ button {
   margin-bottom: 12px;
 }
 
+/* 可折叠分类 */
+.action-category {
+  margin-bottom: 12px;
+  background: var(--bg-dark);
+  border-radius: 10px;
+  border: 2px solid var(--accent-brown);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.action-category:hover {
+  border-color: var(--accent-green);
+}
+
+.action-category h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text-light);
+  margin: 0;
+  background: rgba(124, 179, 66, 0.1);
+  transition: all 0.2s ease;
+}
+
+.action-category:hover h4 {
+  background: rgba(124, 179, 66, 0.2);
+}
+
+.toggle-icon {
+  font-size: 12px;
+  transition: transform 0.3s ease;
+  color: var(--accent-green);
+}
+
+.action-category.collapsed .toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.action-category .crop-buttons {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.action-category .crop-buttons.collapsed {
+  display: none;
+}
+.action-category h4 {
+  cursor: pointer;
+  user-select: none;
+}
+.action-category h4:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+/* 维护区域单独样式 */
+.maintenance-section {
+  background: var(--bg-dark);
+  border-radius: 10px;
+  border: 2px solid var(--accent-green);
+  padding: 14px;
+  margin-top: 16px;
+}
+
+.maintenance-section h4 {
+  color: var(--accent-green);
+  margin-bottom: 10px;
+}
+
 .crop-buttons {
   display: flex;
   flex-direction: column;
@@ -626,42 +818,201 @@ button {
   font-size: 14px;
 }
 
-/* 通知 */
-.notification {
+/* 通知（已移动到上方增强版） */
+
+/* ========== 天气粒子效果 ========== */
+.weather-particles {
   position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 24px;
-  background: var(--bg-light);
-  border-radius: 8px;
-  border: 2px solid var(--accent-green);
-  z-index: 200;
-  animation: slideUp 0.3s;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 500;
+  overflow: hidden;
 }
 
-.notification.success {
-  border-color: var(--success);
-  background: #1b5e20;
+/* 雨滴 */
+.rain-drop {
+  position: absolute;
+  width: 2px;
+  height: 15px;
+  background: linear-gradient(to bottom, transparent, #64B5F6);
+  border-radius: 2px;
+  animation: rain-fall var(--rain-duration, 0.8s) linear infinite;
+  opacity: 0.7;
 }
 
-.notification.error {
-  border-color: var(--error);
-  background: #b71c1c;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateX(-50%) translateY(20px);
+@keyframes rain-fall {
+  0% {
+    transform: translateY(-20px);
     opacity: 0;
   }
-  to {
-    transform: translateX(-50%) translateY(0);
+  10% {
+    opacity: 0.7;
+  }
+  90% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+/* 雪花 */
+.snow-flake {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  filter: blur(1px);
+  animation: snow-fall var(--snow-duration, 5s) linear infinite;
+  opacity: 0.9;
+}
+
+@keyframes snow-fall {
+  0% {
+    transform: translateY(-20px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* 闪电 */
+.lightning-flash {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+  z-index: 600;
+  animation: lightning 0.2s ease-out;
+}
+
+@keyframes lightning {
+  0%, 100% { opacity: 0; }
+  10% { opacity: 0.8; }
+  20% { opacity: 0.2; }
+  30% { opacity: 0.6; }
+  40% { opacity: 0; }
+}
+
+/* 雾天背景 */
+.fog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(144, 164, 174, 0.4);
+  pointer-events: none;
+  z-index: 400;
+  animation: fog-pulse 4s ease-in-out infinite;
+}
+
+@keyframes fog-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.5; }
+}
+
+/* 雾天模糊效果 */
+.game-container.foggy .farm-wrapper,
+.game-container.foggy .action-panel {
+  filter: blur(2px);
+  animation: fog-float 6s ease-in-out infinite;
+}
+
+@keyframes fog-float {
+  0%, 100% { filter: blur(2px); }
+  50% { filter: blur(3px); }
+}
+
+/* ========== 作物动画 ========== */
+
+/* 浇水水滴效果 */
+.water-drop {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #29B6F6;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: water-drop-fall 0.6s ease-in forwards;
+  z-index: 100;
+}
+
+@keyframes water-drop-fall {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(30px) scale(0.5);
+    opacity: 0;
+  }
+}
+
+/* 种子发芽动画 */
+.seed-sprout {
+  position: absolute;
+  font-size: 12px;
+  animation: seed-grow 0.8s ease-out forwards;
+}
+
+@keyframes seed-grow {
+  0% {
+    transform: scale(0) translateY(10px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) translateY(-2px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
     opacity: 1;
   }
 }
 
-/* ========== 简化版新增样式 ========== */
+/* 成熟作物更强发光 */
+.plot-cell.ready {
+  animation: mature-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes mature-glow {
+  0%, 100% { 
+    filter: brightness(1) drop-shadow(0 0 3px gold);
+  }
+  50% { 
+    filter: brightness(1.4) drop-shadow(0 0 12px gold);
+  }
+}
+
+/* 害虫警告更强闪烁 */
+.plot-cell.has-pest::before {
+  animation: pest-alert 0.5s ease-in-out infinite;
+}
+
+@keyframes pest-alert {
+  0%, 100% { 
+    transform: scale(1); 
+    filter: brightness(1);
+  }
+  50% { 
+    transform: scale(1.3); 
+    filter: brightness(1.5);
+  }
+}
 
 /* 加载页面 */
 .loading-container {
@@ -858,6 +1209,142 @@ button {
   border-radius: 6px;
   font-size: 14px;
   margin-left: 10px;
+}
+
+/* 天气显示 */
+.weather-badge {
+  background: linear-gradient(135deg, #FFF9C4 0%, #FFECB3 100%);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-left: 10px;
+  cursor: help;
+  transition: all 0.3s;
+}
+
+.weather-badge.sunny {
+  background: linear-gradient(135deg, #FFF9C4 0%, #FFECB3 100%);
+  color: #5D4037;
+}
+
+.weather-badge.rainy {
+  background: linear-gradient(135deg, #90CAF9 0%, #64B5F6 100%);
+  color: #1565C0;
+}
+
+.weather-badge.stormy {
+  background: linear-gradient(135deg, #5C6BC0 0%, #3F51B5 100%);
+  color: white;
+}
+
+.weather-badge.foggy {
+  background: linear-gradient(135deg, #B0BEC5 0%, #90A4AE 100%);
+  color: #37474F;
+}
+
+.weather-badge.snowy {
+  background: linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 100%);
+  color: #0277BD;
+}
+
+.weather-desc {
+  font-size: 11px;
+  opacity: 0.8;
+  display: block;
+  margin-top: 2px;
+}
+
+/* 害虫数量 */
+.pest-count {
+  background: #ef5350;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.pest-count:empty,
+.pest-count[data-count="0"] {
+  display: none;
+}
+
+/* 害虫防治按钮 */
+.pest-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pest-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-brown);
+  border-radius: 8px;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.pest-btn:hover {
+  border-color: #ef5350;
+  background: #2d1a1a;
+}
+
+.pest-btn .btn-emoji {
+  font-size: 1.3em;
+}
+
+.pest-btn .btn-name {
+  flex: 1;
+  font-size: 13px;
+}
+
+.pest-btn .btn-cost {
+  color: gold;
+  font-size: 12px;
+}
+
+.action-btn-small {
+  padding: 8px 12px;
+  background: #ef5350;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.action-btn-small:hover {
+  background: #d32f2f;
+}
+
+/* 地块害虫标记 */
+.plot-cell.has-pest::before {
+  content: '⚠️';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  font-size: 16px;
+  animation: pest-warning 0.8s ease-in-out infinite;
+  z-index: 20;
+}
+
+@keyframes pest-warning {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.plot-cell.has-pest {
+  box-shadow: inset 0 0 8px rgba(239, 83, 80, 0.5);
+}
+
+.plot-cell.has-pest .crop-emoji {
+  filter: grayscale(50%);
 }
 
 /* 铲除按钮 */
