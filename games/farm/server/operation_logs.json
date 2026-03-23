@@ -1,0 +1,24 @@
+{
+  "logs": [
+    {
+      "playerName": "testplayer",
+      "action": "plant",
+      "plotIndex": 0,
+      "details": {
+        "timestamp": 123456
+      },
+      "timestamp": 1774191881942,
+      "ip": "unknown"
+    },
+    {
+      "playerName": "test",
+      "action": "plant",
+      "plotIndex": 0,
+      "details": {
+        "timestamp": 123
+      },
+      "timestamp": 1774193781637,
+      "ip": "unknown"
+    }
+  ]
+}

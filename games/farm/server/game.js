@@ -1,10 +1,15 @@
 // 多人种田游戏逻辑
+const dataStore = require('./dataStore');
+const antiCheat = require('./antiCheat');
 
 // 作物配置
 const CROPS = {
   wheat: { name: '小麦', growthTime: 30, sellPrice: 10, seedPrice: 2, emoji: '🌾' },
   tomato: { name: '番茄', growthTime: 60, sellPrice: 25, seedPrice: 5, emoji: '🍅' },
-  corn: { name: '玉米', growthTime: 120, sellPrice: 60, seedPrice: 12, emoji: '🌽' }
+  corn: { name: '玉米', growthTime: 120, sellPrice: 60, seedPrice: 12, emoji: '🌽' },
+  carrot: { name: '胡萝卜', growthTime: 20, sellPrice: 15, seedPrice: 3, emoji: '🥕' },
+  eggplant: { name: '茄子', growthTime: 45, sellPrice: 30, seedPrice: 6, emoji: '🍆' },
+  strawberry: { name: '草莓', growthTime: 35, sellPrice: 20, seedPrice: 4, emoji: '🍓' }
 };
 
 // 地块类
@@ -59,6 +64,22 @@ class Plot {
     this.isWatered = false;
     
     return { success: true, reward, cropType: harvestedCrop };
+  }
+
+  // 铲除作物
+  remove() {
+    if (!this.crop) return { success: false, message: '没有作物可铲除' };
+    
+    const removedCrop = this.crop;
+    
+    // 重置地块
+    this.crop = null;
+    this.plantedAt = null;
+    this.growthStage = 0;
+    this.owner = null;
+    this.isWatered = false;
+    
+    return { success: true, message: '已铲除作物', cropType: removedCrop };
   }
 
   // 更新生长阶段
@@ -135,12 +156,16 @@ class FarmGame {
   // 玩家加入
   addPlayer(socketId, playerName) {
     const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3'];
+    
+    // 尝试从持久化存储加载玩家数据
+    const savedPlayer = dataStore.getPlayer(socketId);
+    
     const player = {
       id: socketId,
-      name: playerName,
-      money: 50, // 初始资金
-      color: colors[this.players.size % colors.length],
-      position: { x: 0, y: 0 }
+      name: savedPlayer?.name || playerName,
+      money: savedPlayer?.money || 50, // 初始资金，如果没有保存数据则为50
+      color: savedPlayer?.color || colors[this.players.size % colors.length],
+      position: savedPlayer?.position || { x: 0, y: 0 }
     };
     this.players.set(socketId, player);
     return player;
@@ -148,6 +173,17 @@ class FarmGame {
 
   // 玩家离开
   removePlayer(socketId) {
+    const player = this.players.get(socketId);
+    if (player) {
+      // 保存玩家数据后再删除
+      dataStore.savePlayer(socketId, { 
+        name: player.name, 
+        money: player.money, 
+        color: player.color, 
+        position: player.position 
+      });
+      dataStore.logAction(socketId, player.name, 'leave', {});
+    }
     this.players.delete(socketId);
   }
 
@@ -155,10 +191,20 @@ class FarmGame {
   movePlayer(socketId, x, y) {
     const player = this.players.get(socketId);
     if (!player) return { success: false };
-    if (x < 0 || x >= this.width || y < 0 || y >= this.height) {
-      return { success: false, message: '超出边界' };
-    }
+    
+    // 防作弊检查：位置
+    const posCheck = antiCheat.validatePosition(x, y, this.width, this.height);
+    if (!posCheck.valid) return posCheck;
+    
+    // 防作弊检查：频率
+    const rateCheck = antiCheat.checkRateLimit(socketId, 'move');
+    if (!rateCheck.allowed) return rateCheck;
+    
     player.position = { x, y };
+    // 保存玩家位置
+    dataStore.savePlayer(socketId, { name: player.name, money: player.money, color: player.color, position: player.position });
+    // 记录操作日志
+    dataStore.logAction(socketId, player.name, 'move', { x, y });
     return { success: true };
   }
 
@@ -169,16 +215,25 @@ class FarmGame {
     
     const crop = CROPS[cropType];
     if (!crop) return { success: false, message: '未知作物' };
-    if (player.money < crop.seedPrice) {
-      return { success: false, message: '资金不足' };
-    }
     
     const { x, y } = player.position;
     const plot = this.plots[y][x];
+    
+    // 防作弊检查
+    const validation = antiCheat.validateAction(player, plot, 'plant', crop.seedPrice, x, y, this.width, this.height);
+    if (!validation.valid) {
+      antiCheat.logSuspiciousAction(socketId, player.name, 'plant', validation.message, { cropType, x, y });
+      return { success: false, message: validation.message };
+    }
+    
     const result = plot.plant(cropType, player.name);
     
     if (result.success) {
       player.money -= crop.seedPrice;
+      // 保存玩家数据
+      dataStore.savePlayer(socketId, { name: player.name, money: player.money, color: player.color, position: player.position });
+      // 记录操作日志
+      dataStore.logAction(socketId, player.name, 'plant', { cropType, x, y, cost: crop.seedPrice });
     }
     
     return result;
@@ -191,7 +246,22 @@ class FarmGame {
     
     const { x, y } = player.position;
     const plot = this.plots[y][x];
-    return plot.water();
+    
+    // 防作弊检查
+    const validation = antiCheat.validateAction(player, plot, 'water', 0, x, y, this.width, this.height);
+    if (!validation.valid) {
+      antiCheat.logSuspiciousAction(socketId, player.name, 'water', validation.message, { x, y });
+      return { success: false, message: validation.message };
+    }
+    
+    const result = plot.water();
+    
+    if (result.success) {
+      // 记录操作日志
+      dataStore.logAction(socketId, player.name, 'water', { x, y });
+    }
+    
+    return result;
   }
 
   // 收获
@@ -201,10 +271,47 @@ class FarmGame {
     
     const { x, y } = player.position;
     const plot = this.plots[y][x];
+    
+    // 防作弊检查
+    const validation = antiCheat.validateAction(player, plot, 'harvest', 0, x, y, this.width, this.height);
+    if (!validation.valid) {
+      antiCheat.logSuspiciousAction(socketId, player.name, 'harvest', validation.message, { x, y });
+      return { success: false, message: validation.message };
+    }
+    
     const result = plot.harvest();
     
     if (result.success) {
+      // 防作弊：验证奖励
+      const rewardCheck = antiCheat.validateHarvestReward(plot, result.reward);
+      if (!rewardCheck.valid) {
+        antiCheat.logSuspiciousAction(socketId, player.name, 'harvest', 'Reward mismatch', { expected: result.reward, x, y });
+        return { success: false, message: '收获奖励异常' };
+      }
+      
       player.money += result.reward;
+      // 保存玩家数据
+      dataStore.savePlayer(socketId, { name: player.name, money: player.money, color: player.color, position: player.position });
+      // 记录操作日志
+      dataStore.logAction(socketId, player.name, 'harvest', { x, y, reward: result.reward, cropType: result.cropType });
+    }
+    
+    return result;
+  }
+
+  // 铲除作物
+  removeCrop(socketId) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+    
+    const { x, y } = player.position;
+    const plot = this.plots[y][x];
+    
+    const result = plot.remove();
+    
+    if (result.success) {
+      // 记录操作日志
+      dataStore.logAction(socketId, player.name, 'remove', { x, y, cropType: result.cropType });
     }
     
     return result;
@@ -212,13 +319,19 @@ class FarmGame {
 
   // 获取游戏状态
   getState() {
+    // 计算游戏天数 (1分钟 = 1天)
+    const elapsedSeconds = (Date.now() - this.startTime) / 1000;
+    const gameDay = Math.floor(elapsedSeconds / 60) + 1;
+    
     return {
       width: this.width,
       height: this.height,
       plots: this.plots.map(row => row.map(plot => plot.getState())),
       players: Array.from(this.players.values()),
       gameStatus: this.gameStatus,
-      crops: CROPS
+      crops: CROPS,
+      gameDay: gameDay,
+      gameTime: elapsedSeconds
     };
   }
 }

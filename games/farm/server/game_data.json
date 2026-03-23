@@ -1,0 +1,14 @@
+{
+  "players": {
+    "testplayer": {
+      "coins": 150,
+      "plots": [],
+      "lastSaved": 1774191881930
+    },
+    "test": {
+      "coins": 5,
+      "plots": [],
+      "lastSaved": 1774193781618
+    }
+  }
+}

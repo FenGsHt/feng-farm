@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>正在进入农场... | Feng Farm</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: linear-gradient(135deg, #87CEEB 0%, #98FB98 50%, #F0E68C 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .loading-wrapper {
+      text-align: center;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .game-title {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: #2d5016;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2), 0 0 30px rgba(255,255,255,0.5);
+      margin-bottom: 10px;
+      animation: titlePulse 2s ease-in-out infinite;
+    }
+
+    @keyframes titlePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      color: #5a7d3a;
+      margin-bottom: 40px;
+    }
+
+    .loading-animation {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 30px;
+    }
+
+    .grain {
+      font-size: 2.5rem;
+      animation: bounce 1s infinite;
+    }
+
+    .grain:nth-child(1) { animation-delay: 0s; }
+    .grain:nth-child(2) { animation-delay: 0.15s; }
+    .grain:nth-child(3) { animation-delay: 0.3s; }
+    .grain:nth-child(4) { animation-delay: 0.45s; }
+    .grain:nth-child(5) { animation-delay: 0.6s; }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+
+    .loading-text {
+      font-size: 1.1rem;
+      color: #3d5a20;
+      margin-bottom: 20px;
+    }
+
+    .progress-bar {
+      width: 200px;
+      height: 6px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 0 auto;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+      border-radius: 3px;
+      animation: progress 2s ease-in-out infinite;
+    }
+
+    @keyframes progress {
+      0% { width: 0%; }
+      50% { width: 80%; }
+      100% { width: 100%; }
+    }
+
+    .tip {
+      position: absolute;
+      bottom: 40px;
+      font-size: 0.9rem;
+      color: #5a7d3a;
+      opacity: 0.8;
+    }
+
+    /* Decorative elements */
+    .decoration {
+      position: absolute;
+      font-size: 2rem;
+      opacity: 0.6;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .decoration:nth-child(1) { top: 10%; left: 10%; animation-delay: 0s; }
+    .decoration:nth-child(2) { top: 20%; right: 15%; animation-delay: 0.5s; }
+    .decoration:nth-child(3) { bottom: 20%; left: 15%; animation-delay: 1s; }
+    .decoration:nth-child(4) { bottom: 15%; right: 10%; animation-delay: 1.5s; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(5deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="decoration">🌻</div>
+  <div class="decoration">🌾</div>
+  <div class="decoration">🌽</div>
+  <div class="decoration">🥕</div>
+
+  <div class="loading-wrapper">
+    <h1 class="game-title">🌾 Feng Farm</h1>
+    <p class="subtitle">多人种田游戏</p>
+    
+    <div class="loading-animation">
+      <span class="grain">🌾</span>
+      <span class="grain">🌱</span>
+      <span class="grain">🌿</span>
+      <span class="grain">🍃</span>
+      <span class="grain">🪴</span>
+    </div>
+    
+    <p class="loading-text">正在进入农场...</p>
+    <div class="progress-bar">
+      <div class="progress-fill"></div>
+    </div>
+  </div>
+
+  <p class="tip">马上就好~</p>
+
+  <script>
+    // Simulate loading - redirect to main game after animation
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        window.location.href = '/game';
+      }, 2000); // Show loading for 2 seconds
+    });
+  </script>
+</body>
+</html>

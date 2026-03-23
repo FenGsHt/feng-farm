@@ -1,212 +1,168 @@
-// 多人种田游戏 WebSocket 服务
 const express = require('express');
-const http = require('http');
+const { createServer } = require('http');
 const { Server } = require('socket.io');
-const { RoomManager, FarmGame } = require('./game');
+const path = require('path');
+const { RoomManager, CROPS } = require('./game');
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: "*",
+    methods: ["GET", "POST"]
   }
 });
 
+app.use(express.json());
+
+// Serve static files from client directory
+const clientPath = path.join(__dirname, '..', 'client');
+app.use(express.static(clientPath));
+
+// Room manager
 const roomManager = new RoomManager();
-const DEFAULT_ROOM = '公共农场';
 
-// 预创建默认房间
-roomManager.createRoom(DEFAULT_ROOM, 12, 12);
-roomManager.rooms.get(DEFAULT_ROOM).persist = true;
-
-// 静态文件服务
-const path = require('path');
-app.use(express.static(path.join(__dirname, '../client')));
-
-// 根路由
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/index.html'));
-});
-
-// 广播房间列表
-function broadcastRoomList() {
-  io.emit('room-list', roomManager.getRoomList());
-}
-
+// Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`[Farm] Client connected: ${socket.id}`);
-
-  // 连接时推送房间列表
+  console.log(`[Socket] Client connected: ${socket.id}`);
+  
+  let currentRoomId = null;
+  
+  // Send room list
   socket.emit('room-list', roomManager.getRoomList());
-
-  let currentRoom = null;
-  let currentPlayer = null;
-
-  // 获取房间列表
-  socket.on('get-rooms', () => {
-    socket.emit('room-list', roomManager.getRoomList());
-  });
-
-  // 加入房间
-  socket.on('join-room', ({ roomId, playerName, width, height }) => {
-    if (!roomId) {
-      socket.emit('error', { message: '房间号不能为空' });
-      return;
+  
+  // Join room
+  socket.on('join-room', ({ roomId, playerName, width = 10, height = 10 }) => {
+    // Leave current room if any
+    if (currentRoomId) {
+      roomManager.removePlayer(currentRoomId, socket.id);
+      socket.leave(currentRoomId);
     }
-
-    // 离开之前的房间
-    if (currentRoom) {
-      socket.leave(currentRoom);
-      roomManager.removePlayer(currentRoom, socket.id);
-      const prevRoom = roomManager.getRoom(currentRoom);
-      if (prevRoom) {
-        io.to(currentRoom).emit('game-state', prevRoom.game.getState());
-      }
-    }
-
-    // 创建或加入房间
-    const w = Math.min(Math.max(parseInt(width) || 12, 5), 20);
-    const h = Math.min(Math.max(parseInt(height) || 12, 5), 20);
-    const room = roomManager.createRoom(roomId, w, h);
-    currentRoom = roomId;
-    currentPlayer = roomManager.addPlayer(roomId, socket.id, playerName || '匿名农夫');
+    
+    // Create or get room
+    const room = roomManager.createRoom(roomId, width, height);
+    currentRoomId = roomId;
+    
+    // Add player
+    const player = roomManager.addPlayer(roomId, socket.id, playerName || '匿名农夫');
+    
     socket.join(roomId);
-
-    console.log(`[Farm] Player ${currentPlayer.name} joined room ${roomId}`);
-
+    socket.emit('player-info', player);
+    
+    // Broadcast to room
     io.to(roomId).emit('game-state', room.game.getState());
-    socket.emit('player-info', currentPlayer);
-    broadcastRoomList();
+    io.emit('room-list', roomManager.getRoomList());
+    
+    console.log(`[Socket] ${player.name} joined room: ${roomId}`);
   });
-
-  // 离开房间
-  socket.on('leave-room', () => {
-    if (currentRoom) {
-      roomManager.removePlayer(currentRoom, socket.id);
-      const room = roomManager.getRoom(currentRoom);
-      if (room) {
-        io.to(currentRoom).emit('game-state', room.game.getState());
-      }
-      socket.leave(currentRoom);
-      currentRoom = null;
-      currentPlayer = null;
-      broadcastRoomList();
-    }
-  });
-
-  // 移动玩家
+  
+  // Move player
   socket.on('move', ({ x, y }) => {
-    if (!currentRoom || !currentPlayer) return;
-
-    const room = roomManager.getRoom(currentRoom);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-
+    
     const result = room.game.movePlayer(socket.id, x, y);
     if (result.success) {
-      io.to(currentRoom).emit('game-state', room.game.getState());
+      io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
-
-  // 种植
+  
+  // Plant crop
   socket.on('plant', ({ cropType }) => {
-    if (!currentRoom || !currentPlayer) return;
-
-    const room = roomManager.getRoom(currentRoom);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-
+    
     const result = room.game.plant(socket.id, cropType);
+    socket.emit('action-result', result);
+    
     if (result.success) {
-      io.to(currentRoom).emit('game-state', room.game.getState());
-      socket.emit('action-result', { 
-        success: true, 
-        action: 'plant', 
-        message: `种植了 ${room.game.players.get(socket.id).money} 金币剩余` 
-      });
-    } else {
-      socket.emit('action-result', { success: false, action: 'plant', message: result.message });
+      io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
-
-  // 浇水
+  
+  // Water crop
   socket.on('water', () => {
-    if (!currentRoom || !currentPlayer) return;
-
-    const room = roomManager.getRoom(currentRoom);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-
+    
     const result = room.game.water(socket.id);
+    socket.emit('action-result', result);
+    
     if (result.success) {
-      io.to(currentRoom).emit('game-state', room.game.getState());
-      socket.emit('action-result', { success: true, action: 'water', message: '浇水成功！' });
-    } else {
-      socket.emit('action-result', { success: false, action: 'water', message: result.message });
+      io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
-
-  // 收获
+  
+  // Harvest crop
   socket.on('harvest', () => {
-    if (!currentRoom || !currentPlayer) return;
-
-    const room = roomManager.getRoom(currentRoom);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-
+    
     const result = room.game.harvest(socket.id);
     if (result.success) {
-      io.to(currentRoom).emit('game-state', room.game.getState());
-      socket.emit('action-result', { 
-        success: true, 
-        action: 'harvest', 
-        message: `收获成功！获得 ${result.reward} 金币` 
-      });
-    } else {
-      socket.emit('action-result', { success: false, action: 'harvest', message: result.message });
+      result.message = `收获成功！+${result.reward}金币`;
+    }
+    socket.emit('action-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
-
-  // 新建农场（重置）
-  socket.on('new-farm', (data) => {
-    if (!currentRoom) return;
-
-    const room = roomManager.getRoom(currentRoom);
+  
+  // Remove crop (铲除)
+  socket.on('remove-crop', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-
-    const width = (data && data.width) ? Math.min(Math.max(parseInt(data.width), 5), 20) : room.game.width;
-    const height = (data && data.height) ? Math.min(Math.max(parseInt(data.height), 5), 20) : room.game.height;
-
-    // 保留玩家，重置游戏
-    const players = Array.from(room.game.players.values());
-    room.game = new FarmGame(width, height);
     
-    // 重新添加玩家
-    players.forEach(p => {
-      room.game.addPlayer(p.id, p.name);
-      room.game.players.get(p.id).money = 50; // 重置资金
-    });
-
-    io.to(currentRoom).emit('game-state', room.game.getState());
-    io.to(currentRoom).emit('notification', { message: '农场已重置！' });
+    const result = room.game.removeCrop(socket.id);
+    socket.emit('action-result', result);
     
-    if (currentRoom === DEFAULT_ROOM) {
-      broadcastRoomList();
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
-
-  // 断开连接
+  
+  // New farm (reset)
+  socket.on('new-farm', () => {
+    if (!currentRoomId) return;
+    // This would reset the farm - for now just notify
+    socket.emit('notification', { message: '农场重置功能暂未实现' });
+  });
+  
+  // Leave room
+  socket.on('leave-room', () => {
+    if (currentRoomId) {
+      roomManager.removePlayer(currentRoomId, socket.id);
+      socket.leave(currentRoomId);
+      io.to(currentRoomId).emit('game-state', roomManager.getRoom(currentRoomId)?.game.getState());
+      io.emit('room-list', roomManager.getRoomList());
+      currentRoomId = null;
+    }
+  });
+  
+  // Disconnect
   socket.on('disconnect', () => {
-    console.log(`[Farm] Client disconnected: ${socket.id}`);
-    if (currentRoom) {
-      roomManager.removePlayer(currentRoom, socket.id);
-      const room = roomManager.getRoom(currentRoom);
-      if (room) {
-        io.to(currentRoom).emit('game-state', room.game.getState());
-      }
-      broadcastRoomList();
+    console.log(`[Socket] Client disconnected: ${socket.id}`);
+    if (currentRoomId) {
+      roomManager.removePlayer(currentRoomId, socket.id);
+      io.to(currentRoomId).emit('game-state', roomManager.getRoom(currentRoomId)?.game.getState());
+      io.emit('room-list', roomManager.getRoomList());
     }
   });
 });
 
-const PORT = process.env.PORT || 3007;
-server.listen(PORT, () => {
-  console.log(`[Farm] Server running on port ${PORT}`);
+// API Routes for compatibility
+app.get('/api/crops', (req, res) => {
+  res.json(CROPS);
+});
+
+const PORT = process.env.PORT || 3000;
+httpServer.listen(PORT, () => {
+  console.log(`🌾 Farm Game Server running on http://localhost:${PORT}`);
+  console.log(`📁 Socket.IO enabled for real-time multiplayer`);
 });

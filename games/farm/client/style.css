@@ -812,3 +812,99 @@ button {
   font-size: 14px;
   margin-left: 10px;
 }
+
+/* ========== 粒子效果 ========== */
+.particle {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1000;
+  animation: particle-fly var(--duration, 0.8s) ease-out forwards;
+}
+
+@keyframes particle-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* ========== 新增样式 ========== */
+
+/* 农场拖拽 */
+.farm-wrapper {
+  cursor: grab;
+  user-select: none;
+}
+
+.farm-wrapper:active {
+  cursor: grabbing;
+}
+
+.farm-wrapper.dragging {
+  cursor: grabbing;
+}
+
+/* 游戏时间显示 */
+.game-time-badge {
+  background: var(--accent-brown);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-left: 10px;
+}
+
+/* 铲除按钮 */
+.remove-btn {
+  background: #ef5350;
+}
+
+.remove-btn:hover {
+  background: #d32f2f;
+}
+
+/* 更多作物按钮 */
+.crop-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.crop-btn.small {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.crop-btn.small .btn-emoji {
+  font-size: 1.2em;
+}
+
+.crop-btn.small .btn-name {
+  font-size: 12px;
+}
+
+.crop-btn.small .btn-cost {
+  font-size: 11px;
+}
+
+/* 操作按钮区域 */
+.action-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-section h4::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: var(--accent-green);
+  border-radius: 2px;
+}
