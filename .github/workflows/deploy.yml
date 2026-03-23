@@ -62,20 +62,22 @@ jobs:
         uses: nick-fields/retry@v2
         with:
           max_attempts: 3
-          retry_wait_seconds: 10
+          retry_wait_seconds: 20
           timeout_minutes: 5
           command: |
             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-              "export NVM_DIR=\$HOME/.nvm && . \$NVM_DIR/nvm.sh && \
+              "source ~/.bashrc 2>/dev/null || true; \
+               export NVM_DIR=\$HOME/.nvm && [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"; \
+               which pm2 || npm install -g pm2; \
                cd ${{ secrets.SERVER_PATH }}/games/farm/server && \
-               npm install --no-audit && \
-               npm install -g pm2 && \
+               npm install --no-audit --legacy-peer-deps; \
                cd ${{ secrets.SERVER_PATH }}/games/farm && \
                pm2 stop feng-farm-server 2>/dev/null || true; \
                pm2 delete feng-farm-server 2>/dev/null || true; \
                fuser -k 3007/tcp 2>/dev/null || true; \
                pm2 start ecosystem.config.js && \
-               pm2 save"
+               pm2 save && \
+               pm2 list"
 
       - name: Notify success
         if: success()
