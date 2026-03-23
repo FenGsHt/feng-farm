@@ -908,3 +908,222 @@ button {
   background: var(--accent-green);
   border-radius: 2px;
 }
+
+/* ========== 背包系统样式 ========== */
+.inventory-section {
+  border-top: 1px solid var(--accent-brown);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.inventory-section h4 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.inventory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.inventory-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.inventory-item .item-emoji {
+  font-size: 1.2em;
+}
+
+.inventory-item .item-name {
+  flex: 1;
+}
+
+.inventory-item .item-count {
+  color: gold;
+  font-weight: bold;
+}
+
+.inventory-item .sell-btn {
+  padding: 4px 8px;
+  background: var(--accent-green);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.inventory-item .sell-btn:hover {
+  background: #689f38;
+}
+
+.inventory-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+}
+
+/* ========== 商店弹窗样式 ========== */
+.shop-modal-content {
+  min-width: 500px;
+  max-width: 600px;
+}
+
+.shop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.shop-header h2 {
+  margin: 0;
+}
+
+.shop-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.shop-tab {
+  flex: 1;
+  padding: 12px;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-brown);
+  border-radius: 8px;
+  color: var(--text-light);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.shop-tab:hover {
+  border-color: var(--accent-green);
+}
+
+.shop-tab.active {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+.shop-items {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.shop-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-brown);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shop-item:hover {
+  border-color: var(--accent-green);
+  transform: translateY(-2px);
+}
+
+.shop-item .item-emoji {
+  font-size: 2em;
+}
+
+.shop-item .item-name {
+  font-size: 13px;
+  text-align: center;
+}
+
+.shop-item .item-price {
+  color: gold;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.shop-item .item-price::before {
+  content: '💰 ';
+}
+
+.shop-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--accent-brown);
+}
+
+.shop-hint {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 出售标签页 */
+.sell-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sell-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-dark);
+  border-radius: 8px;
+}
+
+.sell-item-row .item-emoji {
+  font-size: 1.5em;
+}
+
+.sell-item-row .item-info {
+  flex: 1;
+}
+
+.sell-item-row .item-name {
+  font-weight: bold;
+}
+
+.sell-item-row .item-count {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.sell-item-row .sell-price {
+  color: gold;
+  font-weight: bold;
+}
+
+.sell-item-row .sell-btn {
+  padding: 8px 16px;
+  background: var(--accent-green);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sell-item-row .sell-btn:hover {
+  background: #689f38;
+}

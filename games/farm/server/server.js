@@ -127,6 +127,58 @@ io.on('connection', (socket) => {
     }
   });
   
+  // Buy item from shop
+  socket.on('buy-item', ({ itemId, quantity = 1 }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.buyItem(socket.id, itemId, quantity);
+    socket.emit('shop-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+  
+  // Sell item from inventory
+  socket.on('sell-item', ({ cropType, quantity = 1 }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.sellItem(socket.id, cropType, quantity);
+    socket.emit('shop-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+  
+  // Use item
+  socket.on('use-item', ({ itemId }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.useItem(socket.id, itemId);
+    socket.emit('action-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+  
+  // Get shop items
+  socket.on('get-shop', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const shopItems = room.game.getShopItems();
+    socket.emit('shop-items', shopItems);
+  });
+  
   // New farm (reset)
   socket.on('new-farm', () => {
     if (!currentRoomId) return;

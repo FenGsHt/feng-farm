@@ -137,6 +137,34 @@
           <h4>👥 在线玩家</h4>
           <div id="players-list" class="players-list"></div>
         </div>
+        
+        <!-- 背包面板 -->
+        <div class="inventory-section">
+          <h4>🎒 背包 <button id="open-shop-btn" class="btn-small">🛒 商店</button></h4>
+          <div id="inventory-list" class="inventory-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 商店弹窗 -->
+    <div id="shop-modal" class="modal hidden">
+      <div class="modal-content shop-modal-content">
+        <div class="shop-header">
+          <h2>🛒 农场商店</h2>
+          <button id="close-shop-btn" class="btn-icon">✕</button>
+        </div>
+        
+        <div class="shop-tabs">
+          <button class="shop-tab active" data-tab="seeds">🌱 种子</button>
+          <button class="shop-tab" data-tab="items">🧪 道具</button>
+          <button class="shop-tab" data-tab="sell">💰 出售</button>
+        </div>
+        
+        <div id="shop-items" class="shop-items"></div>
+        
+        <div class="shop-footer">
+          <div class="shop-hint">点击购买/出售物品</div>
+        </div>
       </div>
     </div>
 

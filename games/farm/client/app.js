@@ -16,6 +16,7 @@ let currentRoom = null;
 let currentPlayer = null;
 let currentPlayerName = '';
 let gameState = null;
+let currentShopTab = 'seeds';
 
 // ========== 音效系统 (Web Audio API) ==========
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -188,12 +189,18 @@ const onlineCount = document.getElementById('online-count');
 const gameTimeDisplay = document.getElementById('game-time');
 const notification = document.getElementById('notification');
 
-// 地图拖拽状态
+// 地图拖拽和缩放状态
 let isDragging = false;
 let dragStartX = 0;
 let dragStartY = 0;
 let scrollStartX = 0;
 let scrollStartY = 0;
+
+// 缩放相关
+let scale = 1;
+const MIN_SCALE = 0.5;
+const MAX_SCALE = 2;
+const SCALE_STEP = 0.1;
 
 // 初始化 Socket
 function initSocket() {
@@ -254,6 +261,20 @@ function initSocket() {
     showNotification(data.message);
   });
 
+  socket.on('shop-result', (result) => {
+    if (result.success) {
+      showNotification(`✅ ${result.message}`, 'success');
+      playSound('coin');
+    } else {
+      showNotification(`❌ ${result.message}`, 'error');
+      playSound('error');
+    }
+  });
+
+  socket.on('shop-items', (items) => {
+    renderShopItems(items);
+  });
+
   socket.on('error', (error) => {
     showNotification(error.message || '发生错误', 'error');
   });
@@ -312,9 +333,15 @@ function createRoom() {
 function updateGameState(state) {
   gameState = state;
   renderFarm();
-  // 上帝视角：不再显示玩家位置标记，但保留在线列表
-  // renderPlayers(); // 注释掉以实现上帝视角
+  
+  // 上帝视角：隐藏玩家角色显示（只显示农田）
+  if (playersLayer) {
+    playersLayer.style.display = 'none';
+  }
+  
+  // 保留在线列表显示
   renderPlayerList();
+  renderInventory();
   updateOnlineCount();
   updateMoneyDisplay();
   updateGameTimeDisplay();
@@ -804,6 +831,177 @@ document.getElementById('remove-btn')?.addEventListener('click', () => {
 });
 document.getElementById('reset-btn')?.addEventListener('click', () => socket?.emit('new-farm'));
 
+// ========== 背包和商店功能 ==========
+
+// 渲染背包
+function renderInventory() {
+  if (!currentPlayer || !gameState) return;
+  
+  const inventoryList = document.getElementById('inventory-list');
+  if (!inventoryList) return;
+  
+  const player = gameState.players.find(p => p.id === currentPlayer.id);
+  if (!player) return;
+  
+  const inventory = player.inventory || {};
+  const crops = gameState.crops || {};
+  
+  const items = Object.entries(inventory);
+  
+  if (items.length === 0) {
+    inventoryList.innerHTML = '<div class="inventory-empty">背包是空的</div>';
+    return;
+  }
+  
+  inventoryList.innerHTML = '';
+  items.forEach(([cropType, count]) => {
+    const crop = crops[cropType];
+    if (!crop) return;
+    
+    const itemEl = document.createElement('div');
+    itemEl.className = 'inventory-item';
+    itemEl.innerHTML = `
+      <span class="item-emoji">${crop.emoji}</span>
+      <span class="item-name">${crop.name}</span>
+      <span class="item-count">x${count}</span>
+      <button class="sell-btn" data-crop="${cropType}">出售</button>
+    `;
+    inventoryList.appendChild(itemEl);
+  });
+  
+  // 绑定出售按钮事件
+  inventoryList.querySelectorAll('.sell-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cropType = btn.dataset.crop;
+      socket.emit('sell-item', { cropType, quantity: 1 });
+    });
+  });
+}
+
+// 渲染商店物品
+function renderShopItems(shopItems) {
+  const shopItemsContainer = document.getElementById('shop-items');
+  if (!shopItemsContainer) return;
+  
+  // 过滤当前标签页的物品
+  let itemsToShow = [];
+  
+  if (currentShopTab === 'seeds') {
+    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'seed');
+  } else if (currentShopTab === 'items') {
+    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'item');
+  } else if (currentShopTab === 'sell') {
+    // 出售页面：显示背包中的物品
+    renderSellTab(shopItemsContainer);
+    return;
+  }
+  
+  shopItemsContainer.innerHTML = '';
+  itemsToShow.forEach(([itemId, item]) => {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'shop-item';
+    itemEl.dataset.itemId = itemId;
+    itemEl.innerHTML = `
+      <span class="item-emoji">${item.emoji}</span>
+      <span class="item-name">${item.name}</span>
+      <span class="item-price">${item.price}</span>
+    `;
+    itemEl.addEventListener('click', () => {
+      socket.emit('buy-item', { itemId, quantity: 1 });
+    });
+    shopItemsContainer.appendChild(itemEl);
+  });
+}
+
+// 渲染出售标签页
+function renderSellTab(container) {
+  if (!currentPlayer || !gameState) {
+    container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
+    return;
+  }
+  
+  const player = gameState.players.find(p => p.id === currentPlayer.id);
+  if (!player) return;
+  
+  const inventory = player.inventory || {};
+  const crops = gameState.crops || {};
+  
+  const items = Object.entries(inventory).filter(([cropType]) => crops[cropType]);
+  
+  if (items.length === 0) {
+    container.innerHTML = '<div class="inventory-empty">背包中没有可出售的物品</div>';
+    return;
+  }
+  
+  container.innerHTML = '';
+  items.forEach(([cropType, count]) => {
+    const crop = crops[cropType];
+    const row = document.createElement('div');
+    row.className = 'sell-item-row';
+    row.innerHTML = `
+      <span class="item-emoji">${crop.emoji}</span>
+      <div class="item-info">
+        <div class="item-name">${crop.name}</div>
+        <div class="item-count">库存: ${count}</div>
+      </div>
+      <span class="sell-price">+${crop.sellPrice}💰</span>
+      <button class="sell-btn" data-crop="${cropType}">出售</button>
+    `;
+    container.appendChild(row);
+  });
+  
+  // 绑定出售按钮事件
+  container.querySelectorAll('.sell-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const cropType = btn.dataset.crop;
+      socket.emit('sell-item', { cropType, quantity: 1 });
+    });
+  });
+}
+
+// 打开商店
+function openShop() {
+  const shopModal = document.getElementById('shop-modal');
+  if (shopModal) {
+    shopModal.classList.remove('hidden');
+    // 请求商店物品列表
+    socket.emit('get-shop');
+  }
+}
+
+// 关闭商店
+function closeShop() {
+  const shopModal = document.getElementById('shop-modal');
+  if (shopModal) {
+    shopModal.classList.add('hidden');
+  }
+}
+
+// 初始化商店事件
+function initShopEvents() {
+  const openShopBtn = document.getElementById('open-shop-btn');
+  const closeShopBtn = document.getElementById('close-shop-btn');
+  const shopModal = document.getElementById('shop-modal');
+  
+  openShopBtn?.addEventListener('click', openShop);
+  closeShopBtn?.addEventListener('click', closeShop);
+  
+  shopModal?.addEventListener('click', (e) => {
+    if (e.target === shopModal) closeShop();
+  });
+  
+  // 商店标签切换
+  document.querySelectorAll('.shop-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentShopTab = tab.dataset.tab;
+      socket.emit('get-shop');
+    });
+  });
+}
+
 // 初始化 - 简化版：自动进入农场
 function init() {
   const savedName = localStorage.getItem(PLAYER_NAME_KEY);
@@ -825,6 +1023,9 @@ function init() {
     initSocket();
   }
   
+  // 初始化商店事件
+  initShopEvents();
+  
   // 监听游戏状态，自动切换到游戏界面
   socket?.on('game-state', (state) => {
     updateGameState(state);
@@ -837,7 +1038,7 @@ function init() {
   initDragScroll();
 }
 
-// 地图拖拽滚动
+// 地图拖拽滚动和缩放
 function initDragScroll() {
   const farmWrapper = document.querySelector('.farm-wrapper');
   if (!farmWrapper) return;
@@ -886,6 +1087,38 @@ function initDragScroll() {
   
   farmWrapper.addEventListener('mouseup', stopDrag);
   farmWrapper.addEventListener('mouseleave', stopDrag);
+  
+  // 滚轮缩放功能
+  farmWrapper.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      
+      const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
+      const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale + delta));
+      
+      if (newScale !== scale) {
+        scale = newScale;
+        
+        // 获取鼠标相对于 farmGrid 的位置
+        const rect = farmGrid.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // 应用缩放
+        farmGrid.style.transform = `scale(${scale})`;
+        farmGrid.style.transformOrigin = `${mouseX}px ${mouseY}px`;
+        
+        // 调整容器大小以适应缩放
+        if (gameState) {
+          const cellSize = Math.min(CONFIG.cellSize, Math.min(CONFIG.maxGridWidth / gameState.width, CONFIG.maxGridWidth / gameState.height));
+          const gridWidth = gameState.width * cellSize * scale;
+          const gridHeight = gameState.height * cellSize * scale;
+          farmGrid.style.width = `${gridWidth}px`;
+          farmGrid.style.height = `${gridHeight}px`;
+        }
+      }
+    }
+  }, { passive: false });
   
   // 初始光标
   farmWrapper.style.cursor = 'grab';
