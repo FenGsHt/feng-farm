@@ -139,7 +139,7 @@ io.on('connection', (socket) => {
     if (currentRoomId) {
       roomManager.removePlayer(currentRoomId, socket.id);
       socket.leave(currentRoomId);
-      io.to(currentRoomId).emit('game-state', roomManager.getRoom(currentRoomId)?.game.getState());
+      io.to(currentRoomId).emit('game-state', roomManager.getRoom(currentRoomId).game.getState());
       io.emit('room-list', roomManager.getRoomList());
       currentRoomId = null;
     }
@@ -150,7 +150,7 @@ io.on('connection', (socket) => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
     if (currentRoomId) {
       roomManager.removePlayer(currentRoomId, socket.id);
-      io.to(currentRoomId).emit('game-state', roomManager.getRoom(currentRoomId)?.game.getState());
+      io.to(currentRoomId).emit('game-state', roomManager.getRoom(currentRoomId).game.getState());
       io.emit('room-list', roomManager.getRoomList());
     }
   });

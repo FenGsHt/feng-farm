@@ -1,7 +1,7 @@
 {
   "name": "feng-farm",
   "version": "1.0.0",
-  "description": "",
+  "description": "一款基于 WebSocket 的多人实时在线农场游戏，支持多人同时在线种植、浇水、收获，体验田园乐趣。",
   "main": "ecosystem.config.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -21,5 +21,12 @@
   "dependencies": {
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
+  },
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2"
   }
 }

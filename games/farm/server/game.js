@@ -162,10 +162,10 @@ class FarmGame {
     
     const player = {
       id: socketId,
-      name: savedPlayer?.name || playerName,
-      money: savedPlayer?.money || 50, // 初始资金，如果没有保存数据则为50
-      color: savedPlayer?.color || colors[this.players.size % colors.length],
-      position: savedPlayer?.position || { x: 0, y: 0 }
+      name: savedPlayer && savedPlayer.name || playerName,
+      money: savedPlayer && savedPlayer.money || 50, // 初始资金，如果没有保存数据则为50
+      color: savedPlayer && savedPlayer.color || colors[this.players.size % colors.length],
+      position: savedPlayer && savedPlayer.position || { x: 0, y: 0 }
     };
     this.players.set(socketId, player);
     return player;
