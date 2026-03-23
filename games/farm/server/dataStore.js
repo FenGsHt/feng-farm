@@ -4,6 +4,7 @@ const path = require('path');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
+const PLAYER_STATS_FILE = path.join(DATA_DIR, 'player_stats.json');
 const LOGS_DIR = path.join(DATA_DIR, 'logs');
 
 // 确保数据目录存在
@@ -67,6 +68,49 @@ function updatePlayerMoney(playerId, money) {
 // 更新玩家名称
 function updatePlayerName(playerId, name) {
   return savePlayer(playerId, { name });
+}
+
+// 读取玩家统计数据
+function loadPlayerStats() {
+  ensureDataDir();
+  try {
+    if (fs.existsSync(PLAYER_STATS_FILE)) {
+      const data = fs.readFileSync(PLAYER_STATS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('[DataStore] Failed to load player stats:', err.message);
+  }
+  return {};
+}
+
+// 保存玩家统计数据
+function savePlayerStatsToFile(playerStats) {
+  ensureDataDir();
+  try {
+    fs.writeFileSync(PLAYER_STATS_FILE, JSON.stringify(playerStats, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('[DataStore] Failed to save player stats:', err.message);
+    return false;
+  }
+}
+
+// 获取玩家统计数据
+function getPlayerStats(playerId) {
+  const stats = loadPlayerStats();
+  return stats[playerId] || null;
+}
+
+// 保存玩家统计数据
+function savePlayerStats(playerId, statsData) {
+  const stats = loadPlayerStats();
+  stats[playerId] = {
+    ...stats[playerId],
+    ...statsData,
+    lastUpdate: Date.now()
+  };
+  return savePlayerStatsToFile(stats);
 }
 
 // 玩家操作日志
@@ -133,6 +177,8 @@ module.exports = {
   savePlayer,
   updatePlayerMoney,
   updatePlayerName,
+  getPlayerStats,
+  savePlayerStats,
   logAction,
   getPlayerLogs
 };

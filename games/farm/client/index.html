@@ -130,12 +130,36 @@
           </button>
         </div>
 
+        <!-- 动物栏 -->
+        <div class="action-section">
+          <h4>🐾 动物栏</h4>
+          <div id="animal-pen" class="animal-pen-grid"></div>
+          <div class="animal-buttons">
+            <button id="buy-chicken-btn" class="animal-buy-btn">
+              <span>🐔</span> 50💰
+            </button>
+            <button id="buy-sheep-btn" class="animal-buy-btn">
+              <span>🐑</span> 200💰
+            </button>
+            <button id="buy-cow-btn" class="animal-buy-btn">
+              <span>🐄</span> 400💰
+            </button>
+          </div>
+        </div>
+
 
 
         <!-- 玩家列表 -->
         <div class="players-section">
           <h4>👥 在线玩家</h4>
           <div id="players-list" class="players-list"></div>
+        </div>
+        
+        <!-- 好友面板 -->
+        <div class="friends-section">
+          <h4>👫 好友 <button id="open-friends-btn" class="btn-small">➕ 添加</button></h4>
+          <div id="friends-list" class="friends-list"></div>
+          <button id="open-leaderboard-btn" class="btn-small btn-leaderboard">🏆 排行榜</button>
         </div>
         
         <!-- 背包面板 -->
@@ -170,6 +194,41 @@
 
     <!-- 通知栏 -->
     <div id="notification" class="notification hidden"></div>
+    
+    <!-- 好友弹窗 -->
+    <div id="friends-modal" class="modal hidden">
+      <div class="modal-content friends-modal-content">
+        <div class="friends-header">
+          <h2>👫 好友列表</h2>
+          <button id="close-friends-btn" class="btn-icon">✕</button>
+        </div>
+        
+        <div class="add-friend-form">
+          <input type="text" id="friend-name-input" placeholder="输入玩家名字" maxlength="12">
+          <button id="add-friend-btn" class="btn-primary btn-small">添加</button>
+        </div>
+        
+        <div id="friends-modal-list" class="friends-modal-list"></div>
+      </div>
+    </div>
+    
+    <!-- 排行榜弹窗 -->
+    <div id="leaderboard-modal" class="modal hidden">
+      <div class="modal-content leaderboard-modal-content">
+        <div class="leaderboard-header">
+          <h2>🏆 排行榜</h2>
+          <button id="close-leaderboard-btn" class="btn-icon">✕</button>
+        </div>
+        
+        <div class="leaderboard-tabs">
+          <button class="leaderboard-tab active" data-type="money">💰 金币</button>
+          <button class="leaderboard-tab" data-type="level">⭐ 等级</button>
+          <button class="leaderboard-tab" data-type="harvests">🌾 收获</button>
+        </div>
+        
+        <div id="leaderboard-list" class="leaderboard-list"></div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>

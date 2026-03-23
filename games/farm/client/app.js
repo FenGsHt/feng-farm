@@ -342,6 +342,7 @@ function updateGameState(state) {
   // 保留在线列表显示
   renderPlayerList();
   renderInventory();
+  renderAnimalPen();
   updateOnlineCount();
   updateMoneyDisplay();
   updateGameTimeDisplay();
@@ -502,19 +503,32 @@ function showPlotTooltip(e, plot, cropConfig) {
     const crop = cropConfig[plot.crop];
     const stageNames = ['种子', '幼苗', '生长中', '成熟'];
     
-    // 计算剩余生长时间
-    let remainingTime = '';
-    if (plot.growthStage < 3) {
-      // 获取当前游戏时间估算剩余时间
-      const growthTime = crop.growthTime; // 秒
-      const stageProgress = plot.growthStage / 3; // 0-1
-      // 假设浇水加速50%，反向估算
-      const wasWatered = plot.isWatered;
-      const timeMultiplier = wasWatered ? 1.5 : 1.0;
+    // 计算剩余成熟时间（更精确的倒计时）
+    let remainingTimeText = '';
+    if (plot.growthStage < 3 && plot.plantedAt) {
+      const crop = cropConfig[plot.crop];
+      const growthTime = crop.growthTime; // 总生长时间（秒）
+      const stageProgress = plot.growthStage / 3; // 当前进度 0-1
+      const elapsedTime = (Date.now() - new Date(plot.plantedAt).getTime()) / 1000;
+      
+      // 考虑浇水加速（通常浇水加速生长）
+      const timeMultiplier = plot.wateringCount > 0 ? 1.5 : 1.0;
       const totalTimeNeeded = growthTime * timeMultiplier;
-      const elapsedSincePlant = totalTimeNeeded * stageProgress;
-      const remaining = Math.max(0, totalTimeNeeded - elapsedSincePlant);
-      remainingTime = `还剩 ${Math.ceil(remaining)} 秒`;
+      const remainingSeconds = Math.max(0, totalTimeNeeded * (1 - stageProgress) - elapsedTime);
+      
+      if (remainingSeconds > 0) {
+        const minutes = Math.floor(remainingSeconds / 60);
+        const seconds = Math.floor(remainingSeconds % 60);
+        if (minutes > 0) {
+          remainingTimeText = `⏱️ 约 ${minutes}分${seconds}秒后成熟`;
+        } else {
+          remainingTimeText = `⏱️ 约 ${seconds}秒后成熟`;
+        }
+      } else {
+        remainingTimeText = '⏱️ 即将成熟';
+      }
+    } else if (plot.growthStage >= 3) {
+      remainingTimeText = '✨ 已成熟，可收获！';
     }
     
     content = `
@@ -522,14 +536,14 @@ function showPlotTooltip(e, plot, cropConfig) {
       <div class="tooltip-row">阶段: ${stageNames[plot.growthStage]}</div>
       <div class="tooltip-row">湿度: ${plot.soilMoisture}%</div>
       <div class="tooltip-row">${plot.isWatered ? '💧 已浇水' : '💧 未浇水'}</div>
-      ${remainingTime ? `<div class="tooltip-row">⏱️ ${remainingTime}</div>` : ''}
-      ${plot.growthStage >= 3 ? `<div class="tooltip-row ready-text">✨ 可收获 (+${crop.sellPrice}💰)</div>` : ''}
+      ${remainingTimeText ? `<div class="tooltip-row ${plot.growthStage >= 3 ? 'ready-text' : ''}">${remainingTimeText}</div>` : ''}
+      ${plot.growthStage >= 3 ? `<div class="tooltip-row ready-text">💰 售价: +${crop.sellPrice}</div>` : ''}
     `;
   } else {
     content = `
       <div class="tooltip-title">🟫 空地</div>
       <div class="tooltip-row">湿度: ${plot.soilMoisture}%</div>
-      <div class="tooltip-row">点击移动至此</div>
+      <div class="tooltip-row">点击选择此地块</div>
     `;
   }
   
@@ -1000,6 +1014,87 @@ function initShopEvents() {
       socket.emit('get-shop');
     });
   });
+  
+  // 动物购买按钮
+  document.getElementById('buy-chicken-btn')?.addEventListener('click', () => {
+    playSound('coin');
+    socket.emit('buy-animal', { animalType: 'chicken' });
+  });
+  
+  document.getElementById('buy-sheep-btn')?.addEventListener('click', () => {
+    playSound('coin');
+    socket.emit('buy-animal', { animalType: 'sheep' });
+  });
+  
+  document.getElementById('buy-cow-btn')?.addEventListener('click', () => {
+    playSound('coin');
+    socket.emit('buy-animal', { animalType: 'cow' });
+  });
+}
+
+// 渲染动物栏
+function renderAnimalPen() {
+  if (!gameState || !gameState.animalPens) return;
+  
+  const animalPenContainer = document.getElementById('animal-pen');
+  if (!animalPenContainer) return;
+  
+  const pens = gameState.animalPens;
+  const animals = gameState.animals || {};
+  
+  animalPenContainer.innerHTML = '';
+  
+  pens.forEach((pen, index) => {
+    const cell = document.createElement('div');
+    cell.className = 'animal-pen-cell';
+    
+    if (!pen.animal) {
+      cell.classList.add('empty');
+      cell.innerHTML = `
+        <span class="animal-pen-emoji">🏚️</span>
+        <span class="animal-pen-name">空栏位</span>
+      `;
+    } else {
+      cell.classList.add('has-animal');
+      
+      const animal = animals[pen.animal];
+      let statusText = pen.isReady ? '可收获!' : `${pen.remainingTime}秒`;
+      if (pen.isReady) cell.classList.add('ready');
+      
+      const progressPercent = Math.round((pen.progress || 0) * 100);
+      
+      cell.innerHTML = `
+        <span class="animal-pen-emoji">${pen.emoji}</span>
+        <span class="animal-pen-name">${pen.animalName}</span>
+        <span class="animal-pen-status ${pen.isReady ? 'ready' : ''}">${statusText}</span>
+        <div class="animal-pen-progress">
+          <div class="animal-pen-progress-bar" style="width: ${progressPercent}%"></div>
+        </div>
+        <div class="animal-pen-actions">
+          <button class="animal-harvest-btn" data-pen="${index}" ${!pen.isReady ? 'disabled' : ''}>收获</button>
+          <button class="animal-sell-btn" data-pen="${index}">出售</button>
+        </div>
+      `;
+      
+      // 绑定收获按钮
+      cell.querySelector('.animal-harvest-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (pen.isReady) {
+          playSound('harvest');
+          socket.emit('harvest-animal', { penIndex: index });
+        }
+      });
+      
+      // 绑定出售按钮
+      cell.querySelector('.animal-sell-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('coin');
+        socket.emit('sell-animal', { penIndex: index });
+      });
+    }
+    
+    animalPenContainer.appendChild(cell);
+  });
 }
 
 // 初始化 - 简化版：自动进入农场
@@ -1036,6 +1131,20 @@ function init() {
   
   // 地图拖拽功能
   initDragScroll();
+  
+  // 重置缩放
+  resetZoom();
+}
+
+// 重置缩放
+function resetZoom() {
+  scale = 1;
+  if (farmGrid) {
+    farmGrid.style.transform = 'scale(1)';
+    farmGrid.style.transformOrigin = 'center center';
+    farmGrid.style.width = '';
+    farmGrid.style.height = '';
+  }
 }
 
 // 地图拖拽滚动和缩放

@@ -1127,3 +1127,452 @@ button {
 .sell-item-row .sell-btn:hover {
   background: #689f38;
 }
+
+/* ========== 动物栏样式 ========== */
+.animal-pen-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.animal-pen-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-brown);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 70px;
+}
+
+.animal-pen-cell:hover {
+  border-color: var(--accent-green);
+}
+
+.animal-pen-cell.empty {
+  opacity: 0.6;
+}
+
+.animal-pen-cell.has-animal {
+  border-color: var(--accent-green);
+}
+
+.animal-pen-cell.ready {
+  border-color: gold;
+  animation: ready-pulse 1s infinite;
+}
+
+.animal-pen-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.animal-pen-name {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.animal-pen-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.animal-pen-status.ready {
+  color: gold;
+  font-weight: bold;
+}
+
+.animal-pen-progress {
+  width: 100%;
+  height: 4px;
+  background: var(--accent-brown);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.animal-pen-progress-bar {
+  height: 100%;
+  background: var(--accent-green);
+  transition: width 0.3s;
+}
+
+.animal-pen-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.animal-pen-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.animal-harvest-btn {
+  background: var(--accent-green);
+  color: white;
+}
+
+.animal-harvest-btn:hover {
+  background: #689f38;
+}
+
+.animal-sell-btn {
+  background: #f57c00;
+  color: white;
+}
+
+.animal-sell-btn:hover {
+  background: #e65100;
+}
+
+.animal-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.animal-buy-btn {
+  flex: 1;
+  min-width: 70px;
+  padding: 8px 12px;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-brown);
+  border-radius: 6px;
+  color: var(--text-light);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.animal-buy-btn:hover {
+  border-color: var(--accent-green);
+  background: #243020;
+}
+
+.animal-buy-btn span {
+  margin-right: 4px;
+}
+
+/* ========== 好友系统样式 ========== */
+.friends-section {
+  border-top: 1px solid var(--accent-brown);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.friends-section h4 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.friend-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.friend-badge .friend-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.friend-badge .friend-status.online {
+  background: var(--success);
+}
+
+.friend-badge .friend-status.offline {
+  background: var(--text-muted);
+}
+
+.friend-badge .friend-name {
+  flex: 1;
+}
+
+.friend-badge .friend-money {
+  color: gold;
+  font-size: 12px;
+}
+
+.friend-badge .visit-btn {
+  padding: 2px 6px;
+  background: var(--accent-green);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.friend-badge .remove-btn {
+  padding: 2px 6px;
+  background: var(--error);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.btn-leaderboard {
+  width: 100%;
+  margin-top: 10px;
+  background: #ff9800;
+}
+
+.btn-leaderboard:hover {
+  background: #f57c00;
+}
+
+/* 好友弹窗 */
+.friends-modal-content {
+  min-width: 400px;
+  max-width: 450px;
+}
+
+.friends-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.friends-header h2 {
+  margin: 0;
+}
+
+.add-friend-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.add-friend-form input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid var(--accent-brown);
+  border-radius: 8px;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.add-friend-form input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.friends-modal-list {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friends-modal-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-dark);
+  border-radius: 8px;
+}
+
+.friends-modal-item .friend-status {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.friends-modal-item .friend-status.online {
+  background: var(--success);
+}
+
+.friends-modal-item .friend-status.offline {
+  background: var(--text-muted);
+}
+
+.friends-modal-item .friend-info {
+  flex: 1;
+}
+
+.friends-modal-item .friend-name {
+  font-weight: bold;
+}
+
+.friends-modal-item .friend-money {
+  color: gold;
+  font-size: 13px;
+}
+
+.friends-modal-item .friend-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ========== 排行榜样式 ========== */
+.leaderboard-modal-content {
+  min-width: 450px;
+  max-width: 500px;
+}
+
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.leaderboard-header h2 {
+  margin: 0;
+}
+
+.leaderboard-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.leaderboard-tab {
+  flex: 1;
+  padding: 12px;
+  background: var(--bg-dark);
+  border: 2px solid var(--accent-brown);
+  border-radius: 8px;
+  color: var(--text-light);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.leaderboard-tab:hover {
+  border-color: var(--accent-green);
+}
+
+.leaderboard-tab.active {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+.leaderboard-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--bg-dark);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.leaderboard-item.top-1 {
+  border: 2px solid #ffd700;
+  background: linear-gradient(135deg, #3d3d00 0%, #1a1a00 100%);
+}
+
+.leaderboard-item.top-2 {
+  border: 2px solid #c0c0c0;
+}
+
+.leaderboard-item.top-3 {
+  border: 2px solid #cd7f32;
+}
+
+.leaderboard-rank {
+  font-size: 20px;
+  font-weight: bold;
+  width: 36px;
+  text-align: center;
+}
+
+.leaderboard-rank.top-1 {
+  color: #ffd700;
+}
+
+.leaderboard-rank.top-2 {
+  color: #c0c0c0;
+}
+
+.leaderboard-rank.top-3 {
+  color: #cd7f32;
+}
+
+.leaderboard-info {
+  flex: 1;
+}
+
+.leaderboard-name {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.leaderboard-stats {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.leaderboard-level {
+  color: #ff9800;
+  font-weight: bold;
+}
+
+.leaderboard-value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.leaderboard-value.money {
+  color: gold;
+}
+
+.leaderboard-value.harvests {
+  color: var(--accent-green);
+}
+
+/* 空状态 */
+.no-friends {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px;
+  font-size: 14px;
+}
+
+.no-leaderboard {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 30px;
+  font-size: 14px;
+}

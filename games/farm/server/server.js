@@ -179,6 +179,176 @@ io.on('connection', (socket) => {
     socket.emit('shop-items', shopItems);
   });
   
+  // Get leaderboard
+  socket.on('get-leaderboard', (type = 'money') => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const leaderboard = room.game.getLeaderboard(type);
+    socket.emit('leaderboard-data', { type, data: leaderboard });
+  });
+  
+  // Add friend
+  socket.on('add-friend', ({ friendName }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const player = room.players.get(socket.id);
+    if (!player) return;
+    
+    // Check if friend exists in the room
+    const friend = Array.from(room.players.values()).find(p => p.name === friendName);
+    if (!friend) {
+      socket.emit('friend-result', { success: false, message: '玩家不存在或已离线' });
+      return;
+    }
+    
+    if (friend.id === socket.id) {
+      socket.emit('friend-result', { success: false, message: '不能添加自己为好友' });
+      return;
+    }
+    
+    // Initialize friends list if not exists
+    if (!player.friends) {
+      player.friends = [];
+    }
+    
+    // Check if already a friend
+    if (player.friends.includes(friendName)) {
+      socket.emit('friend-result', { success: false, message: '已经是好友了' });
+      return;
+    }
+    
+    player.friends.push(friendName);
+    socket.emit('friend-result', { success: true, message: `已添加 ${friendName} 为好友` });
+    socket.emit('friends-list', player.friends);
+  });
+  
+  // Remove friend
+  socket.on('remove-friend', ({ friendName }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const player = room.players.get(socket.id);
+    if (!player || !player.friends) {
+      socket.emit('friend-result', { success: false, message: '好友列表为空' });
+      return;
+    }
+    
+    const index = player.friends.indexOf(friendName);
+    if (index > -1) {
+      player.friends.splice(index, 1);
+      socket.emit('friend-result', { success: true, message: `已删除好友 ${friendName}` });
+      socket.emit('friends-list', player.friends);
+    } else {
+      socket.emit('friend-result', { success: false, message: '该好友不存在' });
+    }
+  });
+  
+  // Get friends list with online status
+  socket.on('get-friends', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const player = room.players.get(socket.id);
+    if (!player || !player.friends) {
+      socket.emit('friends-list', []);
+      return;
+    }
+    
+    // Get online status for each friend
+    const friendsWithStatus = player.friends.map(friendName => {
+      const friend = Array.from(room.players.values()).find(p => p.name === friendName);
+      return {
+        name: friendName,
+        online: !!friend,
+        money: friend ? friend.money : null
+      };
+    });
+    
+    socket.emit('friends-list-detailed', friendsWithStatus);
+  });
+  
+  // Visit friend's farm
+  socket.on('visit-friend', ({ friendName }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const friend = Array.from(room.players.values()).find(p => p.name === friendName);
+    if (!friend) {
+      socket.emit('friend-result', { success: false, message: '好友不在线或不存在' });
+      return;
+    }
+    
+    // Send friend's farm data (simplified - just move to their position)
+    socket.emit('friend-farm-data', {
+      name: friend.name,
+      position: friend.position,
+      money: friend.money
+    });
+  });
+  
+  // Buy animal
+  socket.on('buy-animal', ({ animalType }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.buyAnimal(socket.id, animalType);
+    socket.emit('shop-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+  
+  // Harvest animal product
+  socket.on('harvest-animal', ({ penIndex }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.harvestAnimalProduct(socket.id, penIndex);
+    socket.emit('action-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+  
+  // Sell animal
+  socket.on('sell-animal', ({ penIndex }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.sellAnimal(socket.id, penIndex);
+    socket.emit('shop-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+  
+  // Sell animal product
+  socket.on('sell-animal-product', ({ productKey, quantity = 1 }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    
+    const result = room.game.sellAnimalProduct(socket.id, productKey, quantity);
+    socket.emit('shop-result', result);
+    
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+  
   // New farm (reset)
   socket.on('new-farm', () => {
     if (!currentRoomId) return;
