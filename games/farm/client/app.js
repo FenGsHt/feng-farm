@@ -535,6 +535,16 @@ function initSocket() {
     showNotification('连接断开，正在重连...');
   });
 
+  socket.on('connect_error', (err) => {
+    console.error('[Socket] Connection error:', err.message);
+    // 如果是 session 错误，尝试强制新连接
+    if (err.message && err.message.includes('Session ID unknown')) {
+      console.log('[Socket] Session invalid, forcing new connection...');
+      socket.io.opts.forceNew = true;
+      socket.io.opts.reconnection = true;
+    }
+  });
+
   socket.on('room-list', (rooms) => {
     renderRoomList(rooms);
   });
