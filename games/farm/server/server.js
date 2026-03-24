@@ -29,68 +29,11 @@ app.use(express.static(clientPath));
 // Room manager
 const roomManager = new RoomManager();
 
-// Session management
-const sessions = new Map();
-const SESSION_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
-
-function generateSessionId() {
-  return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-function createSession(socketId) {
-  const sessionId = generateSessionId();
-  const session = {
-    id: sessionId,
-    socketId,
-    createdAt: Date.now(),
-    lastActivity: Date.now()
-  };
-  sessions.set(sessionId, session);
-  return session;
-}
-
-function getSession(sessionId) {
-  const session = sessions.get(sessionId);
-  if (!session) return null;
-  
-  // Check if expired
-  if (Date.now() - session.lastActivity > SESSION_EXPIRY_MS) {
-    sessions.delete(sessionId);
-    return null;
-  }
-  
-  // Update last activity
-  session.lastActivity = Date.now();
-  return session;
-}
-
-function removeSession(sessionId) {
-  sessions.delete(sessionId);
-}
-
-// Clean up expired sessions periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [sessionId, session] of sessions.entries()) {
-    if (now - session.lastActivity > SESSION_EXPIRY_MS) {
-      sessions.delete(sessionId);
-      console.log(`[Session] Expired session: ${sessionId}`);
-    }
-  }
-}, 5 * 60 * 1000); // Check every 5 minutes
-
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`[Socket] Client connected: ${socket.id}`);
   
   let currentRoomId = null;
-  let currentSessionId = null;
-  
-  // Create new session on connect
-  const session = createSession(socket.id);
-  currentSessionId = session.id;
-  socket.emit('session-created', { sessionId: currentSessionId });
-  console.log(`[Session] Created: ${currentSessionId} for socket ${socket.id}`);
   
   // Send room list
   socket.emit('room-list', roomManager.getRoomList());
@@ -477,49 +420,11 @@ io.on('connection', (socket) => {
       io.emit('room-list', roomManager.getRoomList());
       currentRoomId = null;
     }
-    // Note: session persists for reconnection
-  });
-  
-  // Validate session (for reconnection or state recovery)
-  socket.on('validate-session', ({ sessionId }, callback) => {
-    const session = getSession(sessionId);
-    if (session) {
-      // Update socket association
-      session.socketId = socket.id;
-      currentSessionId = sessionId;
-      callback({ valid: true, sessionId });
-      console.log(`[Session] Validated: ${sessionId}`);
-    } else {
-      // Create new session
-      const newSession = createSession(socket.id);
-      currentSessionId = newSession.id;
-      callback({ valid: false, newSessionId: newSession.id });
-      console.log(`[Session] Invalid, created new: ${newSession.id}`);
-    }
-  });
-  
-  // Request new session
-  socket.on('request-new-session', (callback) => {
-    const newSession = createSession(socket.id);
-    currentSessionId = newSession.id;
-    if (typeof callback === 'function') {
-      callback({ sessionId: newSession.id });
-    } else {
-      socket.emit('session-created', { sessionId: newSession.id });
-    }
-    console.log(`[Session] New session requested: ${newSession.id}`);
   });
   
   // Disconnect
   socket.on('disconnect', () => {
     console.log(`[Socket] Client disconnected: ${socket.id}`);
-    if (currentSessionId) {
-      // Keep session for potential reconnection
-      const session = sessions.get(currentSessionId);
-      if (session) {
-        session.lastActivity = Date.now(); // Mark for cleanup check
-      }
-    }
     if (currentRoomId) {
       roomManager.removePlayer(currentRoomId, socket.id);
       const room = roomManager.getRoom(currentRoomId);
