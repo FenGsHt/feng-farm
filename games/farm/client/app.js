@@ -519,6 +519,7 @@ const SCALE_STEP = 0.1;
 function initSocket() {
   socket = io(SERVER_URL, {
     path: "/socket.io/",
+    forceNew: true,  // 强制创建新连接，不尝试恢复旧 session
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000
@@ -537,12 +538,6 @@ function initSocket() {
 
   socket.on('connect_error', (err) => {
     console.error('[Socket] Connection error:', err.message);
-    // 如果是 session 错误，尝试强制新连接
-    if (err.message && err.message.includes('Session ID unknown')) {
-      console.log('[Socket] Session invalid, forcing new connection...');
-      socket.io.opts.forceNew = true;
-      socket.io.opts.reconnection = true;
-    }
   });
 
   socket.on('room-list', (rooms) => {
