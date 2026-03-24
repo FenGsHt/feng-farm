@@ -12,12 +12,7 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: false
   },
-  path: "/socket.io/",
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  transports: ['websocket', 'polling'],
-  allowUpgrades: true,
-  perMessageDeflate: false
+  path: "/socket.io/"
 });
 
 app.use(express.json());
