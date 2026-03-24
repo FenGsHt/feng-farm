@@ -534,6 +534,8 @@ function initSocket() {
 
   socket.on('disconnect', () => {
     showNotification('连接断开，正在重连...');
+    // 确保重连时强制新连接
+    socket.io.opts.forceNew = true;
   });
 
   socket.on('connect_error', (err) => {
