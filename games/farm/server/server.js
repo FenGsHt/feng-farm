@@ -437,7 +437,8 @@ app.get('/api/crops', (req, res) => {
 });
 
 const PORT = process.env.PORT || 19000;
-httpServer.listen(PORT, () => {
-  console.log(`🌾 Farm Game Server running on http://localhost:${PORT}`);
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`🌾 Farm Game Server running on http://0.0.0.0:${PORT}`);
   console.log(`📁 Socket.IO enabled for real-time multiplayer`);
+  console.log(`📝 Logs: console output (stdout)`);
 });
