@@ -517,11 +517,20 @@ const SCALE_STEP = 0.1;
 
 // 初始化 Socket
 function initSocket() {
+  // 清除旧的 socket.io session 缓存
+  document.cookie.split(';').forEach(function(c) {
+    if (c.trim().startsWith('io=')) {
+      document.cookie = 'io=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    }
+  });
+  
   socket = io(SERVER_URL, {
     path: "/socket.io/",
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 10,
-    reconnectionDelay: 1000
+    reconnectionDelay: 1000,
+    forceNew: true  // 强制新连接，避免使用缓存的 session
   });
 
   socket.on('connect', () => {
