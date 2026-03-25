@@ -553,7 +553,14 @@ function initSocket() {
 
   socket.on('player-info', (player) => {
     currentPlayer = player;
+    // 初始化等级数据
+    if (!currentPlayer.level) currentPlayer.level = 1;
+    if (!currentPlayer.totalXp) currentPlayer.totalXp = 0;
+    if (!currentPlayer.currentXp) currentPlayer.currentXp = 0;
+    if (!currentPlayer.xpToNextLevel) currentPlayer.xpToNextLevel = 100;
+    if (!currentPlayer.coinBonus) currentPlayer.coinBonus = 1;
     updatePlayerInfo();
+    updateLevelDisplay();
   });
 
   socket.on('action-result', (result) => {
@@ -580,6 +587,16 @@ function initSocket() {
       } else if (msg.includes('收获') || msg.includes('harvest')) {
         playSound('harvest');
         if (currentPlot) createParticlesAtElement(currentPlot, 'harvest');
+        
+        // 显示经验值获得
+        if (result.xpGained) {
+          showXpGain(result.xpGained);
+        }
+        
+        // 检查是否升级
+        if (result.leveledUp) {
+          showLevelUpAnimation(result.level);
+        }
       } else if (msg.includes('金币') || msg.includes('money') || msg.includes('coin')) {
         playSound('coin');
       } else if (msg.includes('杀虫剂') || msg.includes('pesticide')) {
@@ -709,6 +726,19 @@ function updateGameState(state) {
   renderWeather();
   renderPests();
   renderAnimalsOnMap();
+  
+  // 更新当前玩家等级信息
+  if (currentPlayer && gameState.players) {
+    const serverPlayer = gameState.players.find(p => p.id === currentPlayer.id);
+    if (serverPlayer) {
+      currentPlayer.level = serverPlayer.level;
+      currentPlayer.totalXp = serverPlayer.totalXp;
+      currentPlayer.currentXp = serverPlayer.currentXp;
+      currentPlayer.xpToNextLevel = serverPlayer.xpToNextLevel;
+      currentPlayer.coinBonus = serverPlayer.coinBonus;
+      updateLevelDisplay();
+    }
+  }
   
   // 启动动物移动（如果还没启动）
   if (!animalMoveInterval) {
@@ -1179,6 +1209,134 @@ function updatePlayerInfo() {
   
   if (roomNameDisplay && currentRoom) {
     roomNameDisplay.textContent = currentRoom;
+  }
+  
+  // 更新等级显示
+  updateLevelDisplay();
+}
+
+// 更新等级显示
+function updateLevelDisplay() {
+  if (!currentPlayer) return;
+  
+  const levelDisplay = document.getElementById('level-display');
+  const xpBar = document.getElementById('xp-bar');
+  const xpText = document.getElementById('xp-text');
+  const bonusDisplay = document.getElementById('bonus-display');
+  
+  if (levelDisplay) {
+    levelDisplay.textContent = `Lv.${currentPlayer.level || 1}`;
+  }
+  
+  if (xpBar && currentPlayer.xpToNextLevel) {
+    const progress = (currentPlayer.currentXp || 0) / currentPlayer.xpToNextLevel * 100;
+    xpBar.style.width = `${Math.min(100, progress)}%`;
+  }
+  
+  if (xpText) {
+    xpText.textContent = `${currentPlayer.currentXp || 0}/${currentPlayer.xpToNextLevel || 100} XP`;
+  }
+  
+  if (bonusDisplay) {
+    const bonusPercent = Math.round(((currentPlayer.coinBonus || 1) - 1) * 100);
+    bonusDisplay.textContent = `💰+${bonusPercent}%`;
+  }
+}
+
+// 显示经验值获得动画
+function showXpGain(xpAmount) {
+  const levelPanel = document.getElementById('level-panel');
+  if (!levelPanel) return;
+  
+  const xpPopup = document.createElement('div');
+  xpPopup.className = 'xp-popup';
+  xpPopup.textContent = `+${xpAmount} XP`;
+  xpPopup.style.cssText = `
+    position: absolute;
+    top: -30px;
+    right: 0;
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 14px;
+    animation: xpFloat 1s ease-out forwards;
+    pointer-events: none;
+  `;
+  
+  levelPanel.appendChild(xpPopup);
+  
+  setTimeout(() => xpPopup.remove(), 1000);
+}
+
+// 显示升级动画
+function showLevelUpAnimation(newLevel) {
+  // 播放升级音效
+  playSound('success');
+  
+  // 创建升级弹窗
+  const levelUpModal = document.createElement('div');
+  levelUpModal.className = 'levelup-modal';
+  levelUpModal.innerHTML = `
+    <div class="levelup-content">
+      <div class="levelup-stars">⭐⭐⭐</div>
+      <div class="levelup-title">升级啦！</div>
+      <div class="levelup-level">Lv.${newLevel}</div>
+      <div class="levelup-bonus">💰 金币加成 +1%</div>
+      <div class="levelup-reward">+100 金币奖励</div>
+    </div>
+  `;
+  
+  document.body.appendChild(levelUpModal);
+  
+  // 创建升级粒子效果
+  createLevelUpParticles();
+  
+  // 3秒后移除弹窗
+  setTimeout(() => {
+    levelUpModal.classList.add('fade-out');
+    setTimeout(() => levelUpModal.remove(), 500);
+  }, 3000);
+  
+  // 显示通知
+  showNotification(`🎉 恭喜升级到 Lv.${newLevel}！金币加成 +1%`, 'success');
+}
+
+// 创建升级粒子效果
+function createLevelUpParticles() {
+  const colors = ['#FFD700', '#FFA000', '#FF5722', '#4CAF50', '#2196F3'];
+  const particleCount = 50;
+  
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'levelup-particle';
+    particle.style.cssText = `
+      position: fixed;
+      width: ${8 + Math.random() * 8}px;
+      height: ${8 + Math.random() * 8}px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      border-radius: 50%;
+      left: 50%;
+      top: 50%;
+      pointer-events: none;
+      z-index: 9999;
+    `;
+    
+    document.body.appendChild(particle);
+    
+    // 随机角度和距离
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 100 + Math.random() * 200;
+    const duration = 1 + Math.random() * 0.5;
+    
+    particle.animate([
+      { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance}px)) scale(0)`, opacity: 0 }
+    ], {
+      duration: duration * 1000,
+      easing: 'ease-out',
+      fill: 'forwards'
+    });
+    
+    setTimeout(() => particle.remove(), duration * 1000);
   }
 }
 

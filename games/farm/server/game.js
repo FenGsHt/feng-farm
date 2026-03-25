@@ -109,6 +109,53 @@ const ACHIEVEMENTS = [
   { id: 'speed_grower', name: '快速收获', desc: '单次种植后5分钟内收获', reward: 50, icon: '⚡', condition: (stats) => stats.fastHarvest >= 1 }
 ];
 
+// ========== 农场等级系统配置 ==========
+const CROP_XP = {
+  // 谷物
+  wheat: 10,
+  corn: 100,         // 玉米 100 XP
+  rice: 30,
+  // 蔬菜
+  tomato: 15,
+  carrot: 20,        // 胡萝卜 20 XP
+  eggplant: 40,      // 茄子 40 XP
+  cucumber: 25,
+  pumpkin: 50,
+  // 水果
+  strawberry: 30,   // 草莓 30 XP
+  watermelon: 45,
+  grape: 80,
+  apple: 120,
+  // 经济作物
+  cotton: 60,
+  tea: 75
+};
+
+// 每级所需经验值（指数增长）
+function getXpForLevel(level) {
+  return Math.floor(100 * Math.pow(1.5, level - 1));
+}
+
+// 计算等级（基于经验值）
+function calculateLevelFromXp(totalXp) {
+  let level = 1;
+  let xpNeeded = getXpForLevel(1);
+  let xpAccumulated = 0;
+  
+  while (xpAccumulated + xpNeeded <= totalXp && level < 50) {
+    xpAccumulated += xpNeeded;
+    level++;
+    xpNeeded = getXpForLevel(level);
+  }
+  
+  return { level: Math.min(level, 50), currentXp: totalXp - xpAccumulated, xpNeeded };
+}
+
+// 计算金币加成（每级+1%）
+function getCoinBonusMultiplier(level) {
+  return 1 + (level - 1) * 0.01;
+}
+
 // 作物配置
 const CROPS = {
   // 谷物
@@ -926,6 +973,11 @@ class FarmGame {
     // 尝试从持久化存储加载玩家数据
     const savedPlayer = dataStore.getPlayer(socketId);
     
+    // 加载或初始化等级数据
+    const savedLevel = savedPlayer?.level || 1;
+    const savedXp = savedPlayer?.totalXp || 0;
+    const levelInfo = calculateLevelFromXp(savedXp);
+    
     const player = {
       id: socketId,
       name: savedPlayer && savedPlayer.name || playerName,
@@ -939,7 +991,13 @@ class FarmGame {
       dailyTasksClaimed: savedPlayer && savedPlayer.dailyTasksClaimed || [],
       achievements: savedPlayer && savedPlayer.achievements || [],
       stats: savedPlayer && savedPlayer.stats || { plantCount: 0, waterCount: 0, harvestCount: 0, sellCount: 0, fastHarvest: 0 },
-      totalTaskRewards: savedPlayer && savedPlayer.totalTaskRewards || 0
+      totalTaskRewards: savedPlayer && savedPlayer.totalTaskRewards || 0,
+      // 等级系统数据
+      level: savedLevel,
+      totalXp: savedXp,
+      currentXp: levelInfo.currentXp,
+      xpToNextLevel: levelInfo.xpNeeded,
+      coinBonus: getCoinBonusMultiplier(savedLevel)
     };
     this.players.set(socketId, player);
     
@@ -1076,14 +1134,37 @@ class FarmGame {
       // 防作弊：验证奖励
       const rewardCheck = antiCheat.validateHarvestReward(plot, result.reward);
       if (!rewardCheck.valid) {
-        antiCheat.logSuspiciousAction(socketId, player.name, 'harvest', 'Reward mismatch', { expected: result.reward, x, y });
+        antiCheat.logSuspiciousAction(socketId, player.name, 'Harvest', 'Reward mismatch', { expected: result.reward, x, y });
         return { success: false, message: '收获奖励异常' };
       }
+      
+      // 获取作物经验值
+      const xpGained = CROP_XP[result.cropType] || 10;
+      const oldLevel = player.level;
+      
+      // 添加经验值
+      player.totalXp += xpGained;
+      
+      // 计算新等级
+      const levelInfo = calculateLevelFromXp(player.totalXp);
+      player.level = levelInfo.level;
+      player.currentXp = levelInfo.currentXp;
+      player.xpToNextLevel = levelInfo.xpNeeded;
+      
+      // 检查是否升级
+      const leveledUp = player.level > oldLevel;
+      
+      // 计算金币加成（基于等级）
+      player.coinBonus = getCoinBonusMultiplier(player.level);
+      const coinBonusPercent = Math.round((player.coinBonus - 1) * 100);
+      
+      // 应用金币加成
+      const finalReward = Math.floor(result.reward * player.coinBonus);
       
       // 添加到背包
       this.addToInventory(socketId, result.cropType, 1);
       
-      player.money += result.reward;
+      player.money += finalReward;
       
       // 更新玩家统计数据
       const stats = this.playerStats.get(socketId) || { harvests: 0, cropsPlanted: 0 };
@@ -1094,10 +1175,42 @@ class FarmGame {
       // 更新任务进度
       this.updateTaskProgress(socketId, 'harvest', 1);
       
-      // 保存玩家数据
-      dataStore.savePlayer(socketId, { name: player.name, money: player.money, color: player.color, position: player.position, inventory: player.inventory, items: player.items });
+      // 保存玩家数据（包含等级）
+      dataStore.savePlayer(socketId, { 
+        name: player.name, 
+        money: player.money, 
+        color: player.color, 
+        position: player.position, 
+        inventory: player.inventory, 
+        items: player.items,
+        level: player.level,
+        totalXp: player.totalXp,
+        coinBonus: player.coinBonus
+      });
+      
       // 记录操作日志
-      dataStore.logAction(socketId, player.name, 'harvest', { x, y, reward: result.reward, cropType: result.cropType });
+      dataStore.logAction(socketId, player.name, 'harvest', { 
+        x, y, 
+        reward: finalReward, 
+        cropType: result.cropType,
+        xpGained,
+        level: player.level,
+        coinBonus: coinBonusPercent
+      });
+      
+      // 返回包含等级信息的result
+      return { 
+        success: true, 
+        reward: finalReward, 
+        cropType: result.cropType,
+        xpGained,
+        level: player.level,
+        leveledUp,
+        currentXp: player.currentXp,
+        xpToNextLevel: player.xpToNextLevel,
+        coinBonus: coinBonusPercent,
+        oldLevel
+      };
     }
     
     return result;
@@ -1601,7 +1714,13 @@ class FarmGame {
         dailyTasksClaimed: p.dailyTasksClaimed || [],
         achievements: p.achievements || [],
         stats: p.stats || { plantCount: 0, waterCount: 0, harvestCount: 0, sellCount: 0, fastHarvest: 0 },
-        totalTaskRewards: p.totalTaskRewards || 0
+        totalTaskRewards: p.totalTaskRewards || 0,
+        // 等级系统数据
+        level: p.level || 1,
+        totalXp: p.totalXp || 0,
+        currentXp: p.currentXp || 0,
+        xpToNextLevel: p.xpToNextLevel || 100,
+        coinBonus: p.coinBonus || 1
       })),
       gameStatus: this.gameStatus,
       crops: CROPS,
