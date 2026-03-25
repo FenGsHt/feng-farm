@@ -18,6 +18,46 @@ let currentPlayerName = '';
 let gameState = null;
 let currentShopTab = 'seeds';
 
+// 当前选中的操作工具 { btnId, type, label, emoji, sound, emit }
+let selectedTool = null;
+
+function selectTool(config) {
+  // 再次点击同一工具则取消
+  if (selectedTool && selectedTool.btnId === config.btnId) {
+    clearTool();
+    return;
+  }
+  clearTool();
+  selectedTool = config;
+
+  const btn = document.getElementById(config.btnId);
+  if (btn) btn.classList.add('tool-active');
+
+  const farmGrid = document.getElementById('farm-grid');
+  if (farmGrid) farmGrid.dataset.toolCursor = config.type;
+
+  // 显示悬浮提示
+  const indicator = document.getElementById('active-tool-indicator');
+  if (indicator) {
+    indicator.innerHTML = `${config.emoji} <strong>${config.label}</strong>&nbsp;&nbsp;<kbd>Esc</kbd> 取消`;
+    indicator.classList.add('visible');
+  }
+}
+
+function clearTool() {
+  if (!selectedTool) return;
+  const btn = document.getElementById(selectedTool.btnId);
+  if (btn) btn.classList.remove('tool-active');
+
+  const farmGrid = document.getElementById('farm-grid');
+  if (farmGrid) delete farmGrid.dataset.toolCursor;
+
+  const indicator = document.getElementById('active-tool-indicator');
+  if (indicator) indicator.classList.remove('visible');
+
+  selectedTool = null;
+}
+
 // 天气粒子系统
 let weatherParticlesContainer = null;
 let weatherInterval = null;
@@ -893,11 +933,15 @@ function renderFarm() {
         cell.dataset.x = x;
         cell.dataset.y = y;
         
-        // 点击移动
+        // 点击：移动 + 若有选中工具则执行操作
         cell.addEventListener('click', () => {
           if (currentPlayer && socket) {
             socket.emit('move', { x, y });
             highlightPlot(x, y);
+            if (selectedTool) {
+              selectedTool.emit();
+              playSound(selectedTool.sound);
+            }
           }
         });
         
@@ -1434,82 +1478,41 @@ document.getElementById('cancel-create-btn')?.addEventListener('click', () => {
 
 document.getElementById('confirm-create-btn')?.addEventListener('click', createRoom);
 
-// 作物按钮 - 谷物
-document.getElementById('plant-wheat')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'wheat' });
-});
-document.getElementById('plant-corn')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'corn' });
-});
-document.getElementById('plant-rice')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'rice' });
-});
-
-// 作物按钮 - 蔬菜
-document.getElementById('plant-tomato')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'tomato' });
-});
-document.getElementById('plant-carrot')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'carrot' });
-});
-document.getElementById('plant-eggplant')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'eggplant' });
-});
-document.getElementById('plant-cucumber')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'cucumber' });
-});
-document.getElementById('plant-pumpkin')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'pumpkin' });
+// 作物按钮 —— 统一用 selectTool 绑定
+[
+  { id: 'plant-wheat',      crop: 'wheat',      emoji: '🌾', label: '种小麦' },
+  { id: 'plant-corn',       crop: 'corn',       emoji: '🌽', label: '种玉米' },
+  { id: 'plant-rice',       crop: 'rice',       emoji: '🍚', label: '种水稻' },
+  { id: 'plant-tomato',     crop: 'tomato',     emoji: '🍅', label: '种番茄' },
+  { id: 'plant-carrot',     crop: 'carrot',     emoji: '🥕', label: '种胡萝卜' },
+  { id: 'plant-eggplant',   crop: 'eggplant',   emoji: '🍆', label: '种茄子' },
+  { id: 'plant-cucumber',   crop: 'cucumber',   emoji: '🥒', label: '种黄瓜' },
+  { id: 'plant-pumpkin',    crop: 'pumpkin',    emoji: '🎃', label: '种南瓜' },
+  { id: 'plant-strawberry', crop: 'strawberry', emoji: '🍓', label: '种草莓' },
+  { id: 'plant-watermelon', crop: 'watermelon', emoji: '🍉', label: '种西瓜' },
+  { id: 'plant-grape',      crop: 'grape',      emoji: '🍇', label: '种葡萄' },
+  { id: 'plant-apple',      crop: 'apple',      emoji: '🍎', label: '种苹果' },
+  { id: 'plant-cotton',     crop: 'cotton',     emoji: '☁️', label: '种棉花' },
+  { id: 'plant-tea',        crop: 'tea',        emoji: '🍵', label: '种茶叶' },
+].forEach(({ id, crop, emoji, label }) => {
+  document.getElementById(id)?.addEventListener('click', () => {
+    selectTool({ btnId: id, type: 'plant', label, emoji, sound: 'plant',
+      emit: () => socket?.emit('plant', { cropType: crop }) });
+  });
 });
 
-// 作物按钮 - 水果
-document.getElementById('plant-strawberry')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'strawberry' });
-});
-document.getElementById('plant-watermelon')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'watermelon' });
-});
-document.getElementById('plant-grape')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'grape' });
-});
-document.getElementById('plant-apple')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'apple' });
-});
-
-// 作物按钮 - 经济作物
-document.getElementById('plant-cotton')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'cotton' });
-});
-document.getElementById('plant-tea')?.addEventListener('click', () => {
-  playSound('plant');
-  socket?.emit('plant', { cropType: 'tea' });
-});
-
-// 操作按钮
+// 维护操作按钮
 document.getElementById('water-btn')?.addEventListener('click', () => {
-  playSound('water');
-  socket?.emit('water');
+  selectTool({ btnId: 'water-btn', type: 'water', label: '浇水', emoji: '💧', sound: 'water',
+    emit: () => socket?.emit('water') });
 });
 document.getElementById('harvest-btn')?.addEventListener('click', () => {
-  playSound('harvest');
-  socket?.emit('harvest');
+  selectTool({ btnId: 'harvest-btn', type: 'harvest', label: '收获', emoji: '🧺', sound: 'harvest',
+    emit: () => socket?.emit('harvest') });
 });
 document.getElementById('remove-btn')?.addEventListener('click', () => {
-  playSound('plant'); // 使用种植音效作为反馈
-  socket?.emit('remove-crop');
+  selectTool({ btnId: 'remove-btn', type: 'remove', label: '铲除', emoji: '🪓', sound: 'plant',
+    emit: () => socket?.emit('remove-crop') });
 });
 document.getElementById('reset-btn')?.addEventListener('click', () => socket?.emit('new-farm'));
 
@@ -2261,7 +2264,12 @@ document.addEventListener('keydown', (e) => {
       newX = Math.min(width - 1, x + 1);
       handled = true;
       break;
-    // 空格键浇水
+    // Escape 取消当前工具
+    case 'Escape':
+      clearTool();
+      handled = true;
+      break;
+    // 空格键浇水（快捷键，直接操作当前格）
     case ' ':
       e.preventDefault();
       socket.emit('water');
@@ -2269,7 +2277,7 @@ document.addEventListener('keydown', (e) => {
       showNotification('💧 浇水', 'info');
       handled = true;
       break;
-    // Enter键收获
+    // Enter键收获（快捷键，直接操作当前格）
     case 'Enter':
       socket.emit('harvest');
       playSound('harvest');

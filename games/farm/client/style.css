@@ -509,6 +509,59 @@ button:active {
   }
 }
 
+/* ========== 工具选中系统 ========== */
+
+/* 工具激活时按钮高亮 */
+.crop-btn.tool-active,
+.action-btn.tool-active {
+  outline: 2px solid #fff176;
+  outline-offset: 2px;
+  box-shadow: 0 0 8px rgba(255, 241, 118, 0.7);
+}
+
+/* 农场网格鼠标指针 —— 按工具类型变化 */
+.farm-grid[data-tool-cursor="plant"] {
+  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>🌱</text></svg>") 8 24, cell;
+}
+.farm-grid[data-tool-cursor="water"] {
+  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>💧</text></svg>") 12 28, crosshair;
+}
+.farm-grid[data-tool-cursor="harvest"] {
+  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>🧺</text></svg>") 8 24, grab;
+}
+.farm-grid[data-tool-cursor="remove"] {
+  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>🪓</text></svg>") 8 24, no-drop;
+}
+
+/* 悬浮工具提示条 */
+.active-tool-indicator {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 20, 10, 0.82);
+  color: #fff;
+  padding: 5px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  pointer-events: none;
+  z-index: 20;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  backdrop-filter: blur(4px);
+}
+.active-tool-indicator.visible {
+  opacity: 1;
+}
+.active-tool-indicator kbd {
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  font-family: inherit;
+}
+
 /* 农场地图 */
 .farm-wrapper {
   position: relative;
