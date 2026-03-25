@@ -21,8 +21,20 @@ let currentShopTab = 'seeds';
 // 当前选中的操作工具 { btnId, type, label, emoji, sound, emit }
 let selectedTool = null;
 
+// 用 Canvas 把 emoji 渲染成光标 dataURL（比 SVG data URI 更可靠）
+function makeEmojiCursor(emoji, size = 36) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.font = `${size - 4}px serif`;
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(emoji, 1, size - 1);
+  // hotspot 在 emoji 中心底部
+  return `url(${canvas.toDataURL()}) ${size / 2} ${size - 2}, auto`;
+}
+
 function selectTool(config) {
-  // 再次点击同一工具则取消
   if (selectedTool && selectedTool.btnId === config.btnId) {
     clearTool();
     return;
@@ -34,9 +46,11 @@ function selectTool(config) {
   if (btn) btn.classList.add('tool-active');
 
   const farmGrid = document.getElementById('farm-grid');
-  if (farmGrid) farmGrid.dataset.toolCursor = config.type;
+  if (farmGrid) {
+    farmGrid.dataset.toolCursor = config.type;
+    farmGrid.style.cursor = makeEmojiCursor(config.emoji);
+  }
 
-  // 显示悬浮提示
   const indicator = document.getElementById('active-tool-indicator');
   if (indicator) {
     indicator.innerHTML = `${config.emoji} <strong>${config.label}</strong>&nbsp;&nbsp;<kbd>Esc</kbd> 取消`;
@@ -50,7 +64,10 @@ function clearTool() {
   if (btn) btn.classList.remove('tool-active');
 
   const farmGrid = document.getElementById('farm-grid');
-  if (farmGrid) delete farmGrid.dataset.toolCursor;
+  if (farmGrid) {
+    delete farmGrid.dataset.toolCursor;
+    farmGrid.style.cursor = '';
+  }
 
   const indicator = document.getElementById('active-tool-indicator');
   if (indicator) indicator.classList.remove('visible');

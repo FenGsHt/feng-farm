@@ -519,18 +519,27 @@ button:active {
   box-shadow: 0 0 8px rgba(255, 241, 118, 0.7);
 }
 
-/* 农场网格鼠标指针 —— 按工具类型变化 */
-.farm-grid[data-tool-cursor="plant"] {
-  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>🌱</text></svg>") 8 24, cell;
+/* 农场网格鼠标指针 —— 由 JS 通过 Canvas 生成并内联设置，CSS 只负责继承 */
+.farm-grid[data-tool-cursor] .plot-cell {
+  cursor: inherit;
 }
-.farm-grid[data-tool-cursor="water"] {
-  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>💧</text></svg>") 12 28, crosshair;
+
+/* 工具 hover 时格子的颜色反馈 */
+.farm-grid[data-tool-cursor="plant"] .plot-cell:hover {
+  box-shadow: 0 0 0 3px #66bb6a, 0 0 14px rgba(102, 187, 106, 0.7) !important;
+  transform: scale(1.08);
 }
-.farm-grid[data-tool-cursor="harvest"] {
-  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>🧺</text></svg>") 8 24, grab;
+.farm-grid[data-tool-cursor="water"] .plot-cell:hover {
+  box-shadow: 0 0 0 3px #42a5f5, 0 0 14px rgba(66, 165, 245, 0.7) !important;
+  transform: scale(1.08);
 }
-.farm-grid[data-tool-cursor="remove"] {
-  cursor: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='26' font-size='26'>🪓</text></svg>") 8 24, no-drop;
+.farm-grid[data-tool-cursor="harvest"] .plot-cell:hover {
+  box-shadow: 0 0 0 3px #ffd54f, 0 0 14px rgba(255, 213, 79, 0.7) !important;
+  transform: scale(1.08);
+}
+.farm-grid[data-tool-cursor="remove"] .plot-cell:hover {
+  box-shadow: 0 0 0 3px #ef5350, 0 0 14px rgba(239, 83, 80, 0.7) !important;
+  transform: scale(1.08);
 }
 
 /* 悬浮工具提示条 */
