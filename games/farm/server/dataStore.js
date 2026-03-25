@@ -7,6 +7,15 @@ const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
 const PLAYER_STATS_FILE = path.join(DATA_DIR, 'player_stats.json');
 const LOGS_DIR = path.join(DATA_DIR, 'logs');
 
+// 内存缓存（避免每次操作都读写磁盘）
+let playersCache = null;
+let playerStatsCache = null;
+let cachesDirty = false;
+let statsCacheDirty = false;
+
+// 操作日志内存上限
+const MAX_ACTION_LOGS = 500;
+
 // 确保数据目录存在
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -17,21 +26,47 @@ function ensureDataDir() {
   }
 }
 
-// 读取玩家数据
-function loadPlayers() {
+// 从磁盘加载玩家缓存（仅在启动时调用一次）
+function initPlayersCache() {
+  if (playersCache !== null) return;
   ensureDataDir();
   try {
     if (fs.existsSync(PLAYERS_FILE)) {
       const data = fs.readFileSync(PLAYERS_FILE, 'utf-8');
-      return JSON.parse(data);
+      playersCache = JSON.parse(data);
+    } else {
+      playersCache = {};
     }
   } catch (err) {
     console.error('[DataStore] Failed to load players:', err.message);
+    playersCache = {};
   }
-  return {};
 }
 
-// 保存玩家数据
+// 从磁盘加载统计缓存（仅在启动时调用一次）
+function initStatsCache() {
+  if (playerStatsCache !== null) return;
+  ensureDataDir();
+  try {
+    if (fs.existsSync(PLAYER_STATS_FILE)) {
+      const data = fs.readFileSync(PLAYER_STATS_FILE, 'utf-8');
+      playerStatsCache = JSON.parse(data);
+    } else {
+      playerStatsCache = {};
+    }
+  } catch (err) {
+    console.error('[DataStore] Failed to load player stats:', err.message);
+    playerStatsCache = {};
+  }
+}
+
+// 读取所有玩家数据（从缓存）
+function loadPlayers() {
+  initPlayersCache();
+  return playersCache;
+}
+
+// 写入玩家数据到磁盘
 function savePlayers(players) {
   ensureDataDir();
   try {
@@ -43,21 +78,22 @@ function savePlayers(players) {
   }
 }
 
-// 获取玩家数据
+// 获取单个玩家数据（从缓存）
 function getPlayer(playerId) {
-  const players = loadPlayers();
-  return players[playerId] || null;
+  initPlayersCache();
+  return playersCache[playerId] || null;
 }
 
-// 保存玩家数据
+// 保存单个玩家数据（写入缓存，标记为脏）
 function savePlayer(playerId, playerData) {
-  const players = loadPlayers();
-  players[playerId] = {
-    ...players[playerId],
+  initPlayersCache();
+  playersCache[playerId] = {
+    ...playersCache[playerId],
     ...playerData,
     lastSaveTime: Date.now()
   };
-  return savePlayers(players);
+  cachesDirty = true;
+  return true;
 }
 
 // 更新玩家金币
@@ -70,50 +106,42 @@ function updatePlayerName(playerId, name) {
   return savePlayer(playerId, { name });
 }
 
-// 读取玩家统计数据
-function loadPlayerStats() {
-  ensureDataDir();
-  try {
-    if (fs.existsSync(PLAYER_STATS_FILE)) {
-      const data = fs.readFileSync(PLAYER_STATS_FILE, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    console.error('[DataStore] Failed to load player stats:', err.message);
-  }
-  return {};
-}
-
-// 保存玩家统计数据
-function savePlayerStatsToFile(playerStats) {
-  ensureDataDir();
-  try {
-    fs.writeFileSync(PLAYER_STATS_FILE, JSON.stringify(playerStats, null, 2), 'utf-8');
-    return true;
-  } catch (err) {
-    console.error('[DataStore] Failed to save player stats:', err.message);
-    return false;
-  }
-}
-
-// 获取玩家统计数据
+// 获取玩家统计数据（从缓存）
 function getPlayerStats(playerId) {
-  const stats = loadPlayerStats();
-  return stats[playerId] || null;
+  initStatsCache();
+  return playerStatsCache[playerId] || null;
 }
 
-// 保存玩家统计数据
+// 保存玩家统计数据（写入缓存，标记为脏）
 function savePlayerStats(playerId, statsData) {
-  const stats = loadPlayerStats();
-  stats[playerId] = {
-    ...stats[playerId],
+  initStatsCache();
+  playerStatsCache[playerId] = {
+    ...playerStatsCache[playerId],
     ...statsData,
     lastUpdate: Date.now()
   };
-  return savePlayerStatsToFile(stats);
+  statsCacheDirty = true;
+  return true;
 }
 
-// 玩家操作日志
+// 立即将缓存刷新到磁盘
+function flushToDisk() {
+  if (cachesDirty && playersCache !== null) {
+    savePlayers(playersCache);
+    cachesDirty = false;
+  }
+  if (statsCacheDirty && playerStatsCache !== null) {
+    ensureDataDir();
+    try {
+      fs.writeFileSync(PLAYER_STATS_FILE, JSON.stringify(playerStatsCache, null, 2), 'utf-8');
+      statsCacheDirty = false;
+    } catch (err) {
+      console.error('[DataStore] Failed to save player stats:', err.message);
+    }
+  }
+}
+
+// 玩家操作日志（内存有上限）
 const actionLogs = [];
 
 function logAction(playerId, playerName, action, details) {
@@ -124,23 +152,29 @@ function logAction(playerId, playerName, action, details) {
     action,
     details
   };
+
   actionLogs.push(log);
-  
-  // 写入日志文件
+  // 超过上限时删除最旧的条目
+  if (actionLogs.length > MAX_ACTION_LOGS) {
+    actionLogs.splice(0, actionLogs.length - MAX_ACTION_LOGS);
+  }
+
+  // 异步写入日志文件（不阻塞主逻辑）
   const today = new Date().toISOString().split('T')[0];
   const logFile = path.join(LOGS_DIR, `${today}.json`);
-  
-  try {
-    let logs = [];
-    if (fs.existsSync(logFile)) {
-      logs = JSON.parse(fs.readFileSync(logFile, 'utf-8'));
+  setImmediate(() => {
+    try {
+      let logs = [];
+      if (fs.existsSync(logFile)) {
+        logs = JSON.parse(fs.readFileSync(logFile, 'utf-8'));
+      }
+      logs.push(log);
+      fs.writeFileSync(logFile, JSON.stringify(logs, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[DataStore] Failed to write log:', err.message);
     }
-    logs.push(log);
-    fs.writeFileSync(logFile, JSON.stringify(logs, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('[DataStore] Failed to write log:', err.message);
-  }
-  
+  });
+
   return log;
 }
 
@@ -150,24 +184,36 @@ function getPlayerLogs(playerId, limit = 50) {
   return logs.slice(-limit);
 }
 
-// 从文件加载历史日志
+// 从文件加载历史日志到内存（启动时调用）
 function loadTodayLogs() {
   ensureDataDir();
   const today = new Date().toISOString().split('T')[0];
   const logFile = path.join(LOGS_DIR, `${today}.json`);
-  
+
   try {
     if (fs.existsSync(logFile)) {
       const logs = JSON.parse(fs.readFileSync(logFile, 'utf-8'));
-      actionLogs.push(...logs);
+      // 只保留最近 MAX_ACTION_LOGS 条
+      const recent = logs.slice(-MAX_ACTION_LOGS);
+      actionLogs.push(...recent);
     }
   } catch (err) {
     console.error('[DataStore] Failed to load today logs:', err.message);
   }
 }
 
+// 定期将缓存刷新到磁盘（每5秒）
+setInterval(flushToDisk, 5000);
+
+// 进程退出时强制刷新
+process.on('exit', flushToDisk);
+process.on('SIGINT', () => { flushToDisk(); process.exit(); });
+process.on('SIGTERM', () => { flushToDisk(); process.exit(); });
+
 // 初始化
 ensureDataDir();
+initPlayersCache();
+initStatsCache();
 loadTodayLogs();
 
 module.exports = {
@@ -179,6 +225,7 @@ module.exports = {
   updatePlayerName,
   getPlayerStats,
   savePlayerStats,
+  flushToDisk,
   logAction,
   getPlayerLogs
 };

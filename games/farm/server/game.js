@@ -482,18 +482,21 @@ class FarmGame {
       this.animalPens.push(new AnimalPen(i));
     }
     
+    // 保存定时器ID，用于销毁时清理
+    this._intervals = [];
+
     // 启动生长更新循环
     this.startGrowthLoop();
-    
+
     // 启动动物移动循环
     this.startAnimalMovementLoop();
-    
+
     // 启动每日任务重置检查（每分钟检查一次）
     this.startDailyResetCheck();
-    
+
     // 启动天气变化循环（每5秒检查一次天气变化）
     this.startWeatherLoop();
-    
+
     // 启动害虫生成循环
     this.startPestLoop();
   }
@@ -502,9 +505,9 @@ class FarmGame {
   
   // 启动天气循环
   startWeatherLoop() {
-    setInterval(() => {
+    this._intervals.push(setInterval(() => {
       this.updateWeather();
-    }, 5000);
+    }, 5000));
   }
   
   // 更新天气
@@ -561,9 +564,9 @@ class FarmGame {
   
   // 启动害虫循环
   startPestLoop() {
-    setInterval(() => {
+    this._intervals.push(setInterval(() => {
       this.updatePests();
-    }, 10000); // 每10秒更新一次害虫
+    }, 10000)); // 每10秒更新一次害虫
   }
   
   // 更新害虫
@@ -725,9 +728,9 @@ class FarmGame {
 
   // 启动每日重置检查
   startDailyResetCheck() {
-    setInterval(() => {
+    this._intervals.push(setInterval(() => {
       this.checkDailyReset();
-    }, 60000); // 每分钟检查一次
+    }, 60000)); // 每分钟检查一次
   }
 
   // 获取任务配置
@@ -951,8 +954,15 @@ class FarmGame {
     }).slice(0, 10);
   }
 
+  // 动物在地图上随机移动（客户端也各自独立计算，此处仅供服务端同步）
+  startAnimalMovementLoop() {
+    this._intervals.push(setInterval(() => {
+      // 暂时为空；动物位置同步留待后续实现
+    }, 3000));
+  }
+
   startGrowthLoop() {
-    setInterval(() => {
+    this._intervals.push(setInterval(() => {
       // 更新作物生长
       for (let y = 0; y < this.height; y++) {
         for (let x = 0; x < this.width; x++) {
@@ -963,7 +973,7 @@ class FarmGame {
       for (const pen of this.animalPens) {
         pen.updateAnimal();
       }
-    }, 1000); // 每秒更新一次
+    }, 1000)); // 每秒更新一次
   }
 
   // 玩家加入
@@ -1012,12 +1022,22 @@ class FarmGame {
   removePlayer(socketId) {
     const player = this.players.get(socketId);
     if (player) {
-      // 保存玩家数据后再删除
-      dataStore.savePlayer(socketId, { 
-        name: player.name, 
-        money: player.money, 
-        color: player.color, 
-        position: player.position 
+      // 保存完整玩家数据后再删除
+      dataStore.savePlayer(socketId, {
+        name: player.name,
+        money: player.money,
+        color: player.color,
+        position: player.position,
+        inventory: player.inventory,
+        items: player.items,
+        dailyTaskProgress: player.dailyTaskProgress,
+        dailyTasksClaimed: player.dailyTasksClaimed,
+        achievements: player.achievements,
+        stats: player.stats,
+        totalTaskRewards: player.totalTaskRewards,
+        level: player.level,
+        totalXp: player.totalXp,
+        coinBonus: player.coinBonus
       });
       dataStore.logAction(socketId, player.name, 'leave', {});
     }
@@ -1129,10 +1149,10 @@ class FarmGame {
     }
     
     const result = plot.harvest();
-    
+
     if (result.success) {
-      // 防作弊：验证奖励
-      const rewardCheck = antiCheat.validateHarvestReward(plot, result.reward);
+      // 防作弊：验证奖励（用 cropType 验证，此时 plot.crop 已被清空）
+      const rewardCheck = antiCheat.validateHarvestReward(result.cropType, result.reward);
       if (!rewardCheck.valid) {
         antiCheat.logSuspiciousAction(socketId, player.name, 'Harvest', 'Reward mismatch', { expected: result.reward, x, y });
         return { success: false, message: '收获奖励异常' };
@@ -1738,6 +1758,14 @@ class FarmGame {
         achievements: ACHIEVEMENTS
       }
     };
+  }
+
+  // 销毁游戏实例，清理所有定时器
+  destroy() {
+    for (const id of this._intervals) {
+      clearInterval(id);
+    }
+    this._intervals = [];
   }
 }
 

@@ -44,17 +44,26 @@ io.on('connection', (socket) => {
     // Create or get room
     const room = roomManager.createRoom(roomId, width, height);
     currentRoomId = roomId;
-    
+
+    // 检查同名玩家（同一房间内不允许重名）
+    const name = playerName || '匿名农夫';
+    const duplicate = Array.from(room.players.values()).find(p => p.name === name);
+    if (duplicate) {
+      socket.emit('join-error', { message: `房间内已有玩家名为"${name}"，请换个名字` });
+      currentRoomId = null;
+      return;
+    }
+
     // Add player
-    const player = roomManager.addPlayer(roomId, socket.id, playerName || '匿名农夫');
+    const player = roomManager.addPlayer(roomId, socket.id, name);
     
     socket.join(roomId);
     socket.emit('player-info', player);
-    
+
     // Broadcast to room
     io.to(roomId).emit('game-state', room.game.getState());
     io.emit('room-list', roomManager.getRoomList());
-    
+
     console.log(`[Socket] ${player.name} joined room: ${roomId}`);
   });
   

@@ -119,21 +119,36 @@ function validateAction(player, plot, action, cost = 0, x, y, width, height) {
   return { valid: true };
 }
 
-// 验证收获奖励
-function validateHarvestReward(plot, expectedReward) {
-  if (!plot.crop) return { valid: false };
-  
-  const CROPS = {
-    wheat: { name: '小麦', growthTime: 30, sellPrice: 10, seedPrice: 2, emoji: '🌾' },
-    tomato: { name: '番茄', growthTime: 60, sellPrice: 25, seedPrice: 5, emoji: '🍅' },
-    corn: { name: '玉米', growthTime: 120, sellPrice: 60, seedPrice: 12, emoji: '🌽' }
+// 验证收获奖励（cropType 为已收获的作物类型，此时 plot.crop 已被清空）
+function validateHarvestReward(cropType, expectedReward) {
+  if (!cropType) return { valid: false, message: '收获奖励异常' };
+
+  const CROP_SELL_PRICES = {
+    // 谷物
+    wheat: 10,
+    corn: 60,
+    rice: 45,
+    // 蔬菜
+    tomato: 25,
+    carrot: 15,
+    eggplant: 30,
+    cucumber: 20,
+    pumpkin: 80,
+    // 水果
+    strawberry: 20,
+    watermelon: 50,
+    grape: 100,
+    apple: 150,
+    // 经济作物
+    cotton: 70,
+    tea: 90
   };
-  
-  const crop = CROPS[plot.crop];
-  if (!crop || crop.sellPrice !== expectedReward) {
+
+  const sellPrice = CROP_SELL_PRICES[cropType];
+  if (sellPrice === undefined || sellPrice !== expectedReward) {
     return { valid: false, message: '收获奖励异常' };
   }
-  
+
   return { valid: true };
 }
 
