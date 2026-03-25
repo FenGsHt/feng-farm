@@ -52,6 +52,8 @@ jobs:
             scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
               games/farm/server/server.js \
               games/farm/server/game.js \
+              games/farm/server/antiCheat.js \
+              games/farm/server/dataStore.js \
               games/farm/server/package.json \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/server/
             scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
@@ -72,8 +74,8 @@ jobs:
                cd ${{ secrets.SERVER_PATH }}/games/farm/server && \
                npm install --no-audit --legacy-peer-deps; \
                cd ${{ secrets.SERVER_PATH }}/games/farm && \
-               pm2 stop feng-farm-server 2>/dev/null || true; \
-               pm2 delete feng-farm-server 2>/dev/null || true; \
+               pm2 stop feng-farm 2>/dev/null || true; \
+               pm2 delete feng-farm 2>/dev/null || true; \
                fuser -k 3007/tcp 2>/dev/null || true; \
                pm2 start ecosystem.config.js && \
                pm2 save && \

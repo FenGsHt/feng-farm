@@ -2,6 +2,7 @@ module.exports = {
   apps: [{
     name: 'feng-farm',
     script: './games/farm/server/server.js',
+    interpreter: '/home/openclaw/.nvm/versions/node/v20.20.1/bin/node',
     cwd: '/opt/1panel/www/sites/indeed-flow-prod/feng-farm',
     instances: 1,
     autorestart: true,
