@@ -776,6 +776,7 @@ function updateGameState(state) {
   // 保留在线列表显示
   renderPlayerList();
   renderInventory();
+  renderPestItems();
   renderAnimalPen();
   updateOnlineCount();
   updateMoneyDisplay();
@@ -874,6 +875,33 @@ function renderPests() {
       indicator.title = pest.name || '害虫';
       cell.appendChild(indicator);
     }
+  });
+}
+
+// ========== 害虫道具数量徽章 ==========
+function renderPestItems() {
+  if (!currentPlayer || !gameState) return;
+  const player = gameState.players.find(p => p.id === currentPlayer.id);
+  if (!player) return;
+  const items = player.items || {};
+
+  [
+    { btnId: 'use-pesticide-btn', itemId: 'pesticide' },
+    { btnId: 'use-bug-net-btn',  itemId: 'bug_net' },
+    { btnId: 'use-scarecrow-btn',itemId: 'scarecrow' }
+  ].forEach(({ btnId, itemId }) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    const count = items[itemId] || 0;
+    let badge = btn.querySelector('.item-count-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'item-count-badge';
+      btn.appendChild(badge);
+    }
+    badge.textContent = count > 0 ? `×${count}` : '';
+    btn.disabled = count <= 0;
+    btn.classList.toggle('no-stock', count <= 0);
   });
 }
 
@@ -1933,142 +1961,153 @@ function renderLeaderboard(data, type) {
   });
 }
 
-// 渲染动物栏
+// 渲染动物栏（仅显示有动物的栏位，简洁模式）
 function renderAnimalPen() {
-  if (!gameState || !gameState.animalPens) return;
-  
-  const animalPenContainer = document.getElementById('animal-pen');
-  if (!animalPenContainer) return;
-  
-  const pens = gameState.animalPens;
-  const animals = gameState.animals || {};
-  
-  animalPenContainer.innerHTML = '';
-  
-  pens.forEach((pen, index) => {
-    const cell = document.createElement('div');
-    cell.className = 'animal-pen-cell';
-    
-    if (!pen.animal) {
-      cell.classList.add('empty');
-      cell.innerHTML = `
-        <span class="animal-pen-emoji">🏚️</span>
-        <span class="animal-pen-name">空栏位</span>
-      `;
-    } else {
-      cell.classList.add('has-animal');
-      
-      const animal = animals[pen.animal];
-      let statusText = pen.isReady ? '可收获!' : `${pen.remainingTime}秒`;
-      if (pen.isReady) cell.classList.add('ready');
-      
-      const progressPercent = Math.round((pen.progress || 0) * 100);
-      
-      cell.innerHTML = `
-        <span class="animal-pen-emoji">${pen.emoji}</span>
-        <span class="animal-pen-name">${pen.animalName}</span>
-        <span class="animal-pen-status ${pen.isReady ? 'ready' : ''}">${statusText}</span>
-        <div class="animal-pen-progress">
-          <div class="animal-pen-progress-bar" style="width: ${progressPercent}%"></div>
-        </div>
-        <div class="animal-pen-actions">
-          <button class="animal-harvest-btn" data-pen="${index}" ${!pen.isReady ? 'disabled' : ''}>收获</button>
-          <button class="animal-sell-btn" data-pen="${index}">出售</button>
-        </div>
-      `;
-      
-      // 绑定收获按钮
-      cell.querySelector('.animal-harvest-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (pen.isReady) {
-          playSound('harvest');
-          socket.emit('harvest-animal', { penIndex: index });
-        }
-      });
-      
-      // 绑定出售按钮
-      cell.querySelector('.animal-sell-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        playSound('coin');
-        socket.emit('sell-animal', { penIndex: index });
-      });
-    }
-    
-    animalPenContainer.appendChild(cell);
+  if (!gameState?.animalPens) return;
+  const container = document.getElementById('animal-pen');
+  if (!container) return;
+
+  const occupied = gameState.animalPens
+    .map((pen, i) => ({ ...pen, penIndex: i }))
+    .filter(pen => pen.animal);
+
+  if (occupied.length === 0) {
+    container.innerHTML = '<div class="animal-pen-empty">🐾 购买动物后将显示于地图格子中</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  occupied.forEach(pen => {
+    const card = document.createElement('div');
+    card.className = `animal-pen-cell has-animal${pen.isReady ? ' ready' : ''}`;
+    const progressPercent = Math.round((pen.progress || 0) * 100);
+    card.innerHTML = `
+      <span class="animal-pen-emoji">${pen.emoji}</span>
+      <span class="animal-pen-name">${pen.animalName}</span>
+      <span class="animal-pen-status ${pen.isReady ? 'ready' : ''}">
+        ${pen.isReady ? '可收获!' : `${pen.remainingTime}s`}
+      </span>
+      <div class="animal-pen-progress">
+        <div class="animal-pen-progress-bar" style="width:${progressPercent}%"></div>
+      </div>
+      <div class="animal-pen-actions">
+        <button class="animal-harvest-btn" data-pen="${pen.penIndex}" ${!pen.isReady ? 'disabled' : ''}>收获</button>
+        <button class="animal-sell-btn" data-pen="${pen.penIndex}">出售</button>
+      </div>
+    `;
+    card.querySelector('.animal-harvest-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      if (pen.isReady) { playSound('harvest'); socket.emit('harvest-animal', { penIndex: pen.penIndex }); }
+    });
+    card.querySelector('.animal-sell-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      playSound('coin');
+      socket.emit('sell-animal', { penIndex: pen.penIndex });
+    });
+    container.appendChild(card);
   });
 }
 
-// 渲染动物到地图上
+// 渲染动物到地图格子中
 function renderAnimalsOnMap() {
   if (!gameState?.animalPens || !farmGrid) return;
-  
+
   const { width, height } = gameState;
-  const cellSize = Math.min(CONFIG.cellSize, Math.min(CONFIG.maxGridWidth / width, CONFIG.maxGridWidth / height));
-  
-  // 获取或创建动物层
-  let animalsLayer = document.getElementById('animals-layer');
-  if (!animalsLayer) {
-    animalsLayer = document.createElement('div');
-    animalsLayer.id = 'animals-layer';
-    animalsLayer.className = 'players-layer';
-    animalsLayer.style.cssText = 'position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px; pointer-events: none; z-index: 20;';
-    
-    // 找到 players-layer 并在其后插入
-    const playersLayer = document.getElementById('players-layer');
-    if (playersLayer && playersLayer.parentNode) {
-      playersLayer.parentNode.insertBefore(animalsLayer, playersLayer.nextSibling);
-    }
-  }
-  
-  // 遍历动物栏，渲染动物到地图
+
+  // 移除旧的浮动层（如有）
+  document.getElementById('animals-layer')?.remove();
+
+  // 清除所有格子上的动物 overlay
+  document.querySelectorAll('.animal-in-cell').forEach(el => el.remove());
+
+  const usedPos = new Set();
+
   gameState.animalPens.forEach((pen, index) => {
-    if (!pen.animal) return;
-    
-    // 初始化位置（随机位置或在第一次渲染时）
-    if (!animalPositions[index]) {
-      animalPositions[index] = {
-        x: Math.floor(Math.random() * width),
-        y: Math.floor(Math.random() * height)
-      };
-    }
-    
-    const pos = animalPositions[index];
-    
-    // 检查是否已有该动物的DOM元素
-    let animalEl = animalElements.get(index);
-    
-    if (!animalEl) {
-      // 创建动物元素
-      animalEl = document.createElement('div');
-      animalEl.className = 'animal-marker';
-      animalEl.style.cssText = `
-        position: absolute;
-        font-size: 24px;
-        transform: translate(-50%, -50%);
-        transition: all 0.5s ease-out;
-        z-index: 20;
-        pointer-events: none;
-      `;
-      animalsLayer.appendChild(animalEl);
-      animalElements.set(index, animalEl);
-    }
-    
-    // 更新动物表情和位置
-    animalEl.textContent = pen.emoji || '🐄';
-    const targetX = pos.x * cellSize + cellSize / 2;
-    const targetY = pos.y * cellSize + cellSize / 2;
-    animalEl.style.left = targetX + 'px';
-    animalEl.style.top = targetY + 'px';
-  });
-  
-  // 移除不再存在的动物的DOM元素
-  animalElements.forEach((el, index) => {
-    if (!gameState.animalPens[index] || !gameState.animalPens[index].animal) {
-      el.remove();
-      animalElements.delete(index);
+    if (!pen.animal) {
       delete animalPositions[index];
+      animalElements.delete(index);
+      return;
     }
+
+    // 分配格子位置（已有则复用）
+    if (!animalPositions[index]) {
+      let x, y, tries = 0;
+      do {
+        x = Math.floor(Math.random() * width);
+        y = Math.floor(Math.random() * height);
+        tries++;
+      } while (usedPos.has(`${x},${y}`) && tries < 100);
+      animalPositions[index] = { x, y };
+    }
+    const { x, y } = animalPositions[index];
+    usedPos.add(`${x},${y}`);
+
+    const cell = document.getElementById(`plot-${x}-${y}`);
+    if (!cell) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = `animal-in-cell${pen.isReady ? ' is-ready' : ''}`;
+    overlay.dataset.penIndex = index;
+    overlay.innerHTML = `<span class="animal-cell-emoji">${pen.emoji}</span>${pen.isReady ? '<span class="animal-ready-dot">!</span>' : ''}`;
+    overlay.addEventListener('click', e => {
+      e.stopPropagation();
+      showAnimalCellPopup(index, pen, cell);
+    });
+    cell.appendChild(overlay);
   });
+}
+
+// 点击含动物的格子时弹出操作浮窗
+function showAnimalCellPopup(penIndex, pen, anchorCell) {
+  document.getElementById('animal-cell-popup')?.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'animal-cell-popup';
+  popup.className = 'animal-cell-popup';
+  popup.innerHTML = `
+    <div class="acp-header">
+      <span>${pen.emoji} ${pen.animalName}</span>
+      <button class="acp-close">✕</button>
+    </div>
+    <div class="acp-status${pen.isReady ? ' ready' : ''}">
+      ${pen.isReady ? '✅ 可收获产品！' : `⏳ 还需 ${pen.remainingTime} 秒`}
+    </div>
+    <div class="acp-actions">
+      <button class="acp-harvest" ${!pen.isReady ? 'disabled' : ''}>🧺 收获 ${pen.product || ''}</button>
+      <button class="acp-sell">💰 出售动物</button>
+    </div>
+  `;
+
+  // 定位到格子旁边
+  const cellRect = anchorCell.getBoundingClientRect();
+  const wrapper = document.querySelector('.farm-wrapper');
+  const wRect = wrapper.getBoundingClientRect();
+  let left = cellRect.right - wRect.left + 6;
+  let top  = cellRect.top  - wRect.top;
+  // 防止超出右侧
+  if (left + 180 > wrapper.offsetWidth) left = cellRect.left - wRect.left - 186;
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
+  wrapper.appendChild(popup);
+
+  popup.querySelector('.acp-close').onclick = () => popup.remove();
+  popup.querySelector('.acp-harvest').onclick = () => {
+    if (!pen.isReady) return;
+    playSound('harvest');
+    socket.emit('harvest-animal', { penIndex });
+    popup.remove();
+  };
+  popup.querySelector('.acp-sell').onclick = () => {
+    playSound('coin');
+    socket.emit('sell-animal', { penIndex });
+    popup.remove();
+  };
+
+  // 点弹窗外关闭
+  setTimeout(() => {
+    const close = e => { if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('click', close); } };
+    document.addEventListener('click', close);
+  }, 0);
 }
 
 // 动物随机移动

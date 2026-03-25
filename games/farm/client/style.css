@@ -1776,12 +1776,124 @@ button:active {
   background: #689f38;
 }
 
+/* ========== 害虫道具数量徽章 ========== */
+.item-count-badge {
+  background: #4caf50;
+  color: #fff;
+  font-size: 11px;
+  border-radius: 8px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  font-weight: 700;
+}
+.pest-btn.no-stock {
+  opacity: 0.45;
+}
+
+/* ========== 格子内动物 ========== */
+.animal-in-cell {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  cursor: pointer;
+  z-index: 12;
+  animation: animal-idle 2s ease-in-out infinite;
+}
+@keyframes animal-idle {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-2px); }
+}
+.animal-cell-emoji {
+  font-size: 18px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+.animal-ready-dot {
+  background: #ffd54f;
+  color: #333;
+  font-size: 9px;
+  font-weight: 900;
+  border-radius: 50%;
+  width: 13px;
+  height: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  animation: ready-pulse 0.8s ease-in-out infinite;
+}
+.animal-in-cell.is-ready .animal-cell-emoji {
+  filter: drop-shadow(0 0 4px #ffd54f);
+}
+
+/* ========== 动物格子弹窗 ========== */
+.animal-cell-popup {
+  position: absolute;
+  z-index: 200;
+  background: var(--bg-dark);
+  border: 1px solid var(--accent-brown);
+  border-radius: 10px;
+  padding: 10px 12px;
+  width: 178px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.acp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.acp-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 2px;
+}
+.acp-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.acp-status.ready { color: #ffd54f; }
+.acp-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.acp-harvest, .acp-sell {
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-brown);
+  background: var(--bg-light);
+  color: var(--text-light);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+.acp-harvest:not([disabled]):hover { background: #2e7d32; border-color: #66bb6a; }
+.acp-sell:hover { background: #b71c1c; border-color: #ef5350; }
+.acp-harvest[disabled] { opacity: 0.4; cursor: not-allowed; }
+
 /* ========== 动物栏样式 ========== */
 .animal-pen-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 12px;
+}
+.animal-pen-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  padding: 8px 0;
 }
 
 .animal-pen-cell {
