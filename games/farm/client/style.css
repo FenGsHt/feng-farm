@@ -541,6 +541,15 @@ button:active {
   box-shadow: 0 0 0 3px #ef5350, 0 0 14px rgba(239, 83, 80, 0.7) !important;
   transform: scale(1.08);
 }
+.farm-grid[data-tool-cursor="pesticide"] .plot-cell:hover {
+  box-shadow: 0 0 0 3px #ab47bc, 0 0 14px rgba(171, 71, 188, 0.7) !important;
+  transform: scale(1.08);
+}
+.farm-grid[data-tool-cursor="bugnet"] .plot-cell:hover,
+.farm-grid[data-tool-cursor="scarecrow"] .plot-cell:hover {
+  box-shadow: 0 0 0 3px #ff7043, 0 0 14px rgba(255, 112, 67, 0.7) !important;
+  transform: scale(1.08);
+}
 
 /* 悬浮工具提示条 */
 .active-tool-indicator {
@@ -1401,6 +1410,31 @@ button:active {
   margin-bottom: 8px;
 }
 
+.pest-tool-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  align-items: stretch;
+}
+
+/* 购买按钮（小）*/
+.pest-buy-btn {
+  flex-shrink: 0;
+  background: var(--bg-dark);
+  border: 1px solid var(--accent-brown);
+  border-radius: 6px;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 4px 7px;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.pest-buy-btn:hover {
+  background: #3e2723;
+  border-color: #ef5350;
+}
+
 .pest-btn {
   display: flex;
   align-items: center;
@@ -1448,28 +1482,30 @@ button:active {
   background: #d32f2f;
 }
 
-/* 地块害虫标记 */
-.plot-cell.has-pest::before {
-  content: '⚠️';
+/* 地块害虫标记 —— 直接显示害虫 emoji */
+.pest-indicator {
   position: absolute;
-  top: -6px;
-  left: -6px;
-  font-size: 16px;
-  animation: pest-warning 0.8s ease-in-out infinite;
-  z-index: 20;
+  bottom: 2px;
+  right: 3px;
+  font-size: 17px;
+  line-height: 1;
+  z-index: 15;
+  pointer-events: none;
+  animation: pest-crawl 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px rgba(239, 83, 80, 0.8));
 }
 
-@keyframes pest-warning {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+@keyframes pest-crawl {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  50% { transform: translateY(-3px) rotate(5deg); }
 }
 
 .plot-cell.has-pest {
-  box-shadow: inset 0 0 8px rgba(239, 83, 80, 0.5);
+  box-shadow: inset 0 0 10px rgba(239, 83, 80, 0.6);
 }
 
 .plot-cell.has-pest .crop-emoji {
-  filter: grayscale(50%);
+  filter: grayscale(40%);
 }
 
 /* 铲除按钮 */

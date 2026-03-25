@@ -232,26 +232,31 @@
         <!-- 害虫防治 -->
         <div class="action-section">
           <h4>🐛 害虫防治 <span id="pest-count" class="pest-count">0</span></h4>
-          <div class="pest-buttons">
-            <button id="buy-pesticide-btn" class="pest-btn" title="驱除当前格子及周围的害虫">
-              <span class="btn-emoji">🧴</span>
-              <span class="btn-name">杀虫剂</span>
-              <span class="btn-cost">20💰</span>
+          <div class="pest-tool-row">
+            <button id="buy-pesticide-btn" class="pest-buy-btn" title="购买杀虫剂">
+              🧴 <span class="btn-cost">20💰</span>
             </button>
-            <button id="use-pesticide-btn" class="pest-btn action-btn-small" title="在当前格子使用杀虫剂">
-              <span>🧴 使用</span>
+            <button id="use-pesticide-btn" class="pest-btn" title="选择后点击格子驱除周围害虫">
+              <span class="btn-emoji">🧴</span>
+              <span class="btn-name">使用杀虫剂</span>
             </button>
           </div>
-          <div class="pest-buttons">
-            <button id="buy-bug-net-btn" class="pest-btn" title="防止害虫入侵，持续5分钟">
-              <span class="btn-emoji">🕸️</span>
-              <span class="btn-name">防虫网</span>
-              <span class="btn-cost">50💰</span>
+          <div class="pest-tool-row">
+            <button id="buy-bug-net-btn" class="pest-buy-btn" title="购买防虫网">
+              🕸️ <span class="btn-cost">50💰</span>
             </button>
-            <button id="buy-scarecrow-btn" class="pest-btn" title="驱赶害虫，持续10分钟">
+            <button id="use-bug-net-btn" class="pest-btn" title="选择后点击格子放置防虫网">
+              <span class="btn-emoji">🕸️</span>
+              <span class="btn-name">使用防虫网</span>
+            </button>
+          </div>
+          <div class="pest-tool-row">
+            <button id="buy-scarecrow-btn" class="pest-buy-btn" title="购买稻草人">
+              🎃 <span class="btn-cost">100💰</span>
+            </button>
+            <button id="use-scarecrow-btn" class="pest-btn" title="选择后点击格子放置稻草人">
               <span class="btn-emoji">🎃</span>
-              <span class="btn-name">稻草人</span>
-              <span class="btn-cost">100💰</span>
+              <span class="btn-name">使用稻草人</span>
             </button>
           </div>
         </div>

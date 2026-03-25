@@ -847,52 +847,64 @@ function renderWeather() {
 function renderPests() {
   const pestCountEl = document.getElementById('pest-count');
   if (!gameState || !gameState.pests) return;
-  
+
   const pests = gameState.pests;
-  
+
   // 更新害虫数量显示
   if (pestCountEl) {
     pestCountEl.textContent = pests.length;
     pestCountEl.dataset.count = pests.length;
   }
-  
-  // 在地图上显示害虫位置
+
+  // 清除旧的害虫显示
   document.querySelectorAll('.plot-cell').forEach(cell => {
     cell.classList.remove('has-pest');
+    const old = cell.querySelector('.pest-indicator');
+    if (old) old.remove();
   });
-  
+
+  // 在格子上直接显示害虫 emoji
   pests.forEach(pest => {
     const cell = document.getElementById(`plot-${pest.x}-${pest.y}`);
     if (cell) {
       cell.classList.add('has-pest');
+      const indicator = document.createElement('div');
+      indicator.className = 'pest-indicator';
+      indicator.textContent = pest.emoji || '🐛';
+      indicator.title = pest.name || '害虫';
+      cell.appendChild(indicator);
     }
   });
 }
 
 // ========== 害虫防治事件 ==========
 function initPestControlEvents() {
-  // 购买杀虫剂
+  // 购买按钮 —— 直接购买
   document.getElementById('buy-pesticide-btn')?.addEventListener('click', () => {
     playSound('buy');
     socket.emit('buy-item', { itemId: 'pesticide', quantity: 1 });
   });
-  
-  // 使用杀虫剂
-  document.getElementById('use-pesticide-btn')?.addEventListener('click', () => {
-    playSound('pesticide');
-    socket.emit('use-item', { itemId: 'pesticide' });
-  });
-  
-  // 购买防虫网
   document.getElementById('buy-bug-net-btn')?.addEventListener('click', () => {
     playSound('buy');
     socket.emit('buy-item', { itemId: 'bug_net', quantity: 1 });
   });
-  
-  // 购买稻草人
   document.getElementById('buy-scarecrow-btn')?.addEventListener('click', () => {
     playSound('buy');
     socket.emit('buy-item', { itemId: 'scarecrow', quantity: 1 });
+  });
+
+  // 使用按钮 —— 选择工具后点格子执行
+  document.getElementById('use-pesticide-btn')?.addEventListener('click', () => {
+    selectTool({ btnId: 'use-pesticide-btn', type: 'pesticide', label: '使用杀虫剂', emoji: '🧴', sound: 'water',
+      emit: () => socket?.emit('use-item', { itemId: 'pesticide' }) });
+  });
+  document.getElementById('use-bug-net-btn')?.addEventListener('click', () => {
+    selectTool({ btnId: 'use-bug-net-btn', type: 'bugnet', label: '放置防虫网', emoji: '🕸️', sound: 'plant',
+      emit: () => socket?.emit('use-item', { itemId: 'bug_net' }) });
+  });
+  document.getElementById('use-scarecrow-btn')?.addEventListener('click', () => {
+    selectTool({ btnId: 'use-scarecrow-btn', type: 'scarecrow', label: '放置稻草人', emoji: '🎃', sound: 'plant',
+      emit: () => socket?.emit('use-item', { itemId: 'scarecrow' }) });
   });
 }
 
