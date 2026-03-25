@@ -89,9 +89,13 @@
       </div>
 
       <!-- 操作面板 -->
-      <div class="action-panel">
-        <h3>操作</h3>
-        
+      <div class="action-panel" id="action-panel">
+        <h3 class="action-panel-header">
+          <span class="action-panel-title">操作</span>
+          <button class="panel-toggle-btn" onclick="toggleActionPanel()" title="折叠/展开">◀</button>
+        </h3>
+        <div class="action-panel-body">
+
         <!-- 谷物分类 -->
         <div class="action-category" onclick="toggleSection('crops-grain')">
           <h4>🌾 谷物 <span class="toggle-icon">▼</span></h4>
@@ -271,6 +275,8 @@
           <h4>🎒 背包 <button id="open-shop-btn" class="btn-small">🛒 商店</button></h4>
           <div id="inventory-list" class="inventory-list"></div>
         </div>
+
+        </div><!-- end action-panel-body -->
       </div>
     </div>
 
@@ -364,6 +370,14 @@
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
+    // 右侧操作面板整体折叠/展开
+    function toggleActionPanel() {
+      const panel = document.getElementById('action-panel');
+      const btn = panel.querySelector('.panel-toggle-btn');
+      const collapsed = panel.classList.toggle('collapsed');
+      btn.textContent = collapsed ? '▶' : '◀';
+    }
+
     // 分类折叠/展开功能
     function toggleSection(sectionId) {
       const section = document.getElementById(sectionId);

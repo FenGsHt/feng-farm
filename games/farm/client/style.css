@@ -609,6 +609,69 @@ button:active {
   background: var(--bg-light);
   border-radius: 12px;
   padding: 20px;
+  transition: width 0.25s ease, padding 0.25s ease, min-width 0.25s ease;
+  overflow: hidden;
+  min-width: 280px;
+}
+
+.action-panel.collapsed {
+  min-width: 0;
+  width: 48px;
+  padding: 12px 8px;
+}
+
+/* grid 第二列跟随面板收缩 */
+.game-container:has(.action-panel.collapsed) {
+  grid-template-columns: 1fr 48px;
+}
+
+.action-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  white-space: nowrap;
+}
+
+.action-panel.collapsed .action-panel-header {
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.action-panel-title {
+  font-size: 1.2em;
+  font-weight: 700;
+}
+
+.action-panel.collapsed .action-panel-title {
+  display: none;
+}
+
+.panel-toggle-btn {
+  background: none;
+  border: 1px solid var(--accent-brown);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  line-height: 1.4;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.panel-toggle-btn:hover {
+  background: var(--accent-brown);
+  color: white;
+}
+
+.action-panel-body {
+  overflow: hidden;
+}
+
+.action-panel.collapsed .action-panel-body {
+  display: none;
 }
 
 .action-panel h3 {
