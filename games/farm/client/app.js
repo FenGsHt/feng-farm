@@ -601,10 +601,11 @@ const SCALE_STEP = 0.1;
 function initSocket() {
   socket = io(SERVER_URL, {
     path: "/socket.io/",
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],  // 先polling再升级websocket
     reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 2000
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000
   });
 
   socket.on('connect', () => {
@@ -615,13 +616,20 @@ function initSocket() {
     }
   });
 
-  socket.on('disconnect', () => {
-    showNotification('⚠️ 连接断开，正在重连...', 'warning');
+  socket.on('disconnect', (reason) => {
+    console.log('[Farm] Disconnected:', reason);
+    if (reason === 'io server disconnect') {
+      socket.connect();
+    }
   });
 
   socket.on('connect_error', (err) => {
     console.error('[Socket] Connection error:', err.message);
-    showNotification('❌ 连接失败: ' + err.message, 'error');
+  });
+
+  socket.io.on('reconnect', (attempt) => {
+    console.log('[Farm] Reconnected after', attempt, 'attempts');
+    showNotification('✅ 重连成功', 'success');
   });
 
   socket.on('join-error', ({ message }) => {

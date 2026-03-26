@@ -12,7 +12,9 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: false
   },
-  path: "/socket.io/"
+  path: "/socket.io/",
+  pingTimeout: 60000,    // 60秒没收到pong才断开
+  pingInterval: 25000    // 每25秒发一次ping
 });
 
 app.use(express.json());
