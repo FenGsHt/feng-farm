@@ -94,7 +94,7 @@ function isNearPos(tx, ty) {
 
 function isNearAnimalPen(penIndex) {
   const pos = animalPositions[penIndex];
-  if (!pos) return true;
+  if (!pos) return false; // 没有位置信息时返回false，强制要求靠近
   return isNearPos(pos.x, pos.y);
 }
 
