@@ -675,16 +675,22 @@ class Farmer {
 
   _restockSeeds() {
     const SEED_PRICES = { wheat: 2, carrot: 3, rice: 8, tomato: 5 };
+    const CROP_NAMES = { wheat: '小麦', carrot: '胡萝卜', rice: '水稻', tomato: '番茄' };
+
     for (const [crop, price] of Object.entries(SEED_PRICES)) {
       const cost = price * 5;
       if ((this.seeds[crop] || 0) < 5 && this.game.sharedMoney >= cost + 50) {
         this.seeds[crop] = (this.seeds[crop] || 0) + 5;
         this.game.sharedMoney -= cost;
+        this._log(`${this.fullName} 购买了 ${CROP_NAMES[crop]}种子x5（-${cost}💰）`, '🌱', 'shop');
       }
     }
+
+    // 杀虫剂：40金币买2个
     if ((this.items.pesticide || 0) < 2 && this.game.sharedMoney >= 90) {
       this.items.pesticide = (this.items.pesticide || 0) + 2;
       this.game.sharedMoney -= 40;
+      this._log(`${this.fullName} 购买了 杀虫剂x2（-40💰）`, '🧪', 'shop');
     }
   }
 

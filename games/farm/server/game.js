@@ -527,7 +527,7 @@ class FarmGame {
 
     // ========== 黄金交易系统 ==========
     this.goldAmount = 0;           // 持有黄金数量（克）
-    this.goldPrice = 580;          // 当前金价（金币/克），初始值
+    this.goldPrice = 1000;         // 当前金价（金币/克），初始值约等于人民币价格
     this.goldPriceHistory = [];    // 金价历史 [{time, price}]
     this.lastGoldPriceUpdate = 0;  // 上次更新时间
 
@@ -1016,9 +1016,9 @@ class FarmGame {
               // 1盎司黄金 = X 人民币，1盎司 ≈ 31.1035克
               const pricePerOunce = json.xau.cny;
               const pricePerGram = pricePerOunce / 31.1035;
-              // 游戏中简化：除以10，使价格在合理范围
-              const gamePrice = Math.round(pricePerGram / 10);
-              resolve(Math.max(50, Math.min(200, gamePrice)));
+              // 金价一比一：直接使用人民币价格
+              const gamePrice = Math.round(pricePerGram);
+              resolve(Math.max(500, Math.min(1500, gamePrice)));
             } else {
               reject(new Error('Invalid response'));
             }
@@ -1029,13 +1029,13 @@ class FarmGame {
       });
 
       this.updateGoldPrice(price);
-      console.log(`[GoldPrice] 实时金价: ${price}💰/g (实际: ${(price * 10).toFixed(0)}元/克)`);
+      console.log(`[GoldPrice] 实时金价: ${price}💰/g (${price}元/克)`);
 
     } catch (error) {
       console.error('[GoldPrice] 获取失败，使用模拟:', error.message);
       // 失败时使用模拟波动
-      const basePrice = this.goldPrice || 100;
-      const change = (Math.random() - 0.5) * 10;
+      const basePrice = this.goldPrice || 1000;
+      const change = (Math.random() - 0.5) * 20;
       this.updateGoldPrice(Math.round(basePrice + change));
     }
   }
