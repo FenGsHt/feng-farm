@@ -1057,34 +1057,34 @@ button:active {
   40% { opacity: 0; }
 }
 
-/* 雾天背景 */
+/* 雾天背景 —— 仅覆盖农场网格，不影响操作面板 */
 .fog-overlay {
-  position: fixed;
+  position: absolute;   /* 相对于 farm-grid-scroll 定位 */
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(144, 164, 174, 0.4);
+  background: rgba(176, 196, 200, 0.32);
   pointer-events: none;
-  z-index: 400;
+  z-index: 4;           /* 在格子上方，在农夫/害虫指示下方 */
+  border-radius: 6px;
   animation: fog-pulse 4s ease-in-out infinite;
 }
 
 @keyframes fog-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.5; }
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1;   }
 }
 
-/* 雾天模糊效果 */
-.game-container.foggy .farm-wrapper,
-.game-container.foggy .action-panel {
-  filter: blur(2px);
+/* 雾天：仅给农场网格加轻微模糊，操作面板不受影响 */
+.game-container.foggy .farm-grid {
+  filter: blur(1px);
   animation: fog-float 6s ease-in-out infinite;
 }
 
 @keyframes fog-float {
-  0%, 100% { filter: blur(2px); }
-  50% { filter: blur(3px); }
+  0%, 100% { filter: blur(1px); }
+  50%       { filter: blur(2px); }
 }
 
 /* ========== 作物动画 ========== */
@@ -2738,7 +2738,7 @@ button:active {
   z-index: 20;
 }
 
-/* 展开时往上撑（覆盖网格底部） */
+/* 展开：日志面板向上浮出，覆盖网格底部（overlay 行为，不撑高 wrapper） */
 .farm-log-panel:not(.log-collapsed) {
   max-height: 200px;
 }
@@ -2749,11 +2749,6 @@ button:active {
 
 .farm-log-panel.log-collapsed .farm-log-body {
   display: none;
-}
-
-/* 展开时增加 farm-wrapper 的底部 padding，防止遮挡格子 */
-.farm-wrapper:has(.farm-log-panel:not(.log-collapsed)) {
-  padding-bottom: 200px;
 }
 
 .farm-log-header {

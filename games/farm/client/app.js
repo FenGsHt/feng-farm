@@ -249,9 +249,14 @@ function clearWeatherParticles() {
     weatherInterval = null;
   }
   
-  // 移除雾天效果
+  // 移除雾天效果（清除 gridScroll 内所有雾元素）
   document.querySelector('.game-container')?.classList.remove('foggy');
-  document.querySelector('.fog-overlay')?.remove();
+  document.querySelectorAll('.fog-overlay').forEach(el => el.remove());
+  // 同时清理附着在 gridScroll 上的飘动雾团
+  const gridScroll = document.querySelector('.farm-grid-scroll');
+  if (gridScroll) {
+    gridScroll.querySelectorAll('[style*="fog-drift"]').forEach(el => el.remove());
+  }
 }
 
 function startRain() {
@@ -337,30 +342,33 @@ function triggerLightning() {
 
 function startFog() {
   clearWeatherParticles();
-  const container = createWeatherParticles();
-  
-  // 添加雾天覆盖层
-  const fogOverlay = document.createElement('div');
-  fogOverlay.className = 'fog-overlay';
-  document.body.appendChild(fogOverlay);
-  
-  // 添加到游戏容器
-  document.querySelector('.game-container')?.classList.add('foggy');
-  
-  // 创建飘动的雾元素
-  for (let i = 0; i < 10; i++) {
-    const fog = document.createElement('div');
-    fog.style.cssText = `
-      position: absolute;
-      width: ${100 + Math.random() * 200}px;
-      height: 60px;
-      background: radial-gradient(ellipse, rgba(176, 190, 197, 0.3) 0%, transparent 70%);
-      left: ${Math.random() * 100}vw;
-      top: ${Math.random() * 50}vh;
-      animation: fog-drift ${8 + Math.random() * 4}s ease-in-out infinite;
-    `;
-    container.appendChild(fog);
+
+  // 雾层附着在 farm-grid-scroll 内，不铺满全屏
+  const gridScroll = document.querySelector('.farm-grid-scroll');
+  if (gridScroll) {
+    const fogOverlay = document.createElement('div');
+    fogOverlay.className = 'fog-overlay';
+    gridScroll.appendChild(fogOverlay);
+
+    // 飘动的雾团（相对于 gridScroll 定位）
+    for (let i = 0; i < 8; i++) {
+      const fog = document.createElement('div');
+      fog.style.cssText = `
+        position: absolute;
+        width: ${120 + Math.random() * 180}px;
+        height: 50px;
+        background: radial-gradient(ellipse, rgba(200, 218, 222, 0.45) 0%, transparent 70%);
+        left: ${Math.random() * 90}%;
+        top: ${Math.random() * 80}%;
+        pointer-events: none;
+        z-index: 5;
+        animation: fog-drift ${7 + Math.random() * 5}s ease-in-out infinite;
+      `;
+      gridScroll.appendChild(fog);
+    }
   }
+
+  document.querySelector('.game-container')?.classList.add('foggy');
 }
 
 // 添加雾漂移动画到CSS
