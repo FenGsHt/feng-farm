@@ -938,23 +938,22 @@ function initPestControlEvents() {
   });
 }
 
-// 更新金币显示（带动画）
+// 更新金币显示（带动画）—— 显示公共金库
 function updateMoneyDisplay() {
-  if (!gameState || !currentPlayer) return;
-  
-  const player = gameState.players.find(p => p.id === currentPlayer.id);
-  if (!player || !moneyDisplay) return;
-  
+  if (!gameState || !moneyDisplay) return;
+
+  // 优先使用顶层 sharedMoney，兜底用当前玩家的 money 字段
+  const newMoney = gameState.sharedMoney !== undefined
+    ? gameState.sharedMoney
+    : (gameState.players.find(p => p.id === currentPlayer?.id)?.money || 0);
+
   const currentMoney = parseInt(moneyDisplay.textContent.replace(/[^0-9]/g, '')) || 0;
-  const newMoney = player.money;
-  
+
   if (currentMoney !== newMoney) {
-    // 金币变化动画
     moneyDisplay.classList.add('money-changed');
     setTimeout(() => moneyDisplay.classList.remove('money-changed'), 300);
-    
     moneyDisplay.textContent = `💰 ${newMoney}`;
-    currentPlayer.money = newMoney;
+    if (currentPlayer) currentPlayer.money = newMoney;
   }
 }
 

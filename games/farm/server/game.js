@@ -489,6 +489,9 @@ class FarmGame {
     // ========== 农场日志 ==========
     this.farmLog = []; // [{ time, message, emoji, type }]
 
+    // ========== 共用金库 ==========
+    this.sharedMoney = 1000; // 所有玩家 + 农夫共用的金币池
+
     // 启动生长更新循环
     this.startGrowthLoop();
 
@@ -819,7 +822,7 @@ class FarmGame {
     }
     
     // 发放奖励
-    player.money += task.reward;
+    this.sharedMoney += task.reward;
     player.totalTaskRewards = (player.totalTaskRewards || 0) + task.reward;
     if (!player.dailyTasksClaimed) player.dailyTasksClaimed = [];
     player.dailyTasksClaimed.push(taskId);
@@ -827,7 +830,7 @@ class FarmGame {
     // 保存数据
     dataStore.savePlayer(socketId, { 
       name: player.name, 
-      money: player.money, 
+      money: this.sharedMoney, 
       color: player.color, 
       position: player.position,
       dailyTaskProgress: player.dailyTaskProgress,
@@ -860,13 +863,13 @@ class FarmGame {
     
     // 验证条件
     const stats = player.stats || { plantCount: 0, waterCount: 0, harvestCount: 0, sellCount: 0, fastHarvest: 0 };
-    const money = player.money;
+    const money = this.sharedMoney;
     if (!achievement.condition(stats, money)) {
       return { success: false, message: '成就条件未满足' };
     }
     
     // 发放奖励
-    player.money += achievement.reward;
+    this.sharedMoney += achievement.reward;
     player.totalTaskRewards = (player.totalTaskRewards || 0) + achievement.reward;
     if (!player.achievements) player.achievements = [];
     player.achievements.push(achievementId);
@@ -874,7 +877,7 @@ class FarmGame {
     // 保存数据
     dataStore.savePlayer(socketId, { 
       name: player.name, 
-      money: player.money, 
+      money: this.sharedMoney, 
       color: player.color, 
       position: player.position,
       dailyTaskProgress: player.dailyTaskProgress,
@@ -941,7 +944,7 @@ class FarmGame {
       if (earnTask) {
         if (!player.dailyTaskProgress[earnTask.id]) player.dailyTaskProgress[earnTask.id] = 0;
         // 累加总金币数作为进度（这里简化为当前金币）
-        player.dailyTaskProgress[earnTask.id] = player.money;
+        player.dailyTaskProgress[earnTask.id] = this.sharedMoney;
       }
     }
   }
@@ -968,7 +971,7 @@ class FarmGame {
       const playerStats = this.playerStats.get(p.id) || { harvests: 0, level: 1, cropsPlanted: 0 };
       return {
         name: p.name,
-        money: p.money,
+        money: this.sharedMoney,
         harvests: playerStats.harvests,
         level: this.calculateLevel(playerStats.harvests),
         cropsPlanted: playerStats.cropsPlanted
@@ -1018,7 +1021,7 @@ class FarmGame {
     const player = {
       id: socketId,
       name: savedPlayer && savedPlayer.name || playerName,
-      money: savedPlayer && savedPlayer.money || 5000, // 初始资金5000测试
+      money: 0, // 使用共用金库 sharedMoney，此字段仅占位
       color: savedPlayer && savedPlayer.color || colors[this.players.size % colors.length],
       position: savedPlayer && savedPlayer.position || { x: 0, y: 0 },
       inventory: savedPlayer && savedPlayer.inventory || {}, // 背包物品 { cropType: count }
@@ -1052,7 +1055,7 @@ class FarmGame {
       // 保存完整玩家数据后再删除
       dataStore.savePlayer(socketId, {
         name: player.name,
-        money: player.money,
+        money: this.sharedMoney,
         color: player.color,
         position: player.position,
         inventory: player.inventory,
@@ -1086,7 +1089,7 @@ class FarmGame {
     
     player.position = { x, y };
     // 保存玩家位置
-    dataStore.savePlayer(socketId, { name: player.name, money: player.money, color: player.color, position: player.position });
+    dataStore.savePlayer(socketId, { name: player.name, money: this.sharedMoney, color: player.color, position: player.position });
     // 记录操作日志
     dataStore.logAction(socketId, player.name, 'move', { x, y });
     return { success: true };
@@ -1102,9 +1105,11 @@ class FarmGame {
     
     const { x, y } = player.position;
     const plot = this.plots[y][x];
-    
-    // 防作弊检查
-    const validation = antiCheat.validateAction(player, plot, 'plant', crop.seedPrice, x, y, this.width, this.height);
+
+    // 防作弊检查（传入共用金库余额供验证）
+    const validation = antiCheat.validateAction(
+      { ...player, money: this.sharedMoney }, plot, 'plant', crop.seedPrice, x, y, this.width, this.height
+    );
     if (!validation.valid) {
       antiCheat.logSuspiciousAction(socketId, player.name, 'plant', validation.message, { cropType, x, y });
       return { success: false, message: validation.message };
@@ -1113,7 +1118,7 @@ class FarmGame {
     const result = plot.plant(cropType, player.name);
     
     if (result.success) {
-      player.money -= crop.seedPrice;
+      this.sharedMoney -= crop.seedPrice;
       
       // 更新玩家统计数据
       const stats = this.playerStats.get(socketId) || { harvests: 0, cropsPlanted: 0 };
@@ -1125,7 +1130,7 @@ class FarmGame {
       this.updateTaskProgress(socketId, 'plant', 1);
       
       // 保存玩家数据
-      dataStore.savePlayer(socketId, { name: player.name, money: player.money, color: player.color, position: player.position });
+      dataStore.savePlayer(socketId, { name: player.name, money: this.sharedMoney, color: player.color, position: player.position });
       // 记录操作日志
       dataStore.logAction(socketId, player.name, 'plant', { cropType, x, y, cost: crop.seedPrice });
     }
@@ -1211,7 +1216,7 @@ class FarmGame {
       // 添加到背包
       this.addToInventory(socketId, result.cropType, 1);
       
-      player.money += finalReward;
+      this.sharedMoney += finalReward;
       
       // 更新玩家统计数据
       const stats = this.playerStats.get(socketId) || { harvests: 0, cropsPlanted: 0 };
@@ -1225,7 +1230,7 @@ class FarmGame {
       // 保存玩家数据（包含等级）
       dataStore.savePlayer(socketId, { 
         name: player.name, 
-        money: player.money, 
+        money: this.sharedMoney, 
         color: player.color, 
         position: player.position, 
         inventory: player.inventory, 
@@ -1321,11 +1326,11 @@ class FarmGame {
     if (!item) return { success: false, message: '物品不存在' };
     
     const totalCost = item.price * quantity;
-    if (player.money < totalCost) {
+    if (this.sharedMoney < totalCost) {
       return { success: false, message: '金币不足' };
     }
     
-    player.money -= totalCost;
+    this.sharedMoney -= totalCost;
     
     if (item.type === 'seed') {
       // 种子直接放入背包
@@ -1344,7 +1349,7 @@ class FarmGame {
     // 保存玩家数据
     dataStore.savePlayer(socketId, { 
       name: player.name, 
-      money: player.money, 
+      money: this.sharedMoney, 
       color: player.color, 
       position: player.position,
       inventory: player.inventory,
@@ -1381,7 +1386,7 @@ class FarmGame {
       delete player.inventory[cropType];
     }
     
-    player.money += totalReward;
+    this.sharedMoney += totalReward;
     
     // 更新任务进度（出售任务和赚取金币任务）
     this.updateTaskProgress(socketId, 'sell', quantity);
@@ -1389,7 +1394,7 @@ class FarmGame {
     // 保存玩家数据
     dataStore.savePlayer(socketId, { 
       name: player.name, 
-      money: player.money, 
+      money: this.sharedMoney, 
       color: player.color, 
       position: player.position,
       inventory: player.inventory,
@@ -1440,7 +1445,7 @@ class FarmGame {
       // 保存数据
       dataStore.savePlayer(socketId, { 
         name: player.name, 
-        money: player.money, 
+        money: this.sharedMoney, 
         color: player.color, 
         position: player.position,
         inventory: player.inventory,
@@ -1461,7 +1466,7 @@ class FarmGame {
       // 保存数据
       dataStore.savePlayer(socketId, { 
         name: player.name, 
-        money: player.money, 
+        money: this.sharedMoney, 
         color: player.color, 
         position: player.position,
         inventory: player.inventory,
@@ -1483,7 +1488,7 @@ class FarmGame {
       // 保存数据
       dataStore.savePlayer(socketId, { 
         name: player.name, 
-        money: player.money, 
+        money: this.sharedMoney, 
         color: player.color, 
         position: player.position,
         inventory: player.inventory,
@@ -1517,7 +1522,7 @@ class FarmGame {
       // 保存数据
       dataStore.savePlayer(socketId, { 
         name: player.name, 
-        money: player.money, 
+        money: this.sharedMoney, 
         color: player.color, 
         position: player.position,
         inventory: player.inventory,
@@ -1551,7 +1556,7 @@ class FarmGame {
     const animal = ANIMALS[animalType];
     if (!animal) return { success: false, message: '未知动物' };
     
-    if (player.money < animal.buyPrice) {
+    if (this.sharedMoney < animal.buyPrice) {
       return { success: false, message: '金币不足' };
     }
     
@@ -1562,19 +1567,19 @@ class FarmGame {
     }
     
     // 扣金币
-    player.money -= animal.buyPrice;
+    this.sharedMoney -= animal.buyPrice;
     
     // 放置动物
     const result = emptyPen.place(animalType, player.name);
     if (!result.success) {
-      player.money += animal.buyPrice; // 恢复金币
+      this.sharedMoney += animal.buyPrice; // 恢复金币
       return result;
     }
     
     // 保存玩家数据
     dataStore.savePlayer(socketId, { 
       name: player.name, 
-      money: player.money, 
+      money: this.sharedMoney, 
       color: player.color, 
       position: player.position,
       inventory: player.inventory,
@@ -1614,12 +1619,12 @@ class FarmGame {
       this.addToInventory(socketId, productKey, 1);
       
       // 加金币
-      player.money += result.reward;
+      this.sharedMoney += result.reward;
       
       // 保存玩家数据
       dataStore.savePlayer(socketId, { 
         name: player.name, 
-        money: player.money, 
+        money: this.sharedMoney, 
         color: player.color, 
         position: player.position,
         inventory: player.inventory,
@@ -1654,12 +1659,12 @@ class FarmGame {
     const result = pen.sell();
     if (result.success) {
       // 加金币
-      player.money += result.reward;
+      this.sharedMoney += result.reward;
       
       // 保存玩家数据
       dataStore.savePlayer(socketId, { 
         name: player.name, 
-        money: player.money, 
+        money: this.sharedMoney, 
         color: player.color, 
         position: player.position,
         inventory: player.inventory,
@@ -1705,12 +1710,12 @@ class FarmGame {
       delete player.inventory[productKey];
     }
     
-    player.money += totalReward;
+    this.sharedMoney += totalReward;
     
     // 保存玩家数据
     dataStore.savePlayer(socketId, { 
       name: player.name, 
-      money: player.money, 
+      money: this.sharedMoney, 
       color: player.color, 
       position: player.position,
       inventory: player.inventory,
@@ -1746,12 +1751,13 @@ class FarmGame {
     return {
       width: this.width,
       height: this.height,
+      sharedMoney: this.sharedMoney, // 共用金库
       plots: this.plots.map(row => row.map(plot => plot.getState())),
       animalPens: this.animalPens.map(pen => pen.getState()),
       players: Array.from(this.players.values()).map(p => ({
         id: p.id,
         name: p.name,
-        money: p.money,
+        money: this.sharedMoney,
         color: p.color,
         position: p.position,
         inventory: p.inventory,

@@ -111,10 +111,10 @@ class HarvestBehavior extends FarmerBehavior {
     const result = target.plot.harvest();
     if (result.success) {
       const cfg = game.getCropConfig(result.cropType);
-      farmer.money += result.reward;
+      game.sharedMoney += result.reward; // 收益归入共用金库
       farmer.currentAction = `收获了 ${cfg.emoji}${cfg.name}`;
       return {
-        log: `${farmer.fullName} 收获了 ${cfg.emoji}${cfg.name}，获得 ${result.reward} 金币 💰`,
+        log: `${farmer.fullName} 收获了 ${cfg.emoji}${cfg.name}，公共金库 +${result.reward} 💰`,
         acted: true
       };
     }
@@ -275,8 +275,7 @@ class Farmer {
     this.state         = 'idle';
     this.currentAction = '准备工作';
 
-    // 虚拟资产（不消耗玩家金币）
-    this.money = options.money || 300;
+    // 农夫库存（种子/道具从公共金库购买，收益也归入公共金库）
     this.seeds = options.seeds || { wheat: 8, carrot: 8, tomato: 6, rice: 4 };
     this.items = options.items || { pesticide: 3 };
 
@@ -384,21 +383,22 @@ class Farmer {
     }
   }
 
-  // 自动补仓种子（用自己的金币购买）
+  // 自动补仓种子（从公共金库购买）
   _restockSeeds() {
     const cheapSeeds = ['wheat', 'carrot', 'rice', 'tomato'];
     const SEED_PRICES = { wheat: 2, carrot: 3, rice: 8, tomato: 5 };
     for (const crop of cheapSeeds) {
       const cnt = this.seeds[crop] || 0;
-      if (cnt < 5 && this.money >= SEED_PRICES[crop] * 5) {
+      const cost = SEED_PRICES[crop] * 5;
+      if (cnt < 5 && this.game.sharedMoney >= cost) {
         this.seeds[crop] = (this.seeds[crop] || 0) + 5;
-        this.money -= SEED_PRICES[crop] * 5;
+        this.game.sharedMoney -= cost;
       }
     }
     // 补充杀虫剂
-    if ((this.items.pesticide || 0) < 2 && this.money >= 40) {
+    if ((this.items.pesticide || 0) < 2 && this.game.sharedMoney >= 40) {
       this.items.pesticide = (this.items.pesticide || 0) + 2;
-      this.money -= 40;
+      this.game.sharedMoney -= 40;
     }
   }
 
@@ -431,7 +431,6 @@ class Farmer {
       state:         this.state,
       currentAction: this.currentAction,
       isSleeping:    this.state === 'sleeping',
-      money:         this.money,
       timeString:    this.getTimeString()
     };
   }
