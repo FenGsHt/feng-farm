@@ -998,25 +998,47 @@ class FarmGame {
 
   // 从外部API获取实时金价
   async fetchGoldPrice() {
+    const https = require('https');
+
     try {
-      // 使用金价API（这里用模拟数据，实际可替换为真实API）
-      // 常见API: goldprice.org, metals-api.com 等
-      const http = require('http');
-      const https = require('https');
+      // 使用东方财富API获取黄金价格（人民币/克）
+      const price = await new Promise((resolve, reject) => {
+        const url = 'https://quote.eastmoney.com/api/quote/realtime?code=au2406&fields=price';
+        https.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
+          }
+        }, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            try {
+              // 东方财富API返回格式解析
+              const json = JSON.parse(data);
+              if (json.data && json.data.price) {
+                // 期货价格转换为游戏价格（简化：取整数部分/10）
+                const realPrice = Math.round(parseFloat(json.data.price) / 10);
+                resolve(Math.max(100, Math.min(2000, realPrice)));
+              } else {
+                reject(new Error('Invalid response'));
+              }
+            } catch (e) {
+              reject(e);
+            }
+          });
+        }).on('error', reject);
+      });
 
-      // 模拟金价波动（实际应替换为真实API调用）
-      // 基于当前价格随机波动 ±3%
-      const basePrice = this.goldPrice || 580;
-      const change = (Math.random() - 0.5) * 0.06; // ±3%
-      const newPrice = Math.round(basePrice * (1 + change));
-
-      this.updateGoldPrice(newPrice);
+      this.updateGoldPrice(price);
+      console.log(`[GoldPrice] 实时金价获取成功: ${price}💰/g`);
 
     } catch (error) {
-      console.error('[GoldPrice] 获取金价失败:', error.message);
-      // 失败时保持原价格或小幅波动
+      console.error('[GoldPrice] 获取实时金价失败，使用模拟波动:', error.message);
+      // 失败时基于当前价格小幅波动
+      const basePrice = this.goldPrice || 580;
       const change = (Math.random() - 0.5) * 0.02;
-      this.updateGoldPrice(Math.round(this.goldPrice * (1 + change)));
+      this.updateGoldPrice(Math.round(basePrice * (1 + change)));
     }
   }
 
