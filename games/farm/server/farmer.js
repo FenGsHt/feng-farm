@@ -325,13 +325,33 @@ class FeedAnimalBehavior extends FarmerBehavior {
   constructor() { super('喂养动物', '🌽', 9); }
 
   canExecute(farmer, game) {
-    return game.animalPens.some(p => p.animal && (p.hunger || 0) >= 60)
-      && game.sharedMoney >= 10;
+    // 检查是否有饥饿动物
+    const hasHungryAnimal = game.animalPens.some(p => p.animal && (p.hunger || 0) >= 60);
+    if (!hasHungryAnimal || game.sharedMoney < 10) return false;
+
+    // 检查距离：动物栏在右下角区域
+    const targetX = 0;
+    const targetY = game.height - 1;
+    const dist = Math.abs(farmer.x - targetX) + Math.abs(farmer.y - targetY);
+
+    // 距离 ≤ 2 才能执行，否则需要先走过去
+    return dist <= 2;
   }
 
-  getTarget(farmer, game) { return { x: 0, y: game.height - 1 }; }
+  getTarget(farmer, game) {
+    // 动物栏位置
+    return { x: 0, y: game.height - 1 };
+  }
 
   execute(farmer, game) {
+    // 再次检查距离
+    const targetX = 0;
+    const targetY = game.height - 1;
+    const dist = Math.abs(farmer.x - targetX) + Math.abs(farmer.y - targetY);
+    if (dist > 2) {
+      return { log: '', acted: false, earned: 0 };
+    }
+
     let fed = 0, cost = 0;
     for (const pen of game.animalPens) {
       if (pen.animal && (pen.hunger || 0) >= 60) {
