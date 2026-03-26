@@ -608,8 +608,11 @@ function initSocket() {
     transports: ['polling', 'websocket'],  // polling优先，兼容Vercel
     forceNew: true,
     reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 1000
+    reconnectionAttempts: Infinity,  // 无限重连
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    randomizationFactor: 0.5,
+    timeout: 20000  // 连接超时20秒
   });
 
   socket.on('connect', () => {
@@ -622,9 +625,7 @@ function initSocket() {
 
   socket.on('disconnect', (reason) => {
     console.log('[Farm] ❌ 断开连接! 原因:', reason);
-    console.log('[Farm] socket.id:', socket.id);
-    console.log('[Farm] socket.connected:', socket.connected);
-    socket.io.opts.forceNew = true;
+    // 不要设置 forceNew，让 Socket.IO 的内置重连机制处理
   });
 
   socket.on('connect_error', (err) => {

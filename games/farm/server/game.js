@@ -1675,22 +1675,24 @@ class FarmGame {
 
   // 更新害虫
   updatePests() {
+    const weatherData = WEATHER_TYPES[this.weather];  // 添加天气数据
+
     // 减少害虫持续时间，移除到期的害虫
     this.pests = this.pests.filter(pest => {
       pest.turnsRemaining--;
       return pest.turnsRemaining > 0;
     });
-    
+
     // 对作物造成伤害
     this.pests.forEach(pest => {
       const pestData = PEST_TYPES[pest.type];
       const plot = this.plots[pest.y]?.[pest.x];
-      
+
       if (plot && plot.crop && plot.growthStage < 3) {
         // 降低生长阶段
         plot.growthStage = Math.max(0, plot.growthStage - pestData.damage);
       }
-      
+
       // 老鼠可能偷吃成熟作物
       if (pest.type === 'rat' && plot && plot.crop && plot.growthStage >= 3) {
         if (Math.random() < pestData.stealChance) {
@@ -1699,7 +1701,7 @@ class FarmGame {
           plot.growthStage = 0;
         }
       }
-      
+
       // 害虫蔓延
       if (Math.random() < pestData.spreadRate * 0.5) {
         this.spreadPest(pest);
