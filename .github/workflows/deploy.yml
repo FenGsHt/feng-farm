@@ -1,93 +1,58 @@
-name: Deploy Feng Farm
+name: Deploy to VPS
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          touch ~/.ssh/known_hosts
-
-      - name: Prepare remote directory
-        run: |
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            "mkdir -p ${{ secrets.SERVER_PATH }}/games/farm/server \
-                      ${{ secrets.SERVER_PATH }}/games/farm/client \
-                      ${{ secrets.SERVER_PATH }}/games/farm/logs && \
-             sudo chown -R \$(whoami) ${{ secrets.SERVER_PATH }}/games/farm || true"
-
-      - name: Deploy client files
-        uses: nick-fields/retry@v2
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          max_attempts: 3
-          retry_wait_seconds: 10
-          timeout_minutes: 5
-          command: |
-            scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
-              games/farm/client/index.html \
-              games/farm/client/app.js \
-              games/farm/client/style.css \
-              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/client/
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/1panel/www/sites/indeed-flow-prod/feng-farm
 
-      - name: Deploy server files
-        uses: nick-fields/retry@v2
-        with:
-          max_attempts: 3
-          retry_wait_seconds: 10
-          timeout_minutes: 5
-          command: |
-            scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
-              games/farm/server/server.js \
-              games/farm/server/game.js \
-              games/farm/server/farmer.js \
-              games/farm/server/antiCheat.js \
-              games/farm/server/dataStore.js \
-              games/farm/server/package.json \
-              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/server/
-            scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
-              games/farm/ecosystem.config.js \
-              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/
+            # 拉取最新代码
+            git pull origin main
 
-      - name: Start server with PM2
-        uses: nick-fields/retry@v2
-        with:
-          max_attempts: 3
-          retry_wait_seconds: 20
-          timeout_minutes: 5
-          command: |
-            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-              "source ~/.bashrc 2>/dev/null || true; \
-               export NVM_DIR=\$HOME/.nvm && [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"; \
-               which pm2 || npm install -g pm2; \
-               cd ${{ secrets.SERVER_PATH }}/games/farm/server && \
-               npm install --no-audit --legacy-peer-deps; \
-               cd ${{ secrets.SERVER_PATH }}/games/farm && \
-               pm2 stop feng-farm 2>/dev/null || true; \
-               pm2 delete feng-farm 2>/dev/null || true; \
-               fuser -k 3007/tcp 2>/dev/null || true; \
-               pm2 start ecosystem.config.js && \
-               pm2 save && \
-               pm2 list"
+            # 安装依赖
+            cd games/farm/server && npm install --production
 
-      - name: Notify success
-        if: success()
-        run: |
-          curl -s "https://api.day.app/${{ secrets.BARK_KEY }}/部署成功/Feng%20Farm%20部署完成" || true
+            # 创建配置文件（从Secrets注入）
+            cat > ../ecosystem.config.js << ENVEOF
+            module.exports = {
+              apps: [{
+                name: 'feng-farm',
+                script: './games/farm/server/server.js',
+                interpreter: '/home/openclaw/.nvm/versions/node/v20.20.1/bin/node',
+                cwd: '/opt/1panel/www/sites/indeed-flow-prod/feng-farm',
+                instances: 1,
+                autorestart: true,
+                watch: false,
+                max_memory_restart: '500M',
+                env: {
+                  NODE_ENV: 'production',
+                  PORT: 3007,
+                  LLM_API_URL: '${{ secrets.LLM_API_URL }}',
+                  LLM_API_KEY: '${{ secrets.LLM_API_KEY }}',
+                  LLM_MODEL: '${{ secrets.LLM_MODEL }}'
+                },
+                error_file: '/var/log/pm2/feng-farm-error.log',
+                out_file: '/var/log/pm2/feng-farm-out.log',
+                log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+                merge_logs: true
+              }]
+            };
+            ENVEOF
 
-      - name: Notify failure
-        if: failure()
-        run: |
-          curl -s "https://api.day.app/${{ secrets.BARK_KEY }}/部署失败/Feng%20Farm%20部署异常" || true
+            # 重启服务
+            pm2 restart feng-farm || pm2 start ecosystem.config.js
+
+            echo "Deploy completed!"
