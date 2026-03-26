@@ -1073,38 +1073,40 @@ function renderFarmer() {
   if (!gameState) return;
   const farmer = gameState.farmer;
 
-  // 清除旧的农夫标记和行走目标指示
+  // 清除旧的农夫元素和格子高亮
   document.querySelectorAll('.farmer-in-cell, .farmer-walk-target').forEach(el => el.remove());
+  document.querySelectorAll('.plot-cell.farmer-here').forEach(el => el.classList.remove('farmer-here'));
 
   if (!farmer) return;
 
   const cell = document.getElementById(`plot-${farmer.x}-${farmer.y}`);
   if (!cell) return;
 
+  // 高亮农夫所在格子
+  cell.classList.add('farmer-here');
+
   // 农夫本体
   const el = document.createElement('div');
   let stateClass = '';
-  if (farmer.isSleeping)      stateClass = ' farmer-sleeping';
-  else if (farmer.isWalking)  stateClass = ' farmer-walking';
+  if (farmer.isSleeping)             stateClass = ' farmer-sleeping';
+  else if (farmer.isWalking)         stateClass = ' farmer-walking';
   else if (farmer.state === 'working') stateClass = ' farmer-working';
 
   el.className = 'farmer-in-cell' + stateClass;
-  el.textContent = farmer.emoji;
+  el.textContent = farmer.emoji || '🧑‍🌾';
   el.title = `${farmer.fullName} — ${farmer.currentAction}`;
+  cell.appendChild(el);
 
-  // 行走中：在目标格显示脚印
+  // 行走中：在目标格显示小黄点
   if (farmer.isWalking && farmer.walkTarget) {
     const tc = document.getElementById(`plot-${farmer.walkTarget.x}-${farmer.walkTarget.y}`);
     if (tc) {
-      const arrow = document.createElement('div');
-      arrow.className = 'farmer-walk-target';
-      arrow.textContent = '🟡';
-      arrow.style.cssText = 'position:absolute;bottom:1px;left:1px;font-size:8px;z-index:5;pointer-events:none;opacity:0.6';
-      tc.appendChild(arrow);
+      const dot = document.createElement('div');
+      dot.className = 'farmer-walk-target';
+      dot.textContent = '🟡';
+      tc.appendChild(dot);
     }
   }
-
-  cell.appendChild(el);
 }
 
 // ========== 农场日志渲染 ==========

@@ -2523,71 +2523,90 @@ button:active {
 }
 
 /* ========== 农夫 NPC ========== */
+
+/* 农夫所在格子高亮 */
+.plot-cell.farmer-here {
+  box-shadow: 0 0 0 2px #ffd54f, 0 0 10px rgba(255,213,79,0.6) !important;
+  z-index: 2;
+}
+
 .farmer-in-cell {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  font-size: 18px;
+  /* 居中显示，占格子主体位置 */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
   line-height: 1;
-  z-index: 6;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7));
+  z-index: 8;
+  /* 半透明金色圆形底座，让农夫在任何背景上都清晰可见 */
+  background: rgba(255, 220, 80, 0.28);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.8));
   animation: farmer-idle 2s ease-in-out infinite;
   pointer-events: none;
-  transition: none; /* 位置切换由 JS 控制，不需要 CSS 过渡 */
 }
 
 .farmer-in-cell.farmer-walking {
-  animation: farmer-walk 0.6s linear infinite;
+  animation: farmer-walk 0.55s linear infinite;
+  background: rgba(100, 200, 255, 0.22);
 }
 
 .farmer-in-cell.farmer-working {
-  animation: farmer-work 0.5s ease-in-out infinite;
+  animation: farmer-work 0.45s ease-in-out infinite;
+  background: rgba(100, 220, 100, 0.28);
 }
 
 .farmer-in-cell.farmer-sleeping {
   animation: farmer-sleep 2.5s ease-in-out infinite;
-  opacity: 0.75;
-  font-size: 15px;
+  opacity: 0.8;
+  font-size: 18px;
+  background: rgba(120, 120, 200, 0.22);
 }
 
-/* 行走中的脚印指示器 */
-.farmer-walk-arrow {
+/* 行走目标格黄点 */
+.farmer-walk-target {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  font-size: 9px;
-  z-index: 7;
+  bottom: 2px;
+  left: 2px;
+  font-size: 8px;
+  z-index: 5;
   pointer-events: none;
-  animation: arrow-fade 0.8s ease-in-out infinite;
+  animation: arrow-fade 0.7s ease-in-out infinite;
 }
 
 @keyframes farmer-idle {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-1px); }
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%       { transform: translate(-50%, -54%) scale(1.03); }
 }
 
 @keyframes farmer-walk {
-  0%   { transform: translateY(0) scaleX(1); }
-  25%  { transform: translateY(-3px) scaleX(1); }
-  50%  { transform: translateY(0) scaleX(1); }
-  75%  { transform: translateY(-3px) scaleX(-1); }
-  100% { transform: translateY(0) scaleX(-1); }
+  0%   { transform: translate(-50%, -50%) scaleX(1); }
+  25%  { transform: translate(-50%, -58%) scaleX(1); }
+  50%  { transform: translate(-50%, -50%) scaleX(-1); }
+  75%  { transform: translate(-50%, -58%) scaleX(-1); }
+  100% { transform: translate(-50%, -50%) scaleX(1); }
 }
 
 @keyframes farmer-work {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  30%       { transform: scale(1.1) rotate(-8deg); }
-  60%       { transform: scale(1.1) rotate(8deg); }
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  30%       { transform: translate(-50%, -50%) rotate(-12deg) scale(1.1); }
+  60%       { transform: translate(-50%, -50%) rotate(12deg) scale(1.1); }
 }
 
 @keyframes farmer-sleep {
-  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.75; }
-  50%       { transform: scale(0.9) rotate(-8deg); opacity: 0.5; }
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0.8; }
+  50%       { transform: translate(-50%, -50%) rotate(-10deg); opacity: 0.55; }
 }
 
 @keyframes arrow-fade {
   0%, 100% { opacity: 0.9; }
-  50%       { opacity: 0.3; }
+  50%       { opacity: 0.2; }
 }
 
 /* ========== 农场日志面板（悬浮在网格底部的 overlay） ========== */
