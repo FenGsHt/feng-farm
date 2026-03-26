@@ -996,49 +996,28 @@ class FarmGame {
     }, 3600000)); // 1小时 = 3600000ms
   }
 
-  // 从外部API获取实时金价
+  // 获取金价（模拟真实市场波动）
   async fetchGoldPrice() {
-    const https = require('https');
-
     try {
-      // 使用东方财富API获取黄金价格（人民币/克）
-      const price = await new Promise((resolve, reject) => {
-        const url = 'https://quote.eastmoney.com/api/quote/realtime?code=au2406&fields=price';
-        https.get(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json'
-          }
-        }, (res) => {
-          let data = '';
-          res.on('data', chunk => data += chunk);
-          res.on('end', () => {
-            try {
-              // 东方财富API返回格式解析
-              const json = JSON.parse(data);
-              if (json.data && json.data.price) {
-                // 期货价格转换为游戏价格（简化：取整数部分/10）
-                const realPrice = Math.round(parseFloat(json.data.price) / 10);
-                resolve(Math.max(100, Math.min(2000, realPrice)));
-              } else {
-                reject(new Error('Invalid response'));
-              }
-            } catch (e) {
-              reject(e);
-            }
-          });
-        }).on('error', reject);
-      });
+      // 模拟真实金价波动（基于国际金价约580-650元/克）
+      // 使用正弦波 + 随机噪声模拟市场走势
+      const basePrice = 580;  // 基准价格
+      const time = Date.now() / 1000 / 3600; // 小时为单位
 
-      this.updateGoldPrice(price);
-      console.log(`[GoldPrice] 实时金价获取成功: ${price}💰/g`);
+      // 周期性波动（模拟市场周期）+ 随机噪声
+      const wave = Math.sin(time * 0.3) * 30;  // 周期波动 ±30
+      const noise = (Math.random() - 0.5) * 20; // 随机噪声 ±10
+      const trend = Math.sin(time * 0.05) * 15; // 长期趋势
+
+      const newPrice = Math.round(basePrice + wave + noise + trend);
+      const clampedPrice = Math.max(500, Math.min(700, newPrice)); // 限制在500-700范围
+
+      this.updateGoldPrice(clampedPrice);
+      console.log(`[GoldPrice] 金价更新: ${clampedPrice}💰/g`);
 
     } catch (error) {
-      console.error('[GoldPrice] 获取实时金价失败，使用模拟波动:', error.message);
-      // 失败时基于当前价格小幅波动
-      const basePrice = this.goldPrice || 580;
-      const change = (Math.random() - 0.5) * 0.02;
-      this.updateGoldPrice(Math.round(basePrice * (1 + change)));
+      console.error('[GoldPrice] 金价计算错误:', error.message);
+      this.updateGoldPrice(this.goldPrice || 580);
     }
   }
 

@@ -533,8 +533,10 @@ class Farmer {
   // ---------- 时间工具 ----------
 
   isNightTime() {
-    const h = (new Date().getUTCHours() + 8) % 24;
-    return h >= 22 || h < 6;
+    // 暂时禁用睡眠系统
+    return false;
+    // const h = (new Date().getUTCHours() + 8) % 24;
+    // return h >= 22 || h < 6;
   }
 
   getTimeString() {
