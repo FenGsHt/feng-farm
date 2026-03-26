@@ -240,6 +240,10 @@ const SHOP_ITEMS = {
   // 动物 - 特殊
   'animal-rabbit': { type: 'animal', animal: 'rabbit', name: '小兔', price: 120, emoji: '🐰' },
   'animal-bee': { type: 'animal', animal: 'bee', name: '蜜蜂群', price: 80, emoji: '🐝' },
+  // 动物饲料
+  'animal-feed-basic':  { type: 'animal-feed', name: '普通饲料', emoji: '🌾', price: 5,  hungerReduce: 30,  desc: '普通饲料，减少饥饿度30%' },
+  'animal-feed-premium':{ type: 'animal-feed', name: '高级饲料', emoji: '🥬', price: 12, hungerReduce: 60,  desc: '营养饲料，减少饥饿度60%' },
+  'animal-feed-super':  { type: 'animal-feed', name: '特级饲料', emoji: '🍎', price: 25, hungerReduce: 100, desc: '特级饲料，完全吃饱' },
   // 农夫食物
   'food-bread':     { type: 'farmer-food', name: '面包',   emoji: '🍞', price: 5,  satiety: 25,  desc: '简单充饥，回复饱腹 25%' },
   'food-rice-bowl': { type: 'farmer-food', name: '米饭',   emoji: '🍚', price: 10, satiety: 40,  desc: '家常便饭，回复饱腹 40%' },
@@ -1920,6 +1924,49 @@ class FarmGame {
       success: true, 
       message: `出售 ${ANIMALS[result.animalType].emoji}${ANIMALS[result.animalType].name} +${result.reward}金币`,
       reward: result.reward
+    };
+  }
+
+  // 喂养动物
+  feedAnimal(socketId, penIndex, feedId, animalPos) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    const pen = this.animalPens[penIndex];
+    if (!pen) return { success: false, message: '栏位不存在' };
+    if (!pen.animal) return { success: false, message: '栏位没有动物' };
+
+    // 距离验证
+    if (animalPos && player.position) {
+      const dist = Math.abs(player.position.x - animalPos.x) + Math.abs(player.position.y - animalPos.y);
+      if (dist > 2) {
+        return { success: false, message: '距离太远，请靠近动物' };
+      }
+    }
+
+    const feed = SHOP_ITEMS[feedId];
+    if (!feed || feed.type !== 'animal-feed') {
+      return { success: false, message: '无效的饲料' };
+    }
+    if (this.sharedMoney < feed.price) {
+      return { success: false, message: `金币不足（需 ${feed.price}💰）` };
+    }
+
+    // 扣金币，减少饥饿度
+    this.sharedMoney -= feed.price;
+    pen.hunger = Math.max(0, (pen.hunger || 0) - feed.hungerReduce);
+
+    const animal = ANIMALS[pen.animal];
+    const hungerPct = Math.round(pen.hunger);
+    this.addFarmLog(`给 ${animal.emoji}${animal.name} 喂了 ${feed.emoji}${feed.name}，饥饿度降至 ${hungerPct}%`, feed.emoji, 'animal');
+
+    // 保存状态
+    this._saveState();
+
+    return {
+      success: true,
+      message: `喂养成功！${animal.emoji}${animal.name} 饥饿度降至 ${hungerPct}%`,
+      hunger: pen.hunger
     };
   }
 

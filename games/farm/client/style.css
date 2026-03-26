@@ -3112,3 +3112,149 @@ button:active {
   60%  { opacity: 1; }
   100% { opacity: 0; transform: translateX(-50%) translateY(-28px); }
 }
+
+/* ========== 动物喂养系统 ========== */
+.animal-hunger {
+  font-size: 11px;
+  color: #81c784;
+  margin-top: 2px;
+}
+
+.animal-hunger.warning {
+  color: #ffb74d;
+}
+
+.animal-hunger.critical {
+  color: #ef5350;
+  font-weight: bold;
+}
+
+.animal-pen-cell.hungry {
+  border-color: #ff9800 !important;
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.animal-feed-btn {
+  background: linear-gradient(135deg, #81c784, #4caf50);
+  border: none;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.animal-feed-btn:hover {
+  background: linear-gradient(135deg, #a5d6a7, #66bb6a);
+}
+
+/* 喂养模态框 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.feed-modal {
+  background: var(--bg-light);
+  padding: 20px;
+  border-radius: 12px;
+  min-width: 300px;
+  border: 2px solid var(--accent-green);
+}
+
+.feed-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.feed-modal .modal-header span:first-child {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.feed-modal .hunger-status {
+  font-size: 14px;
+  color: #ffb74d;
+}
+
+.feed-modal .modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.feed-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feed-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feed-option:hover:not(:disabled) {
+  background: rgba(255,255,255,0.1);
+  border-color: var(--accent-green);
+}
+
+.feed-option:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.feed-emoji {
+  font-size: 24px;
+}
+
+.feed-name {
+  font-weight: bold;
+  flex: 1;
+}
+
+.feed-desc {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.feed-price {
+  color: #ffd54f;
+  font-weight: bold;
+}
+
+.feed-footer {
+  margin-top: 15px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 弹窗中饥饿度 */
+.acp-hunger {
+  font-size: 13px;
+  padding: 5px 0;
+  color: var(--text-muted);
+}
+
+.acp-feed {
+  background: linear-gradient(135deg, #81c784, #4caf50);
+}

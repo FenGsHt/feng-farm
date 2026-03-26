@@ -351,10 +351,24 @@ io.on('connection', (socket) => {
     if (!currentRoomId) return;
     const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-    
+
     const result = room.game.sellAnimalProduct(socket.id, productKey, quantity);
     socket.emit('shop-result', result);
-    
+
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // Feed animal
+  socket.on('feed-animal', ({ penIndex, feedId, animalPos }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.feedAnimal(socket.id, penIndex, feedId, animalPos);
+    socket.emit('action-result', result);
+
     if (result.success) {
       io.to(currentRoomId).emit('game-state', room.game.getState());
     }

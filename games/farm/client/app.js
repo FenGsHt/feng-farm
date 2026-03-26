@@ -2242,22 +2242,32 @@ function renderAnimalPen() {
   container.innerHTML = '';
   occupied.forEach(pen => {
     const card = document.createElement('div');
-    card.className = `animal-pen-cell has-animal${pen.isReady ? ' ready' : ''}`;
+    card.className = `animal-pen-cell has-animal${pen.isReady ? ' ready' : ''}${(pen.hunger || 0) >= 60 ? ' hungry' : ''}`;
     const progressPercent = Math.round((pen.progress || 0) * 100);
+    const hungerPct = Math.round(pen.hunger || 0);
+    const hungerClass = hungerPct >= 80 ? 'critical' : hungerPct >= 60 ? 'warning' : '';
     card.innerHTML = `
       <span class="animal-pen-emoji">${pen.emoji}</span>
       <span class="animal-pen-name">${pen.animalName}</span>
       <span class="animal-pen-status ${pen.isReady ? 'ready' : ''}">
         ${pen.isReady ? '可收获!' : `${pen.remainingTime}s`}
       </span>
+      <div class="animal-hunger ${hungerClass}" title="饥饿度: ${hungerPct}%">
+        🍖 ${hungerPct}%
+      </div>
       <div class="animal-pen-progress">
         <div class="animal-pen-progress-bar" style="width:${progressPercent}%"></div>
       </div>
       <div class="animal-pen-actions">
+        <button class="animal-feed-btn" data-pen="${pen.penIndex}">喂养</button>
         <button class="animal-harvest-btn" data-pen="${pen.penIndex}" ${!pen.isReady ? 'disabled' : ''}>收获</button>
         <button class="animal-sell-btn" data-pen="${pen.penIndex}">出售</button>
       </div>
     `;
+    card.querySelector('.animal-feed-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      showFeedAnimalModal(pen.penIndex, pen);
+    });
     card.querySelector('.animal-harvest-btn').addEventListener('click', e => {
       e.stopPropagation();
       if (!pen.isReady) return;
@@ -2323,9 +2333,68 @@ function renderAnimalsOnMap() {
   });
 }
 
+// 显示喂养动物模态框
+function showFeedAnimalModal(penIndex, pen) {
+  const feeds = {
+    'animal-feed-basic':   { name: '普通饲料', emoji: '🌾', price: 5,  hungerReduce: 30,  desc: '减少饥饿度30%' },
+    'animal-feed-premium': { name: '高级饲料', emoji: '🥬', price: 12, hungerReduce: 60,  desc: '减少饥饿度60%' },
+    'animal-feed-super':   { name: '特级饲料', emoji: '🍎', price: 25, hungerReduce: 100, desc: '完全吃饱' }
+  };
+
+  const hungerPct = Math.round(pen.hunger || 0);
+  const money = gameState?.sharedMoney || 0;
+
+  const modal = document.createElement('div');
+  modal.id = 'feed-animal-modal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-content feed-modal">
+      <div class="modal-header">
+        <span>${pen.emoji} ${pen.animalName}</span>
+        <span class="hunger-status">🍖 饥饿度: ${hungerPct}%</span>
+        <button class="modal-close">✕</button>
+      </div>
+      <div class="feed-options">
+        ${Object.entries(feeds).map(([id, feed]) => `
+          <button class="feed-option" data-feed="${id}" ${money < feed.price ? 'disabled' : ''}>
+            <span class="feed-emoji">${feed.emoji}</span>
+            <span class="feed-name">${feed.name}</span>
+            <span class="feed-desc">${feed.desc}</span>
+            <span class="feed-price">${feed.price}💰</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="feed-footer">当前金币: ${money}💰</div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // 关闭按钮
+  modal.querySelector('.modal-close').onclick = () => modal.remove();
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+
+  // 选择饲料
+  modal.querySelectorAll('.feed-option').forEach(btn => {
+    btn.onclick = () => {
+      const feedId = btn.dataset.feed;
+      if (!isNearAnimalPen(penIndex)) {
+        showNotification('⚠️ 请先走到动物旁边再喂养', 'error');
+        return;
+      }
+      socket.emit('feed-animal', { penIndex, feedId, animalPos: animalPositions[penIndex] });
+      playSound('buy');
+      modal.remove();
+    };
+  });
+}
+
 // 点击含动物的格子时弹出操作浮窗
 function showAnimalCellPopup(penIndex, pen, anchorCell) {
   document.getElementById('animal-cell-popup')?.remove();
+
+  const hungerPct = Math.round(pen.hunger || 0);
+  const hungerText = hungerPct >= 80 ? '🔴 非常饿' : hungerPct >= 60 ? '🟡 有点饿' : '🟢 饱';
 
   const popup = document.createElement('div');
   popup.id = 'animal-cell-popup';
@@ -2335,10 +2404,12 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
       <span>${pen.emoji} ${pen.animalName}</span>
       <button class="acp-close">✕</button>
     </div>
+    <div class="acp-hunger">${hungerText} (${hungerPct}%)</div>
     <div class="acp-status${pen.isReady ? ' ready' : ''}">
       ${pen.isReady ? '✅ 可收获产品！' : `⏳ 还需 ${pen.remainingTime} 秒`}
     </div>
     <div class="acp-actions">
+      <button class="acp-feed">🌾 喂养</button>
       <button class="acp-harvest" ${!pen.isReady ? 'disabled' : ''}>🧺 收获 ${pen.product || ''}</button>
       <button class="acp-sell">💰 出售动物</button>
     </div>
@@ -2357,6 +2428,10 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
   wrapper.appendChild(popup);
 
   popup.querySelector('.acp-close').onclick = () => popup.remove();
+  popup.querySelector('.acp-feed').onclick = () => {
+    popup.remove();
+    showFeedAnimalModal(penIndex, pen);
+  };
   popup.querySelector('.acp-harvest').onclick = () => {
     if (!pen.isReady) return;
     const animalPos = animalPositions[penIndex];
