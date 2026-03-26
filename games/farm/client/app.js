@@ -601,28 +601,27 @@ const SCALE_STEP = 0.1;
 function initSocket() {
   socket = io(SERVER_URL, {
     path: "/socket.io/",
-    transports: ['websocket'],  // 只用 websocket，不用 polling
-    forceNew: true,
+    transports: ['websocket', 'polling'],
     reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 1000
+    reconnectionAttempts: 5,
+    reconnectionDelay: 2000
   });
 
   socket.on('connect', () => {
     console.log('[Farm] Connected to server');
+    showNotification('✅ 已连接到服务器', 'success');
     if (currentPlayerName) {
       joinDefaultRoom();
     }
   });
 
   socket.on('disconnect', () => {
-    showNotification('连接断开，正在重连...');
-    // 确保重连时强制新连接
-    socket.io.opts.forceNew = true;
+    showNotification('⚠️ 连接断开，正在重连...', 'warning');
   });
 
   socket.on('connect_error', (err) => {
     console.error('[Socket] Connection error:', err.message);
+    showNotification('❌ 连接失败: ' + err.message, 'error');
   });
 
   socket.on('join-error', ({ message }) => {
@@ -638,10 +637,15 @@ function initSocket() {
 
   socket.on('game-state', (state) => {
     updateGameState(state);
+    // 自动切换到游戏界面
+    if (currentRoom && !gameScreen.classList.contains('hidden') === false) {
+      switchToGame();
+    }
   });
 
   socket.on('player-info', (player) => {
     currentPlayer = player;
+    currentRoom = DEFAULT_ROOM; // 标记已加入房间
     // 初始化等级数据
     if (!currentPlayer.level) currentPlayer.level = 1;
     if (!currentPlayer.totalXp) currentPlayer.totalXp = 0;
@@ -1903,22 +1907,8 @@ function leaveRoom() {
   gameScreen.classList.add('hidden');
   mainScreen.classList.remove('hidden');
 
-  // 重新生成名字并加入
+  // 重新生成名字，connect事件会自动重新加入
   currentPlayerName = '访客' + Math.random().toString(36).substring(2, 6).toUpperCase();
-  setTimeout(() => waitForSocketConnection(), 500);
-}
-
-// 确保 socket 连接成功时自动加入房间
-function waitForSocketConnection() {
-  if (socket && socket.connected) {
-    joinDefaultRoom();
-  } else {
-    // 监听一次连接事件
-    socket?.once('connect', () => {
-      console.log('[Farm] Socket connected, joining room...');
-      joinDefaultRoom();
-    });
-  }
 }
 
 document.getElementById('create-room-btn')?.addEventListener('click', () => {
@@ -2908,11 +2898,6 @@ function init() {
 
   initSocket();
 
-  // 连接成功后自动加入
-  setTimeout(() => {
-    waitForSocketConnection();
-  }, 300);
-
   // 初始化商店事件
   initShopEvents();
 
@@ -2921,14 +2906,6 @@ function init() {
 
   // 初始化害虫防治事件
   initPestControlEvents();
-
-  // 监听游戏状态，自动切换到游戏界面
-  socket?.on('game-state', (state) => {
-    updateGameState(state);
-    if (currentRoom && mainScreen?.classList.contains('hidden') === false) {
-      switchToGame();
-    }
-  });
 
   // 地图拖拽功能
   initDragScroll();
