@@ -325,19 +325,43 @@ class HarvestAnimalBehavior extends FarmerBehavior {
   }
 
   getTarget(farmer, game) {
-    return { x: 0, y: game.height - 1 };
+    // 找最近的可收获动物位置
+    let nearest = null, minDist = Infinity;
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (pen.animal && pen.isReady) {
+        const pos = game.animalPositions?.[i];
+        if (pos) {
+          const d = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+          if (d < minDist) { minDist = d; nearest = pos; }
+        }
+      }
+    }
+    return nearest || { x: 0, y: game.height - 1 };
   }
 
   execute(farmer, game) {
     let totalEarned = 0;
     const harvested = [];
 
-    for (const pen of game.animalPens) {
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
       if (!pen.animal || !pen.isReady) continue;
+
+      // 检查动物位置
+      const pos = game.animalPositions?.[i];
+      if (pos) {
+        const dist = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+        if (dist > 2) continue; // 跳过太远的动物
+      }
+
+      // 应用动物多样性系数
+      const diversityCoef = game.calculateAnimalDiversity ? game.calculateAnimalDiversity() : 1;
       const result = pen.harvest();
       if (result.success) {
-        game.sharedMoney += result.reward;
-        totalEarned      += result.reward;
+        const adjustedReward = Math.floor(result.reward * diversityCoef);
+        game.sharedMoney += adjustedReward;
+        totalEarned      += adjustedReward;
         const ANIMAL_EMOJI = { chicken:'🐔', duck:'🦆', sheep:'🐑', cow:'🐄', pig:'🐖', horse:'🐴', rabbit:'🐰', bee:'🐝' };
         harvested.push(`${ANIMAL_EMOJI[result.animalType] || '🐾'}${result.product}`);
       }
@@ -349,7 +373,7 @@ class HarvestAnimalBehavior extends FarmerBehavior {
     farmer.emoji         = '🧑‍🌾';
     farmer.currentAction = '收获了动物产品';
     return {
-      log:    `${farmer.fullName} 收获了 ${harvested.join('、')}，公库 +${totalEarned} 💰`,
+      log:    `${farmer.fullName} 收获了附近的 ${harvested.join('、')}，公库 +${totalEarned} 💰`,
       acted:  true,
       earned: totalEarned
     };
@@ -361,34 +385,47 @@ class FeedAnimalBehavior extends FarmerBehavior {
   constructor() { super('喂养动物', '🌽', 9); }
 
   canExecute(farmer, game) {
-    // 只检查是否有饥饿动物和足够金币（不检查距离，让农夫走过去）
+    // 检查是否有饥饿动物
     const hasHungryAnimal = game.animalPens.some(p => p.animal && (p.hunger || 0) >= 60);
     return hasHungryAnimal && game.sharedMoney >= 10;
   }
 
   getTarget(farmer, game) {
-    // 动物栏位置 - 农夫会走过去
-    return { x: 0, y: game.height - 1 };
+    // 找最近的饥饿动物位置
+    let nearest = null, minDist = Infinity;
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (pen.animal && (pen.hunger || 0) >= 60) {
+        const pos = game.animalPositions?.[i];
+        if (pos) {
+          const d = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+          if (d < minDist) { minDist = d; nearest = pos; }
+        }
+      }
+    }
+    return nearest || { x: 0, y: game.height - 1 };
   }
 
   execute(farmer, game) {
-    // 执行时检查距离
-    const targetX = 0;
-    const targetY = game.height - 1;
-    const dist = Math.abs(farmer.x - targetX) + Math.abs(farmer.y - targetY);
-    if (dist > 2) {
-      // 距离太远，需要等待农夫走过来再执行
-      return { log: '', acted: false, earned: 0 };
+    let fed = 0, cost = 0;
+
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (!pen.animal || (pen.hunger || 0) < 60) continue;
+
+      // 检查动物位置
+      const pos = game.animalPositions?.[i];
+      if (pos) {
+        const dist = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+        if (dist > 2) continue; // 跳过太远的动物
+      }
+
+      // 喂养这只动物
+      pen.hunger = Math.max(0, (pen.hunger || 0) - 65);
+      cost += 5;
+      fed++;
     }
 
-    let fed = 0, cost = 0;
-    for (const pen of game.animalPens) {
-      if (pen.animal && (pen.hunger || 0) >= 60) {
-        pen.hunger = Math.max(0, (pen.hunger || 0) - 65);
-        cost += 5;
-        fed++;
-      }
-    }
     if (!fed || game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
 
     game.sharedMoney -= cost;
@@ -396,7 +433,7 @@ class FeedAnimalBehavior extends FarmerBehavior {
     farmer.emoji         = '🧑‍🌾';
     farmer.currentAction = `喂养了 ${fed} 只动物`;
     return {
-      log:    `${farmer.fullName} 喂养了 ${fed} 只动物 🌽，花费 ${cost} 💰`,
+      log:    `${farmer.fullName} 喂养了 ${fed} 只附近的动物 🌽，花费 ${cost} 💰`,
       acted:  true,
       earned: 0
     };

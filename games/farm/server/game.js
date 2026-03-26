@@ -501,6 +501,7 @@ class FarmGame {
     
     // ========== 动物地图显示系统 ==========
     this.wanderingAnimals = []; // 在地图上 wandering 的动物 [{id, type, x, y, owner, moveTimer}]
+    this.animalPositions = {}; // 动物栏索引 -> 地图位置 {penIndex: {x, y}}
     
     // 初始化地块
     for (let y = 0; y < height; y++) {
@@ -1252,6 +1253,45 @@ class FarmGame {
     };
   }
 
+  // 更新动物位置（随机移动）
+  _updateAnimalPositions() {
+    // 每3秒移动一次（用计数器控制）
+    this._animalMoveCounter = (this._animalMoveCounter || 0) + 1;
+    if (this._animalMoveCounter < 3) return;
+    this._animalMoveCounter = 0;
+
+    for (let i = 0; i < this.animalPens.length; i++) {
+      const pen = this.animalPens[i];
+      if (!pen.animal) {
+        // 没有动物，清除位置
+        delete this.animalPositions[i];
+        continue;
+      }
+
+      // 初始化或移动位置
+      if (!this.animalPositions[i]) {
+        // 随机初始位置
+        this.animalPositions[i] = {
+          x: Math.floor(Math.random() * this.width),
+          y: Math.floor(Math.random() * this.height)
+        };
+      } else if (Math.random() < 0.5) {
+        // 50%概率移动
+        const directions = [
+          { dx: 0, dy: -1 }, // 上
+          { dx: 0, dy: 1 },  // 下
+          { dx: -1, dy: 0 }, // 左
+          { dx: 1, dy: 0 },  // 右
+          { dx: 0, dy: 0 }   // 不动
+        ];
+        const dir = directions[Math.floor(Math.random() * directions.length)];
+        const newX = Math.max(0, Math.min(this.width - 1, this.animalPositions[i].x + dir.dx));
+        const newY = Math.max(0, Math.min(this.height - 1, this.animalPositions[i].y + dir.dy));
+        this.animalPositions[i] = { x: newX, y: newY };
+      }
+    }
+  }
+
   // 农夫AI：判断是否交易黄金
   farmerGoldDecision(farmer) {
     // 农夫的黄金交易策略
@@ -1607,6 +1647,8 @@ class FarmGame {
       for (const pen of this.animalPens) {
         pen.updateAnimal();
       }
+      // 更新动物位置（随机移动）
+      this._updateAnimalPositions();
     }, 1000)); // 每秒更新一次
   }
 
@@ -2471,6 +2513,8 @@ class FarmGame {
       gold: this.getGoldInfo(),
       // 多样性系数
       diversity: this.getDiversityInfo(),
+      // 动物位置（地图上）
+      animalPositions: this.animalPositions,
       // 农夫AI思考记录
       farmerThoughts: this.farmerThoughts,
       // 农场日志（最新 40 条）

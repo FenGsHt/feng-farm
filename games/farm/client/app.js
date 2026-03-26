@@ -2536,8 +2536,10 @@ function renderAnimalsOnMap() {
       return;
     }
 
-    // 分配格子位置（已有则复用）
-    if (!animalPositions[index]) {
+    // 优先使用服务端的位置，否则本地生成
+    if (gameState.animalPositions && gameState.animalPositions[index]) {
+      animalPositions[index] = gameState.animalPositions[index];
+    } else if (!animalPositions[index]) {
       let x, y, tries = 0;
       do {
         x = Math.floor(Math.random() * width);
@@ -2705,38 +2707,8 @@ function startAnimalMovement() {
   }
   
   // 每3-5秒随机移动动物
-  animalMoveInterval = setInterval(() => {
-    if (!gameState?.animalPens || !gameState.width || !gameState.height) return;
-    
-    const { width, height } = gameState;
-    
-    Object.keys(animalPositions).forEach(index => {
-      const penIndex = parseInt(index);
-      const pen = gameState.animalPens[penIndex];
-      if (!pen || !pen.animal) return;
-      
-      const currentPos = animalPositions[penIndex];
-      
-      // 随机选择移动方向：上、下、左、右 或 不动
-      const directions = [
-        { dx: 0, dy: -1 },  // 上
-        { dx: 0, dy: 1 },   // 下
-        { dx: -1, dy: 0 },  // 左
-        { dx: 1, dy: 0 },  // 右
-        { dx: 0, dy: 0 }   // 不动
-      ];
-      
-      const dir = directions[Math.floor(Math.random() * directions.length)];
-      const newX = Math.max(0, Math.min(width - 1, currentPos.x + dir.dx));
-      const newY = Math.max(0, Math.min(height - 1, currentPos.y + dir.dy));
-      
-      // 更新位置
-      animalPositions[penIndex] = { x: newX, y: newY };
-    });
-    
-    // 重新渲染动物位置
-    renderAnimalsOnMap();
-  }, 3000 + Math.random() * 2000); // 3-5秒随机间隔
+  // 动物位置现在由服务端管理，客户端只负责渲染
+  // 不再需要本地移动逻辑
 }
 
 // 初始化 - 简化版：自动进入农场
