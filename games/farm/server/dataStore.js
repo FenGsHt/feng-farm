@@ -60,10 +60,20 @@ function getRoomState(roomId) {
   return null;
 }
 
-// 保存房间状态到缓存并标记为脏
+// 保存房间状态到缓存并立即写入磁盘
 function saveRoomState(roomId, state) {
   roomStateCache.set(roomId, state);
   roomStateDirty.add(roomId);
+
+  // 立即写入磁盘，防止数据丢失
+  ensureDataDir();
+  const file = path.join(ROOMS_DIR, `${sanitizeRoomId(roomId)}.json`);
+  try {
+    fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf-8');
+    roomStateDirty.delete(roomId);
+  } catch (err) {
+    console.error(`[DataStore] Failed to save room state "${roomId}":`, err.message);
+  }
 }
 
 // 从磁盘加载玩家缓存（仅在启动时调用一次）
