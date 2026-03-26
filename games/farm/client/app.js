@@ -605,7 +605,7 @@ function initSocket() {
 
   socket = io(SERVER_URL, {
     path: "/socket.io/",
-    transports: ['websocket'],  // 只用 websocket
+    transports: ['polling', 'websocket'],  // polling优先，兼容Vercel
     forceNew: true,
     reconnection: true,
     reconnectionAttempts: 10,
