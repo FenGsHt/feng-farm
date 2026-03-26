@@ -196,10 +196,10 @@ const ANIMALS = {
 
 // 食物配置（供农夫进食使用）
 const FARMER_FOODS = {
-  'food-bread':     { name: '面包',   emoji: '🍞', price: 5,  satiety: 25 },
-  'food-rice-bowl': { name: '米饭',   emoji: '🍚', price: 10, satiety: 40 },
-  'food-meat':      { name: '肉食',   emoji: '🥩', price: 18, satiety: 65 },
-  'food-feast':     { name: '大餐',   emoji: '🍱', price: 35, satiety: 100 },
+  'food-bread':     { name: '面包',   emoji: '🍞', price: 12,  satiety: 25 },
+  'food-rice-bowl': { name: '米饭',   emoji: '🍚', price: 25, satiety: 40 },
+  'food-meat':      { name: '肉食',   emoji: '🥩', price: 45, satiety: 65 },
+  'food-feast':     { name: '大餐',   emoji: '🍱', price: 80, satiety: 100 },
 };
 
 // 商店物品配置

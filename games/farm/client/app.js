@@ -608,6 +608,14 @@ function initSocket() {
     console.error('[Socket] Connection error:', err.message);
   });
 
+  socket.on('join-error', ({ message }) => {
+    showNotification(`❌ ${message}`, 'error');
+    // 回到名字输入框让玩家改名重试
+    nameModal.classList.remove('hidden');
+    playerNameInput.value = currentPlayerName;
+    playerNameInput.focus();
+  });
+
   socket.on('room-list', (rooms) => {
     renderRoomList(rooms);
   });
@@ -2311,6 +2319,16 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
   popup.querySelector('.acp-close').onclick = () => popup.remove();
   popup.querySelector('.acp-harvest').onclick = () => {
     if (!pen.isReady) return;
+    const animalPos = animalPositions[penIndex];
+    const playerPos = currentPlayer?.position;
+    if (animalPos && playerPos) {
+      const dist = Math.abs(playerPos.x - animalPos.x) + Math.abs(playerPos.y - animalPos.y);
+      if (dist > 1) {
+        showNotification('⚠️ 请先走到动物旁边再收获', 'error');
+        popup.remove();
+        return;
+      }
+    }
     playSound('harvest');
     socket.emit('harvest-animal', { penIndex });
     popup.remove();
