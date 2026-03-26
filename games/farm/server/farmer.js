@@ -206,7 +206,37 @@ class PlantCropBehavior extends FarmerBehavior {
     const available = Object.entries(farmer.seeds).filter(([, v]) => v > 0);
     if (!available.length) return { log: '', acted: false, earned: 0 };
 
-    const bestSeed = available.sort((a, b) => b[1] - a[1])[0][0];
+    // 统计当前作物数量
+    const cropCounts = {};
+    for (let y = 0; y < game.height; y++) {
+      for (let x = 0; x < game.width; x++) {
+        const crop = game.plots[y][x].crop;
+        if (crop) {
+          cropCounts[crop] = (cropCounts[crop] || 0) + 1;
+        }
+      }
+    }
+    const totalCrops = Object.values(cropCounts).reduce((a, b) => a + b, 0);
+
+    // 按多样性优先排序：优先种植数量少的种类
+    const sorted = available.sort((a, b) => {
+      const countA = cropCounts[a[0]] || 0;
+      const countB = cropCounts[b[0]] || 0;
+
+      // 如果有作物，优先种植数量少的种类（提高多样性）
+      if (totalCrops > 0) {
+        // 没有的种类最优先
+        if (countA === 0 && countB > 0) return -1;
+        if (countB === 0 && countA > 0) return 1;
+        // 都有，按数量升序（少的优先）
+        if (countA !== countB) return countA - countB;
+      }
+
+      // 同等优先级按库存数量降序（先用多的）
+      return b[1] - a[1];
+    });
+
+    const bestSeed = sorted[0][0];
 
     const t    = this._findEmpty(farmer, game) || { x: farmer.x, y: farmer.y };
     const plot = game.plots[t.y]?.[t.x];
@@ -219,11 +249,17 @@ class PlantCropBehavior extends FarmerBehavior {
     if (farmer.seeds[bestSeed] <= 0) delete farmer.seeds[bestSeed];
 
     const cfg = game.getCropConfig(bestSeed);
+
+    // 计算新的多样性信息
+    const newCounts = { ...cropCounts, [bestSeed]: (cropCounts[bestSeed] || 0) + 1 };
+    const newTotal = totalCrops + 1;
+    const uniqueCount = Object.keys(newCounts).length;
+
     farmer.state         = 'working';
     farmer.emoji         = '🧑‍🌾';
     farmer.currentAction = `种下了 ${cfg.emoji}${cfg.name}`;
     return {
-      log:    `${farmer.fullName} 在 (${t.x},${t.y}) 种下了 ${cfg.emoji}${cfg.name} 🌱`,
+      log:    `${farmer.fullName} 在 (${t.x},${t.y}) 种下了 ${cfg.emoji}${cfg.name} 🌱（作物多样性: ${uniqueCount}种/${newTotal}株）`,
       acted:  true,
       earned: 0
     };
@@ -385,14 +421,40 @@ class BuyAnimalBehavior extends FarmerBehavior {
   }
 
   execute(farmer, game) {
+    // 统计当前动物数量
+    const animalCounts = {};
+    for (const pen of game.animalPens) {
+      if (pen.animal) {
+        animalCounts[pen.animal] = (animalCounts[pen.animal] || 0) + 1;
+      }
+    }
+    const totalAnimals = Object.values(animalCounts).reduce((a, b) => a + b, 0);
+
     // 通过 game.ANIMALS 访问，避免循环 require
     const affordable = Object.entries(game.ANIMALS)
-      .filter(([, a]) => game.sharedMoney >= a.buyPrice + 50)
-      .sort((a, b) => (b[1].productPrice / b[1].growthTime) - (a[1].productPrice / a[1].growthTime));
+      .filter(([, a]) => game.sharedMoney >= a.buyPrice + 50);
 
     if (!affordable.length) return { log: '', acted: false, earned: 0 };
 
-    const [animalType, animal] = affordable[0];
+    // 按多样性优先排序：优先购买数量少的种类
+    const sorted = affordable.sort((a, b) => {
+      const countA = animalCounts[a[0]] || 0;
+      const countB = animalCounts[b[0]] || 0;
+
+      // 如果有动物，优先购买数量少的种类（提高多样性）
+      if (totalAnimals > 0) {
+        // 没有的种类最优先
+        if (countA === 0 && countB > 0) return -1;
+        if (countB === 0 && countA > 0) return 1;
+        // 都有，按数量升序
+        if (countA !== countB) return countA - countB;
+      }
+
+      // 同等优先级按性价比排序
+      return (b[1].productPrice / b[1].growthTime) - (a[1].productPrice / a[1].growthTime);
+    });
+
+    const [animalType, animal] = sorted[0];
     const pen = game.animalPens.find(p => !p.animal);
     if (!pen) return { log: '', acted: false, earned: 0 };
 
@@ -403,10 +465,16 @@ class BuyAnimalBehavior extends FarmerBehavior {
     game.sharedMoney -= animal.buyPrice;
     this._cooldown = Date.now() + 120000; // 2 分钟冷却
 
+    // 计算新的多样性系数
+    const newCounts = { ...animalCounts, [animalType]: (animalCounts[animalType] || 0) + 1 };
+    const newTotal = totalAnimals + 1;
+    const uniqueCount = Object.keys(newCounts).length;
+    const diversityBonus = `多样性: ${uniqueCount}种/${newTotal}只`;
+
     farmer.state         = 'working';
     farmer.currentAction = `买了 ${animal.emoji}${animal.name}`;
     return {
-      log:    `${farmer.fullName} 花 ${animal.buyPrice} 💰 买了一只 ${animal.emoji}${animal.name}！`,
+      log:    `${farmer.fullName} 花 ${animal.buyPrice} 💰 买了一只 ${animal.emoji}${animal.name}！（${diversityBonus}）`,
       acted:  true,
       earned: 0
     };
@@ -734,11 +802,13 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
 
     // 地块统计
     let planted = 0, ripe = 0, watered = 0;
+    const cropCounts = {};
     for (let y = 0; y < game.height; y++) {
       for (let x = 0; x < game.width; x++) {
         const plot = game.plots[y][x];
         if (plot.crop) {
           planted++;
+          cropCounts[plot.crop] = (cropCounts[plot.crop] || 0) + 1;
           if (plot.growthStage >= 3) ripe++;
           if (plot.isWatered) watered++;
         }
@@ -746,13 +816,39 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
     }
     lines.push(`🌱 已种植地块: ${planted}, 成熟: ${ripe}, 已浇水: ${watered}`);
 
+    // 多样性系数（重要！影响收益）
+    const diversity = game.getDiversityInfo ? game.getDiversityInfo() : null;
+    if (diversity) {
+      lines.push(`📊 作物多样性: ${diversity.cropDiversity}% (${diversity.cropCount}种)`);
+      if (diversity.animalCount > 0) {
+        lines.push(`📊 动物多样性: ${diversity.animalDiversity}% (${diversity.animalCount}种)`);
+      }
+      // 多样性警告
+      if (diversity.cropDiversity < 80) {
+        const crops = Object.entries(cropCounts).sort((a, b) => b[1] - a[1]);
+        if (crops.length > 0) {
+          lines.push(`⚠️ 作物过于单一！主要种植: ${crops.map(([c, n]) => `${c}(${n}株)`).join(', ')}`);
+          lines.push(`💡 建议: 种植更多种类可提高收益`);
+        }
+      }
+    }
+
     // 害虫
     lines.push(`🐛 害虫数量: ${game.pests?.length || 0}`);
 
     // 动物
     const animalCount = game.animalPens?.filter(p => p.animal).length || 0;
     const readyAnimals = game.animalPens?.filter(p => p.isReady).length || 0;
+    const animalCounts = {};
+    for (const pen of (game.animalPens || [])) {
+      if (pen.animal) {
+        animalCounts[pen.animal] = (animalCounts[pen.animal] || 0) + 1;
+      }
+    }
     lines.push(`🐔 动物数量: ${animalCount}, 可收获: ${readyAnimals}`);
+    if (Object.keys(animalCounts).length > 0) {
+      lines.push(`🐔 动物种类: ${Object.entries(animalCounts).map(([a, n]) => `${a}(${n}只)`).join(', ')}`);
+    }
 
     // 农夫状态
     lines.push(`👨‍🌾 我的饥饿度: ${Math.round(this.hunger)}%`);
@@ -987,12 +1083,42 @@ ${chatContext || '暂无聊天记录'}
     const SEED_PRICES = { wheat: 2, carrot: 3, rice: 8, tomato: 5 };
     const CROP_NAMES = { wheat: '小麦', carrot: '胡萝卜', rice: '水稻', tomato: '番茄' };
 
-    for (const [crop, price] of Object.entries(SEED_PRICES)) {
+    // 统计当前作物数量（用于多样性决策）
+    const cropCounts = {};
+    for (let y = 0; y < this.game.height; y++) {
+      for (let x = 0; x < this.game.width; x++) {
+        const crop = this.game.plots[y][x].crop;
+        if (crop) {
+          cropCounts[crop] = (cropCounts[crop] || 0) + 1;
+        }
+      }
+    }
+
+    // 按多样性优先排序：优先购买当前种植少的作物种子
+    const cropTypes = Object.keys(SEED_PRICES).sort((a, b) => {
+      const countA = cropCounts[a] || 0;
+      const countB = cropCounts[b] || 0;
+      // 没种的作物优先
+      if (countA === 0 && countB > 0) return -1;
+      if (countB === 0 && countA > 0) return 1;
+      // 都有种，少的优先
+      return countA - countB;
+    });
+
+    for (const crop of cropTypes) {
+      const price = SEED_PRICES[crop];
       const cost = price * 5;
-      if ((this.seeds[crop] || 0) < 5 && this.game.sharedMoney >= cost + 50) {
-        this.seeds[crop] = (this.seeds[crop] || 0) + 5;
+      const currentCount = cropCounts[crop] || 0;
+      const seedCount = this.seeds[crop] || 0;
+
+      // 种子库存低于5且有钱就买
+      if (seedCount < 5 && this.game.sharedMoney >= cost + 50) {
+        this.seeds[crop] = seedCount + 5;
         this.game.sharedMoney -= cost;
-        this._log(`${this.fullName} 购买了 ${CROP_NAMES[crop]}种子x5（-${cost}💰）`, '🌱', 'shop');
+
+        // 日志中包含多样性提示
+        const diversityHint = currentCount === 0 ? '（新种类，提高多样性！）' : '';
+        this._log(`${this.fullName} 购买了 ${CROP_NAMES[crop]}种子x5（-${cost}💰）${diversityHint}`, '🌱', 'shop');
       }
     }
 
