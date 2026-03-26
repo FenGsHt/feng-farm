@@ -64,7 +64,7 @@ jobs:
           module.exports = {
             apps: [{
               name: 'feng-farm',
-              script: './games/farm/server/server.js',
+              script: './server/server.js',
               interpreter: '/home/openclaw/.nvm/versions/node/v20.20.1/bin/node',
               cwd: '${{ secrets.SERVER_PATH }}/games/farm',
               instances: 1,
