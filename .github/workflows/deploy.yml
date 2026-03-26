@@ -57,37 +57,9 @@ jobs:
               games/farm/server/dataStore.js \
               games/farm/server/package.json \
               ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/server/
-
-      - name: Create ecosystem config with LLM env
-        run: |
-          cat > ecosystem.config.ci.js << EOF
-          module.exports = {
-            apps: [{
-              name: 'feng-farm',
-              script: './server/server.js',
-              interpreter: '/home/openclaw/.nvm/versions/node/v20.20.1/bin/node',
-              cwd: '${{ secrets.SERVER_PATH }}/games/farm',
-              instances: 1,
-              autorestart: true,
-              watch: false,
-              max_memory_restart: '500M',
-              env: {
-                NODE_ENV: 'production',
-                PORT: 3007,
-                LLM_API_URL: '${{ secrets.LLM_API_URL }}',
-                LLM_API_KEY: '${{ secrets.LLM_API_KEY }}',
-                LLM_MODEL: '${{ secrets.LLM_MODEL }}'
-              },
-              error_file: '/var/log/pm2/feng-farm-error.log',
-              out_file: '/var/log/pm2/feng-farm-out.log',
-              log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-              merge_logs: true
-            }]
-          };
-          EOF
-          scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
-            ecosystem.config.ci.js \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/ecosystem.config.js
+            scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa \
+              games/farm/ecosystem.config.js \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.SERVER_PATH }}/games/farm/
 
       - name: Start server with PM2
         uses: nick-fields/retry@v2
@@ -100,9 +72,13 @@ jobs:
               "source ~/.bashrc 2>/dev/null || true; \
                export NVM_DIR=\$HOME/.nvm && [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"; \
                which pm2 || npm install -g pm2; \
+               sudo mkdir -p /var/log/pm2 && sudo chown \$(whoami) /var/log/pm2 || true; \
                cd ${{ secrets.SERVER_PATH }}/games/farm/server && \
                npm install --no-audit --legacy-peer-deps; \
                cd ${{ secrets.SERVER_PATH }}/games/farm && \
+               export LLM_API_URL='${{ secrets.LLM_API_URL }}' && \
+               export LLM_API_KEY='${{ secrets.LLM_API_KEY }}' && \
+               export LLM_MODEL='${{ secrets.LLM_MODEL }}' && \
                pm2 stop feng-farm 2>/dev/null || true; \
                pm2 delete feng-farm 2>/dev/null || true; \
                fuser -k 3007/tcp 2>/dev/null || true; \
