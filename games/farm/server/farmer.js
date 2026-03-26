@@ -562,9 +562,145 @@ class Farmer {
 
   // ---------- LLM 预留接口 ----------
 
-  async thinkWithAI(context) {
-    // TODO: 接入 Anthropic Claude / OpenAI 等
-    return null;
+  async thinkWithAI() {
+    // 检查环境变量配置
+    const LLM_API_URL = process.env.LLM_API_URL || '';
+    const LLM_API_KEY = process.env.LLM_API_KEY || '';
+    const LLM_MODEL = process.env.LLM_MODEL || 'gpt-3.5-turbo';
+
+    if (!LLM_API_URL || !LLM_API_KEY) {
+      console.log('[Farmer LLM] 未配置API，跳过AI思考');
+      return null;
+    }
+
+    try {
+      // 构建当前农场状态描述
+      const farmState = this._buildFarmStateDescription();
+
+      const prompt = `你是一个农场游戏中的AI农夫，名字叫${this.fullName}。你需要分析当前农场状况并决定接下来的行动优先级。
+
+当前农场状态：
+${farmState}
+
+你的可选行为及其当前权重：
+${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n')}
+
+请分析当前局势，返回一个JSON对象调整各行为的权重（权重范围1-100）：
+{
+  "thinking": "你的思考过程（简短描述当前状况和策略）",
+  "weights": {
+    "种植": 数字,
+    "浇水": 数字,
+    "收获作物": 数字,
+    "清理害虫": 数字,
+    "喂养动物": 数字,
+    "收获动物产品": 数字
+  }
+}
+
+只返回JSON，不要其他文字。`;
+
+      const response = await fetch(LLM_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${LLM_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 500
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
+
+      // 解析返回的JSON
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('无法解析返回内容');
+      }
+
+      const result = JSON.parse(jsonMatch[0]);
+
+      // 更新权重
+      if (result.weights) {
+        for (const behavior of this.behaviors) {
+          if (result.weights[behavior.name] !== undefined) {
+            behavior.weight = Math.max(1, Math.min(100, result.weights[behavior.name]));
+          }
+        }
+      }
+
+      // 记录思考
+      const thoughtRecord = {
+        timestamp: Date.now(),
+        farmerName: this.fullName,
+        thinking: result.thinking || '思考中...',
+        weights: result.weights || {}
+      };
+
+      // 保存到游戏状态
+      if (this.game && this.game.addFarmerThought) {
+        this.game.addFarmerThought(thoughtRecord);
+      }
+
+      this._log(`🧠 ${this.fullName} AI思考: ${result.thinking?.substring(0, 50)}...`, '🧠', 'ai-thought');
+
+      return thoughtRecord;
+
+    } catch (error) {
+      console.error('[Farmer LLM] 思考失败:', error.message);
+      return null;
+    }
+  }
+
+  // 构建农场状态描述
+  _buildFarmStateDescription() {
+    const game = this.game;
+    const lines = [];
+
+    // 金库
+    lines.push(`💰 公库金币: ${game.sharedMoney}`);
+
+    // 地块统计
+    let planted = 0, ripe = 0, watered = 0;
+    for (let y = 0; y < game.height; y++) {
+      for (let x = 0; x < game.width; x++) {
+        const plot = game.plots[y][x];
+        if (plot.crop) {
+          planted++;
+          if (plot.growthStage >= 3) ripe++;
+          if (plot.isWatered) watered++;
+        }
+      }
+    }
+    lines.push(`🌱 已种植地块: ${planted}, 成熟: ${ripe}, 已浇水: ${watered}`);
+
+    // 害虫
+    lines.push(`🐛 害虫数量: ${game.pests?.length || 0}`);
+
+    // 动物
+    const animalCount = game.animalPens?.filter(p => p.animal).length || 0;
+    const readyAnimals = game.animalPens?.filter(p => p.isReady).length || 0;
+    lines.push(`🐔 动物数量: ${animalCount}, 可收获: ${readyAnimals}`);
+
+    // 农夫状态
+    lines.push(`👨‍🌾 我的饥饿度: ${Math.round(this.hunger)}%`);
+    lines.push(`📦 种子库存: ${JSON.stringify(this.seeds)}`);
+
+    // 黄金
+    if (game.goldAmount > 0) {
+      lines.push(`🥇 持有黄金: ${game.goldAmount.toFixed(2)}g, 金价: ${game.goldPrice}💰/g`);
+    }
+
+    return lines.join('\n');
   }
 
   // ---------- 加权随机选择 ----------

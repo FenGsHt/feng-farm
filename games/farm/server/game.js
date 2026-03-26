@@ -538,6 +538,9 @@ class FarmGame {
     this.farmers = [];
     this._savedFarmerData = null; // _loadState() 会填充
 
+    // ========== 农夫AI思考记录 ==========
+    this.farmerThoughts = []; // 最近思考记录
+
     // 启动生长更新循环
     this.startGrowthLoop();
 
@@ -555,6 +558,9 @@ class FarmGame {
 
     // 启动金价更新循环（每小时更新一次）
     this.startGoldPriceLoop();
+
+    // 启动农夫AI思考循环（每30分钟思考一次）
+    this.startFarmerAILoop();
 
     // ========== 加载已保存的状态 ==========
     this._loadState();
@@ -649,6 +655,11 @@ class FarmGame {
       this.goldPriceHistory = saved.goldPriceHistory;
     }
 
+    // 农夫AI思考记录
+    if (Array.isArray(saved.farmerThoughts)) {
+      this.farmerThoughts = saved.farmerThoughts;
+    }
+
     console.log(`[FarmGame] State restored for room "${this.roomId}" — 金库: ${this.sharedMoney}, 黄金: ${this.goldAmount}g, 农夫: ${(this._savedFarmerData || [{ name: '阿明' }]).length} 人`);
   }
 
@@ -678,7 +689,8 @@ class FarmGame {
       farmers: this.farmers.map(f => ({ name: f.name, hunger: f.hunger })),
       goldAmount: this.goldAmount,
       goldPrice: this.goldPrice,
-      goldPriceHistory: this.goldPriceHistory
+      goldPriceHistory: this.goldPriceHistory,
+      farmerThoughts: this.farmerThoughts
     };
     dataStore.saveRoomState(this.roomId, state);
   }
@@ -1195,6 +1207,51 @@ class FarmGame {
     this._intervals.push(setInterval(() => {
       this.checkDailyReset();
     }, 60000)); // 每分钟检查一次
+  }
+
+  // ========== 农夫AI思考系统 ==========
+
+  // 启动农夫AI思考循环（每30分钟）
+  startFarmerAILoop() {
+    // 30分钟 = 1800000ms
+    this._intervals.push(setInterval(() => {
+      this.triggerFarmerAIThinking();
+    }, 1800000));
+
+    // 启动后5分钟首次思考
+    setTimeout(() => {
+      this.triggerFarmerAIThinking();
+    }, 300000);
+  }
+
+  // 触发所有农夫进行AI思考
+  async triggerFarmerAIThinking() {
+    console.log('[Farmer AI] 开始AI思考周期...');
+
+    for (const farmer of this.farmers) {
+      if (!farmer.isDead) {
+        try {
+          await farmer.thinkWithAI();
+        } catch (err) {
+          console.error(`[Farmer AI] ${farmer.fullName} 思考失败:`, err.message);
+        }
+      }
+    }
+  }
+
+  // 添加农夫思考记录
+  addFarmerThought(thought) {
+    this.farmerThoughts.push(thought);
+    // 只保留最近20条
+    if (this.farmerThoughts.length > 20) {
+      this.farmerThoughts.shift();
+    }
+    this._saveState();
+  }
+
+  // 获取农夫思考记录
+  getFarmerThoughts() {
+    return this.farmerThoughts.slice(-10);
   }
 
   // 获取任务配置
@@ -2291,6 +2348,8 @@ class FarmGame {
       farmerFoods:  FARMER_FOODS,
       // 黄金交易系统
       gold: this.getGoldInfo(),
+      // 农夫AI思考记录
+      farmerThoughts: this.farmerThoughts,
       // 农场日志（最新 40 条）
       farmLog: this.farmLog
     };

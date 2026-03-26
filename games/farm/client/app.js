@@ -832,6 +832,7 @@ function updateGameState(state) {
   renderAnimalsOnMap();
   renderFarmer();
   renderFarmLog();
+  renderFarmerThoughts();
   
   // 更新当前玩家等级信息
   if (currentPlayer && gameState.players) {
@@ -1230,6 +1231,40 @@ function renderFarmLog() {
     item.innerHTML = `<span class="log-time">${entry.time}</span><span class="log-msg">${entry.message}</span>`;
     listEl.appendChild(item);
   });
+}
+
+// ========== 农夫AI思考记录渲染 ==========
+function renderFarmerThoughts() {
+  if (!gameState || !gameState.farmerThoughts) return;
+
+  const container = document.getElementById('farmer-thoughts-list');
+  if (!container) return;
+
+  const thoughts = gameState.farmerThoughts.slice(-5).reverse();
+  if (thoughts.length === 0) {
+    container.innerHTML = '<div class="thought-empty">暂无思考记录</div>';
+    return;
+  }
+
+  container.innerHTML = thoughts.map(t => {
+    const time = new Date(t.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="thought-item">
+        <div class="thought-header">
+          <span class="thought-farmer">🧠 ${t.farmerName}</span>
+          <span class="thought-time">${time}</span>
+        </div>
+        <div class="thought-content">${t.thinking}</div>
+        ${t.weights ? `
+          <div class="thought-weights">
+            ${Object.entries(t.weights).map(([name, w]) =>
+              `<span class="weight-tag">${name}: ${w}</span>`
+            ).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
 }
 
 // 高亮选中的地块

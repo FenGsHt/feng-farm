@@ -3457,3 +3457,88 @@ button:active {
 .preview-row strong {
   color: #ffd700;
 }
+
+/* ========== 农夫AI思考记录 ========== */
+.farmer-thoughts-panel {
+  background: rgba(30, 30, 50, 0.95);
+  border: 2px solid #6b5b95;
+  border-radius: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.farmer-thoughts-header {
+  background: linear-gradient(135deg, #6b5b95, #553c7b);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+}
+
+.farmer-thoughts-title {
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.farmer-thoughts-body {
+  padding: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.farmer-thoughts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thought-empty {
+  text-align: center;
+  color: #888;
+  padding: 20px;
+  font-size: 13px;
+}
+
+.thought-item {
+  background: rgba(107, 91, 149, 0.2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid #6b5b95;
+}
+
+.thought-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.thought-farmer {
+  color: #b8a9c9;
+  font-weight: bold;
+}
+
+.thought-time {
+  color: #888;
+}
+
+.thought-content {
+  color: #e0e0e0;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.thought-weights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.weight-tag {
+  background: rgba(255, 215, 0, 0.2);
+  color: #ffd700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
