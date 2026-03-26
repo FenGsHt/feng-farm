@@ -2522,91 +2522,203 @@ button:active {
   box-shadow: 0 0 10px currentColor;
 }
 
-/* ========== 农夫 NPC ========== */
+/* ========== 农夫 NPC — CSS 人型 ========== */
 
-/* 农夫所在格子高亮 */
+/* 农夫所在格子金色高亮 */
 .plot-cell.farmer-here {
-  box-shadow: 0 0 0 2px #ffd54f, 0 0 10px rgba(255,213,79,0.6) !important;
+  box-shadow: 0 0 0 2px #ffd54f, 0 0 12px rgba(255,213,79,0.55) !important;
   z-index: 2;
 }
 
+/* 农夫容器：居中于格子，flex 纵向排列各部位 */
 .farmer-in-cell {
   position: absolute;
-  /* 居中显示，占格子主体位置 */
-  top: 50%;
+  top: 48%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 22px;
-  line-height: 1;
   z-index: 8;
-  /* 半透明金色圆形底座，让农夫在任何背景上都清晰可见 */
-  background: rgba(255, 220, 80, 0.28);
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 1px 4px rgba(0,0,0,0.8));
-  animation: farmer-idle 2s ease-in-out infinite;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.75));
+  animation: fi-idle 1.8s ease-in-out infinite;
 }
 
-.farmer-in-cell.farmer-walking {
-  animation: farmer-walk 0.55s linear infinite;
-  background: rgba(100, 200, 255, 0.22);
+/* —— 草帽 brim —— */
+.ff-hat {
+  position: relative;
+  width: 18px;
+  height: 3px;
+  background: #c8920a;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px #8a6000;
 }
-
-.farmer-in-cell.farmer-working {
-  animation: farmer-work 0.45s ease-in-out infinite;
-  background: rgba(100, 220, 100, 0.28);
-}
-
-.farmer-in-cell.farmer-sleeping {
-  animation: farmer-sleep 2.5s ease-in-out infinite;
-  opacity: 0.8;
-  font-size: 18px;
-  background: rgba(120, 120, 200, 0.22);
-}
-
-/* 行走目标格黄点 */
-.farmer-walk-target {
+/* 草帽帽顶 (crown) */
+.ff-hat::before {
+  content: '';
   position: absolute;
   bottom: 2px;
-  left: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 11px;
+  height: 6px;
+  background: #d4a418;
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 0 0 1px #8a6000;
+}
+
+/* —— 头部 —— */
+.ff-head {
+  width: 11px;
+  height: 11px;
+  background: #f5c080;
+  border-radius: 50%;
+  border: 1px solid #c07840;
+  margin-top: 1px;
+}
+
+/* —— 身体（绿色衬衫） —— */
+.ff-body {
+  width: 11px;
+  height: 11px;
+  background: #43a047;
+  border-radius: 3px 3px 2px 2px;
+  margin-top: 1px;
+  position: relative;
+}
+/* 左臂 */
+.ff-body::before {
+  content: '';
+  position: absolute;
+  left: -4px; top: 1px;
+  width: 4px; height: 8px;
+  background: #43a047;
+  border-radius: 2px;
+  transform-origin: top center;
+}
+/* 右臂 */
+.ff-body::after {
+  content: '';
+  position: absolute;
+  right: -4px; top: 1px;
+  width: 4px; height: 8px;
+  background: #43a047;
+  border-radius: 2px;
+  transform-origin: top center;
+}
+
+/* —— 双腿 —— */
+.ff-legs {
+  display: flex;
+  gap: 2px;
+  margin-top: 1px;
+}
+.ff-leg {
+  width: 4px;
+  height: 9px;
+  background: #6d4c41;
+  border-radius: 0 0 2px 2px;
+  transform-origin: top center;
+  position: relative;
+}
+/* 靴子 */
+.ff-leg::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: -1px;
+  width: 6px; height: 2px;
+  background: #3e2723;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ===== 空闲状态：轻微上下漂浮 ===== */
+@keyframes fi-idle {
+  0%, 100% { transform: translate(-50%, -50%); }
+  50%       { transform: translate(-50%, -55%); }
+}
+
+/* ===== 行走状态：腿前后摆，手臂反向同步 ===== */
+.farmer-in-cell.farmer-walking { animation: none; }
+
+.farmer-in-cell.farmer-walking .ff-leg-l {
+  animation: fl-l 0.48s ease-in-out infinite;
+}
+.farmer-in-cell.farmer-walking .ff-leg-r {
+  animation: fl-r 0.48s ease-in-out infinite;
+}
+.farmer-in-cell.farmer-walking .ff-body::before {
+  animation: fa-r 0.48s ease-in-out infinite; /* 左臂与右腿同步 */
+}
+.farmer-in-cell.farmer-walking .ff-body::after {
+  animation: fa-l 0.48s ease-in-out infinite; /* 右臂与左腿同步 */
+}
+
+@keyframes fl-l {
+  0%, 100% { transform: rotate(28deg); }
+  50%       { transform: rotate(-28deg); }
+}
+@keyframes fl-r {
+  0%, 100% { transform: rotate(-28deg); }
+  50%       { transform: rotate(28deg); }
+}
+@keyframes fa-l {
+  0%, 100% { transform: rotate(-20deg); }
+  50%       { transform: rotate(20deg); }
+}
+@keyframes fa-r {
+  0%, 100% { transform: rotate(20deg); }
+  50%       { transform: rotate(-20deg); }
+}
+
+/* ===== 工作状态：身体微倾 + 手臂挥动 ===== */
+.farmer-in-cell.farmer-working { animation: none; }
+
+.farmer-in-cell.farmer-working .ff-body {
+  animation: fw-body 0.4s ease-in-out infinite;
+}
+.farmer-in-cell.farmer-working .ff-body::before {
+  animation: fw-arm-l 0.4s ease-in-out infinite;
+}
+.farmer-in-cell.farmer-working .ff-body::after {
+  animation: fw-arm-r 0.4s ease-in-out infinite;
+}
+
+@keyframes fw-body {
+  0%, 100% { transform: rotate(-5deg); }
+  50%       { transform: rotate(5deg); }
+}
+@keyframes fw-arm-l {
+  0%, 100% { transform: rotate(-45deg); }
+  50%       { transform: rotate(-15deg); }
+}
+@keyframes fw-arm-r {
+  0%, 100% { transform: rotate(15deg); }
+  50%       { transform: rotate(45deg); }
+}
+
+/* ===== 睡觉状态：整体侧倒 + 淡入淡出 ===== */
+.farmer-in-cell.farmer-sleeping {
+  animation: fs-sleep 2.5s ease-in-out infinite;
+  opacity: 0.82;
+}
+@keyframes fs-sleep {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg);   opacity: 0.82; }
+  50%       { transform: translate(-50%, -50%) rotate(-8deg);  opacity: 0.55; }
+}
+
+/* ===== 行走目标格：小黄点 ===== */
+.farmer-walk-target {
+  position: absolute;
+  bottom: 2px; left: 2px;
   font-size: 8px;
   z-index: 5;
   pointer-events: none;
-  animation: arrow-fade 0.7s ease-in-out infinite;
+  animation: fwt-blink 0.7s ease-in-out infinite;
 }
-
-@keyframes farmer-idle {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); }
-  50%       { transform: translate(-50%, -54%) scale(1.03); }
-}
-
-@keyframes farmer-walk {
-  0%   { transform: translate(-50%, -50%) scaleX(1); }
-  25%  { transform: translate(-50%, -58%) scaleX(1); }
-  50%  { transform: translate(-50%, -50%) scaleX(-1); }
-  75%  { transform: translate(-50%, -58%) scaleX(-1); }
-  100% { transform: translate(-50%, -50%) scaleX(1); }
-}
-
-@keyframes farmer-work {
-  0%, 100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
-  30%       { transform: translate(-50%, -50%) rotate(-12deg) scale(1.1); }
-  60%       { transform: translate(-50%, -50%) rotate(12deg) scale(1.1); }
-}
-
-@keyframes farmer-sleep {
-  0%, 100% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0.8; }
-  50%       { transform: translate(-50%, -50%) rotate(-10deg); opacity: 0.55; }
-}
-
-@keyframes arrow-fade {
+@keyframes fwt-blink {
   0%, 100% { opacity: 0.9; }
-  50%       { opacity: 0.2; }
+  50%       { opacity: 0.15; }
 }
 
 /* ========== 农场日志面板（悬浮在网格底部的 overlay） ========== */

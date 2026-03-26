@@ -1073,7 +1073,7 @@ function renderFarmer() {
   if (!gameState) return;
   const farmer = gameState.farmer;
 
-  // 清除旧的农夫元素和格子高亮
+  // 清除旧元素和格子高亮
   document.querySelectorAll('.farmer-in-cell, .farmer-walk-target').forEach(el => el.remove());
   document.querySelectorAll('.plot-cell.farmer-here').forEach(el => el.classList.remove('farmer-here'));
 
@@ -1082,22 +1082,30 @@ function renderFarmer() {
   const cell = document.getElementById(`plot-${farmer.x}-${farmer.y}`);
   if (!cell) return;
 
-  // 高亮农夫所在格子
+  // 高亮当前格
   cell.classList.add('farmer-here');
 
-  // 农夫本体
-  const el = document.createElement('div');
+  // 状态 class
   let stateClass = '';
-  if (farmer.isSleeping)             stateClass = ' farmer-sleeping';
-  else if (farmer.isWalking)         stateClass = ' farmer-walking';
+  if (farmer.isSleeping)               stateClass = ' farmer-sleeping';
+  else if (farmer.isWalking)           stateClass = ' farmer-walking';
   else if (farmer.state === 'working') stateClass = ' farmer-working';
 
+  // 人型结构：草帽 + 头 + 身体（含伪元素手臂）+ 双腿
+  const el = document.createElement('div');
   el.className = 'farmer-in-cell' + stateClass;
-  el.textContent = farmer.emoji || '🧑‍🌾';
   el.title = `${farmer.fullName} — ${farmer.currentAction}`;
+  el.innerHTML = `
+    <div class="ff-hat"></div>
+    <div class="ff-head"></div>
+    <div class="ff-body"></div>
+    <div class="ff-legs">
+      <div class="ff-leg ff-leg-l"></div>
+      <div class="ff-leg ff-leg-r"></div>
+    </div>`;
   cell.appendChild(el);
 
-  // 行走中：在目标格显示小黄点
+  // 行走目标格：小黄点
   if (farmer.isWalking && farmer.walkTarget) {
     const tc = document.getElementById(`plot-${farmer.walkTarget.x}-${farmer.walkTarget.y}`);
     if (tc) {
