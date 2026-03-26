@@ -3078,3 +3078,36 @@ button:active {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 83, 80, 0.0); }
   50%       { box-shadow: 0 0 0 4px rgba(239, 83, 80, 0.3); }
 }
+/* ========== 农夫动作气泡 ========== */
+.farmer-action-bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #bbb;
+  border-radius: 10px;
+  padding: 2px 7px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  animation: farmer-bubble-rise 2.2s ease-out forwards;
+}
+
+.farmer-action-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #bbb;
+}
+
+@keyframes farmer-bubble-rise {
+  0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  60%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-28px); }
+}

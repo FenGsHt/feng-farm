@@ -83,6 +83,27 @@ let weatherInterval = null;
 let animalElements = new Map();
 let animalMoveInterval = null;
 let animalPositions = {}; // penIndex -> {x, y}
+const farmerLastAction = new Map(); // farmerName -> lastAction string
+
+// 检查玩家是否在某坐标旁边（曼哈顿距离 ≤ 1）
+function isNearPos(tx, ty) {
+  const p = currentPlayer?.position;
+  if (!p) return true;
+  return Math.abs(p.x - tx) + Math.abs(p.y - ty) <= 1;
+}
+
+function isNearAnimalPen(penIndex) {
+  const pos = animalPositions[penIndex];
+  if (!pos) return true;
+  return isNearPos(pos.x, pos.y);
+}
+
+function isNearFarmer(farmerName) {
+  const farmers = gameState?.farmers || (gameState?.farmer ? [gameState.farmer] : []);
+  const farmer = farmers.find(f => f.name === farmerName || f.fullName === farmerName);
+  if (!farmer) return true;
+  return isNearPos(farmer.x, farmer.y);
+}
 
 // ========== 音效系统 (Web Audio API) ==========
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1141,6 +1162,18 @@ function renderFarmer() {
       ${hungerBarHtml}`;
     cell.appendChild(el);
 
+    // 动作完成气泡
+    const key = farmer.name;
+    const prevAction = farmerLastAction.get(key);
+    if (prevAction !== undefined && prevAction !== farmer.currentAction && farmer.currentAction && !farmer.isSleeping) {
+      const bubble = document.createElement('div');
+      bubble.className = 'farmer-action-bubble';
+      bubble.textContent = farmer.currentAction;
+      cell.appendChild(bubble);
+      bubble.addEventListener('animationend', () => bubble.remove());
+    }
+    farmerLastAction.set(key, farmer.currentAction);
+
     // 行走目标格：彩色点
     if (farmer.isWalking && farmer.walkTarget) {
       const tc = document.getElementById(`plot-${farmer.walkTarget.x}-${farmer.walkTarget.y}`);
@@ -1870,6 +1903,10 @@ function renderFarmerTab(container) {
     btn.addEventListener('click', () => {
       const farmerName = btn.dataset.farmer;
       const foodId     = btn.dataset.food;
+      if (!isNearFarmer(farmerName)) {
+        showNotification('⚠️ 请先走到农夫旁边再喂食', 'error');
+        return;
+      }
       socket.emit('feed-farmer', { farmerName, foodId });
       playSound('buy');
     });
@@ -2223,10 +2260,13 @@ function renderAnimalPen() {
     `;
     card.querySelector('.animal-harvest-btn').addEventListener('click', e => {
       e.stopPropagation();
-      if (pen.isReady) { playSound('harvest'); socket.emit('harvest-animal', { penIndex: pen.penIndex }); }
+      if (!pen.isReady) return;
+      if (!isNearAnimalPen(pen.penIndex)) { showNotification('⚠️ 请先走到动物旁边再收获', 'error'); return; }
+      playSound('harvest'); socket.emit('harvest-animal', { penIndex: pen.penIndex });
     });
     card.querySelector('.animal-sell-btn').addEventListener('click', e => {
       e.stopPropagation();
+      if (!isNearAnimalPen(pen.penIndex)) { showNotification('⚠️ 请先走到动物旁边再出售', 'error'); return; }
       playSound('coin');
       socket.emit('sell-animal', { penIndex: pen.penIndex });
     });
@@ -2334,6 +2374,11 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
     popup.remove();
   };
   popup.querySelector('.acp-sell').onclick = () => {
+    if (!isNearAnimalPen(penIndex)) {
+      showNotification('⚠️ 请先走到动物旁边再出售', 'error');
+      popup.remove();
+      return;
+    }
     playSound('coin');
     socket.emit('sell-animal', { penIndex });
     popup.remove();
