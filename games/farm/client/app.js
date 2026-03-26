@@ -730,6 +730,21 @@ function initSocket() {
     }
   });
 
+  // ===== 农夫聊天系统 =====
+  socket.on('farmer-chat-result', (result) => {
+    if (result.success) {
+      addChatMessage('farmer', result.farmerName, result.reply);
+    } else {
+      showNotification(`❌ ${result.message}`, 'error');
+    }
+    // 恢复输入框
+    const input = document.getElementById('farmer-chat-input');
+    const sendBtn = document.getElementById('farmer-chat-send-btn');
+    if (input) input.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
+  });
+
   socket.on('error', (error) => {
     showNotification(error.message || '发生错误', 'error');
   });
@@ -833,7 +848,8 @@ function updateGameState(state) {
   renderFarmer();
   renderFarmLog();
   renderFarmerThoughts();
-  
+  updateFarmerSelect();
+
   // 更新当前玩家等级信息
   if (currentPlayer && gameState.players) {
     const serverPlayer = gameState.players.find(p => p.id === currentPlayer.id);
@@ -2909,3 +2925,105 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', init);
 
 console.log('[Farm] Client initialized');
+// ========== 农夫聊天系统 ==========
+
+function toggleFarmerChat() {
+  const panel = document.getElementById('farmer-chat-panel');
+  if (panel) {
+    panel.classList.toggle('collapsed');
+  }
+}
+
+function updateFarmerSelect() {
+  const select = document.getElementById('chat-farmer-select');
+  if (!select || !gameState || !gameState.farmers) return;
+
+  select.innerHTML = '';
+  gameState.farmers.forEach((farmer, idx) => {
+    const option = document.createElement('option');
+    option.value = farmer.name;
+    option.textContent = `${farmer.name}${farmer.isDead ? ' (已故)' : ''}`;
+    option.disabled = farmer.isDead;
+    select.appendChild(option);
+  });
+}
+
+function addChatMessage(role, sender, content) {
+  const container = document.getElementById('farmer-chat-messages');
+  if (!container) return;
+
+  // 移除"正在输入"提示
+  const typing = container.querySelector('.chat-typing');
+  if (typing) typing.remove();
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `chat-message ${role}`;
+  msgDiv.innerHTML = `
+    <div class="sender">${sender}</div>
+    <div class="content">${escapeHtml(content)}</div>
+  `;
+  container.appendChild(msgDiv);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTypingIndicator(farmerName) {
+  const container = document.getElementById('farmer-chat-messages');
+  if (!container) return;
+
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'chat-typing';
+  typingDiv.textContent = `${farmerName} 正在思考...`;
+  container.appendChild(typingDiv);
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendFarmerChat() {
+  const input = document.getElementById('farmer-chat-input');
+  const select = document.getElementById('chat-farmer-select');
+  const sendBtn = document.getElementById('farmer-chat-send-btn');
+
+  if (!input || !select) return;
+
+  const message = input.value.trim();
+  const farmerName = select.value;
+
+  if (!message) return;
+  if (!farmerName) {
+    showNotification('请先选择一个农夫', 'error');
+    return;
+  }
+
+  // 显示玩家消息
+  addChatMessage('player', '我', message);
+
+  // 显示"正在输入"
+  showTypingIndicator(`农夫${farmerName}`);
+
+  // 禁用输入
+  input.value = '';
+  input.disabled = true;
+  if (sendBtn) sendBtn.disabled = true;
+
+  // 发送消息
+  socket.emit('chat-with-farmer', { farmerName, message });
+}
+
+// HTML转义
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// 绑定回车发送
+document.addEventListener('DOMContentLoaded', () => {
+  const chatInput = document.getElementById('farmer-chat-input');
+  if (chatInput) {
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendFarmerChat();
+      }
+    });
+  }
+});

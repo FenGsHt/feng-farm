@@ -3544,3 +3544,159 @@ button:active {
   border-radius: 4px;
   font-size: 11px;
 }
+
+/* ========== 农夫聊天系统 ========== */
+.farmer-chat-panel {
+  background: rgba(30, 40, 50, 0.95);
+  border: 2px solid #4a90d9;
+  border-radius: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.farmer-chat-header {
+  background: linear-gradient(135deg, #4a90d9, #357abd);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.farmer-chat-title {
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.farmer-chat-toggle {
+  color: #fff;
+  font-size: 12px;
+  transition: transform 0.3s;
+}
+
+.farmer-chat-panel.collapsed .farmer-chat-toggle {
+  transform: rotate(-90deg);
+}
+
+.farmer-chat-body {
+  padding: 10px;
+  transition: all 0.3s;
+}
+
+.farmer-chat-panel.collapsed .farmer-chat-body {
+  display: none;
+}
+
+.farmer-select {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.farmer-select label {
+  color: #aaa;
+  font-size: 12px;
+}
+
+.farmer-select select {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid #4a90d9;
+  border-radius: 4px;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.farmer-chat-messages {
+  max-height: 150px;
+  overflow-y: auto;
+  background: rgba(0,0,0,0.2);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+  min-height: 60px;
+}
+
+.chat-message {
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chat-message.player {
+  text-align: right;
+  color: #7dd3fc;
+}
+
+.chat-message.farmer {
+  text-align: left;
+  color: #fde68a;
+}
+
+.chat-message .sender {
+  font-weight: bold;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.chat-message .content {
+  background: rgba(255,255,255,0.1);
+  padding: 4px 8px;
+  border-radius: 8px;
+  display: inline-block;
+  max-width: 90%;
+  word-break: break-word;
+}
+
+.chat-message.player .content {
+  background: rgba(125, 211, 252, 0.2);
+}
+
+.chat-message.farmer .content {
+  background: rgba(253, 230, 138, 0.2);
+}
+
+.farmer-chat-input {
+  display: flex;
+  gap: 6px;
+}
+
+.farmer-chat-input input {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid #4a90d9;
+  border-radius: 6px;
+  color: #fff;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.farmer-chat-input input::placeholder {
+  color: #666;
+}
+
+.farmer-chat-input button {
+  background: #4a90d9;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.farmer-chat-input button:hover {
+  background: #357abd;
+}
+
+.chat-typing {
+  color: #888;
+  font-size: 11px;
+  font-style: italic;
+  padding: 4px 0;
+}

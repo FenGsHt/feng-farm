@@ -111,6 +111,25 @@
             <div id="farmer-thoughts-list" class="farmer-thoughts-list"></div>
           </div>
         </div>
+
+        <!-- 农夫聊天 -->
+        <div class="farmer-chat-panel" id="farmer-chat-panel">
+          <div class="farmer-chat-header" onclick="toggleFarmerChat()">
+            <span class="farmer-chat-title">💬 与农夫交流</span>
+            <span class="farmer-chat-toggle" id="farmer-chat-toggle">▼</span>
+          </div>
+          <div class="farmer-chat-body" id="farmer-chat-body">
+            <div class="farmer-select">
+              <label>选择农夫：</label>
+              <select id="chat-farmer-select"></select>
+            </div>
+            <div id="farmer-chat-messages" class="farmer-chat-messages"></div>
+            <div class="farmer-chat-input">
+              <input type="text" id="farmer-chat-input" placeholder="输入消息..." maxlength="200">
+              <button id="farmer-chat-send-btn" onclick="sendFarmerChat()">发送</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 操作面板 -->

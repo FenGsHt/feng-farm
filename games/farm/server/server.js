@@ -460,6 +460,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ====== 农夫聊天系统 ======
+
+  socket.on('chat-with-farmer', async ({ farmerName, message }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = await room.game.chatWithFarmer(socket.id, farmerName, message);
+    socket.emit('farmer-chat-result', result);
+  });
+
   // ====== 黄金交易系统 ======
 
   // 买入黄金

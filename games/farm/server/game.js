@@ -773,6 +773,29 @@ class FarmGame {
     return { success: true, message: `喂给农夫${farmerName} ${food.emoji}${food.name}！` };
   }
 
+  // 与农夫聊天
+  async chatWithFarmer(socketId, farmerName, message) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    const farmer = this.farmers.find(f => f.name === farmerName);
+    if (!farmer) return { success: false, message: `找不到农夫 ${farmerName}` };
+    if (farmer.isDead) return { success: false, message: `${farmerName} 已经去世了` };
+
+    try {
+      const reply = await farmer.chat(player.name, message);
+      return {
+        success: true,
+        reply,
+        farmerName: farmer.fullName,
+        personality: farmer.personality.description
+      };
+    } catch (error) {
+      console.error('[Chat] 聊天失败:', error.message);
+      return { success: false, message: '农夫似乎没听到你在说什么...' };
+    }
+  }
+
   // 添加农场日志（最多保留 40 条）
   addFarmLog(message, emoji = '📝', type = 'info') {
     const now = new Date();

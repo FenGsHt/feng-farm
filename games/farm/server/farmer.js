@@ -525,6 +525,13 @@ class Farmer {
     this.seeds = options.seeds || { wheat: 8, carrot: 8, tomato: 6, rice: 4 };
     this.items = options.items || { pesticide: 3 };
 
+    // ====== 性格系统 ======
+    this.personality = options.personality || this._generatePersonality();
+
+    // ====== 聊天系统 ======
+    this.chatHistory = options.chatHistory || []; // 最近聊天记录
+    this.recentActions = []; // 最近行动记录
+
     // 从注册表实例化所有行为
     this.behaviors = Array.from(FarmerBehavior.registry.values()).map(Cls => new Cls());
 
@@ -536,6 +543,49 @@ class Farmer {
     this._tickCount      = 0;
 
     setTimeout(() => this._start(), options.startDelay ?? 5000);
+  }
+
+  // ---------- 性格生成 ----------
+  _generatePersonality() {
+    // 性格维度：每个维度0-1
+    const traits = ['勤劳', '节俭', '乐观', '谨慎', '健谈'];
+    const values = {};
+    traits.forEach(t => {
+      values[t] = Math.random();
+    });
+    return {
+      ...values,
+      // 性格描述
+      description: this._describePersonality(values)
+    };
+  }
+
+  _describePersonality(values) {
+    const parts = [];
+    if (values['勤劳'] > 0.7) parts.push('勤劳肯干');
+    else if (values['勤劳'] < 0.3) parts.push('懒散悠闲');
+    if (values['节俭'] > 0.7) parts.push('精打细算');
+    else if (values['节俭'] < 0.3) parts.push('挥金如土');
+    if (values['乐观'] > 0.7) parts.push('乐观开朗');
+    else if (values['乐观'] < 0.3) parts.push('忧心忡忡');
+    if (values['谨慎'] > 0.7) parts.push('小心谨慎');
+    else if (values['谨慎'] < 0.3) parts.push('大胆冒险');
+    if (values['健谈'] > 0.7) parts.push('健谈幽默');
+    else if (values['健谈'] < 0.3) parts.push('沉默寡言');
+    return parts.length > 0 ? parts.join('、') : '性格平凡';
+  }
+
+  // 记录行动（用于聊天上下文）
+  recordAction(action, details = {}) {
+    this.recentActions.push({
+      time: Date.now(),
+      action,
+      details
+    });
+    // 只保留最近20条
+    if (this.recentActions.length > 20) {
+      this.recentActions.shift();
+    }
   }
 
   // ---------- 行为管理 ----------
@@ -721,6 +771,117 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
     }
 
     return lines.join('\n');
+  }
+
+  // ---------- 聊天系统 ----------
+
+  async chat(playerName, message) {
+    const LLM_API_URL = process.env.LLM_API_URL || '';
+    const LLM_API_KEY = process.env.LLM_API_KEY || '';
+    const LLM_MODEL = process.env.LLM_MODEL || 'gpt-3.5-turbo';
+
+    // 记录玩家消息
+    this.chatHistory.push({
+      role: 'player',
+      name: playerName,
+      content: message,
+      time: Date.now()
+    });
+
+    // 保留最近10条
+    if (this.chatHistory.length > 10) {
+      this.chatHistory.shift();
+    }
+
+    // 如果没有配置LLM，返回默认回复
+    if (!LLM_API_URL || !LLM_API_KEY) {
+      const defaultReplies = [
+        '嗯，今天天气不错呢！',
+        '农场里还有很多活要干呢。',
+        '你有什么需要帮忙的吗？',
+        '我最近在研究怎么种出更好的庄稼。',
+        '咳咳，有点饿了...'
+      ];
+      const reply = defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
+      this.chatHistory.push({ role: 'farmer', content: reply, time: Date.now() });
+      return reply;
+    }
+
+    try {
+      // 构建上下文
+      const farmState = this._buildFarmStateDescription();
+      const recentActions = this.recentActions.slice(-5).map(a => {
+        const time = new Date(a.time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        return `[${time}] ${a.action}`;
+      }).join('\n');
+
+      const chatContext = this.chatHistory.slice(-6).map(c => {
+        if (c.role === 'player') {
+          return `玩家${c.name}: ${c.content}`;
+        }
+        return `我: ${c.content}`;
+      }).join('\n');
+
+      const systemPrompt = `你是农场游戏中的AI农夫，名字叫${this.fullName}。
+
+【你的性格】
+${this.personality.description}
+- 勤劳值: ${Math.round(this.personality['勤劳'] * 100)}%
+- 节俭值: ${Math.round(this.personality['节俭'] * 100)}%
+- 乐观值: ${Math.round(this.personality['乐观'] * 100)}%
+- 谨慎值: ${Math.round(this.personality['谨慎'] * 100)}%
+- 健谈值: ${Math.round(this.personality['健谈'] * 100)}%
+
+【当前农场状态】
+${farmState}
+
+【最近行动】
+${recentActions || '暂无特别行动'}
+
+【最近聊天】
+${chatContext || '暂无聊天记录'}
+
+请根据你的性格和当前状况，用自然、简短的方式回复玩家（1-3句话）。回复要体现你的性格特点。`;
+
+      const response = await fetch(LLM_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${LLM_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: LLM_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: message }
+          ],
+          temperature: 0.8,
+          max_tokens: 200
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content || '嗯...让我想想怎么回答。';
+
+      // 记录农夫回复
+      this.chatHistory.push({
+        role: 'farmer',
+        content: reply,
+        time: Date.now()
+      });
+
+      return reply;
+
+    } catch (error) {
+      console.error('[Farmer Chat] 聊天失败:', error.message);
+      const fallbackReply = '抱歉，我刚才走神了，你说的什么？';
+      this.chatHistory.push({ role: 'farmer', content: fallbackReply, time: Date.now() });
+      return fallbackReply;
+    }
   }
 
   // ---------- 加权随机选择 ----------
