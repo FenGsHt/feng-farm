@@ -493,6 +493,9 @@ class FarmGame {
     // ========== 共用金库 ==========
     this.sharedMoney = 1000; // 所有玩家 + 农夫共用的金币池
 
+    // 暴露动物配置，供 farmer.js 访问（避免循环 require）
+    this.ANIMALS = ANIMALS;
+
     // 启动生长更新循环
     this.startGrowthLoop();
 
