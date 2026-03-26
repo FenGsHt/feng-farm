@@ -2101,39 +2101,6 @@ function createTooltip() {
   return tooltip;
 }
 
-// 渲染玩家位置
-function renderPlayers() {
-  if (!gameState || !playersLayer) return;
-
-  playersLayer.innerHTML = '';
-  const { width, height, players } = gameState;
-  const cellSize = Math.min(50, Math.min(400 / width, 400 / height));
-
-  players.forEach(player => {
-    const marker = document.createElement('div');
-    marker.className = 'player-marker';
-    if (currentPlayer && player.id === currentPlayer.id) {
-      marker.classList.add('current');
-    }
-    
-    const x = player.position.x * cellSize + cellSize / 2;
-    const y = player.position.y * cellSize + cellSize / 2;
-    marker.style.left = `${x}px`;
-    marker.style.top = `${y}px`;
-    marker.style.backgroundColor = player.color;
-    marker.title = player.name;
-
-    // 玩家名
-    const nameLabel = document.createElement('span');
-    nameLabel.className = 'player-name';
-    nameLabel.textContent = player.name;
-    nameLabel.style.backgroundColor = player.color;
-    marker.appendChild(nameLabel);
-
-    playersLayer.appendChild(marker);
-  });
-}
-
 // 渲染玩家位置（带平滑动画）
 const playerElements = new Map();
 
@@ -3195,16 +3162,31 @@ function renderAnimalPen() {
   container.innerHTML = '';
   occupied.forEach(pen => {
     const card = document.createElement('div');
-    card.className = `animal-pen-cell has-animal${pen.isReady ? ' ready' : ''}${(pen.hunger || 0) >= 60 ? ' hungry' : ''}`;
-    const progressPercent = Math.round((pen.progress || 0) * 100);
+    const isAdult = pen.currentStage === 'adult';
+    const canHarvest = pen.canHarvest || (isAdult && pen.productReady);
+
+    card.className = `animal-pen-cell has-animal${canHarvest ? ' ready' : ''}${(pen.hunger || 0) >= 60 ? ' hungry' : ''}`;
+    const progressPercent = Math.round((pen.stageProgress || pen.progress || 0) * 100);
     const hungerPct = Math.round(pen.hunger || 0);
     const hungerClass = hungerPct >= 80 ? 'critical' : hungerPct >= 60 ? 'warning' : '';
+
+    // 成长阶段显示
+    const stageLabels = { baby: '幼年期', young: '青年期', adult: '成年期' };
+    const stageLabel = stageLabels[pen.currentStage] || '幼年期';
+
+    // 产品信息
+    const productInfo = isAdult && pen.product
+      ? `<span class="animal-product-info">${pen.product} ${pen.productPrice}💰</span>`
+      : '';
+
     card.innerHTML = `
       <span class="animal-pen-emoji">${pen.emoji}</span>
-      <span class="animal-pen-name">${pen.animalName}</span>
-      <span class="animal-pen-status ${pen.isReady ? 'ready' : ''}">
-        ${pen.isReady ? '可收获!' : `${pen.remainingTime}s`}
+      <span class="animal-pen-name">${pen.stageName || pen.animalName}</span>
+      <span class="animal-pen-stage">${stageLabel}</span>
+      <span class="animal-pen-status ${canHarvest ? 'ready' : ''}">
+        ${canHarvest ? '可收获!' : pen.remainingTime ? `${pen.remainingTime}s` : '成长中...'}
       </span>
+      ${productInfo}
       <div class="animal-hunger ${hungerClass}" title="饥饿度: ${hungerPct}%">
         🍖 ${hungerPct}%
       </div>
@@ -3213,7 +3195,7 @@ function renderAnimalPen() {
       </div>
       <div class="animal-pen-actions">
         <button class="animal-feed-btn" data-pen="${pen.penIndex}">喂养</button>
-        <button class="animal-harvest-btn" data-pen="${pen.penIndex}" ${!pen.isReady ? 'disabled' : ''}>收获</button>
+        <button class="animal-harvest-btn" data-pen="${pen.penIndex}" ${!canHarvest ? 'disabled' : ''}>收获</button>
         <button class="animal-sell-btn" data-pen="${pen.penIndex}">出售</button>
       </div>
     `;
@@ -3223,7 +3205,7 @@ function renderAnimalPen() {
     });
     card.querySelector('.animal-harvest-btn').addEventListener('click', e => {
       e.stopPropagation();
-      if (!pen.isReady) return;
+      if (!canHarvest) return;
       if (!isNearAnimalPen(pen.penIndex)) { showNotification('⚠️ 请先走到动物旁边再收获', 'error'); return; }
       playSound('harvest');
       // 触发动物产出动画
@@ -3242,7 +3224,7 @@ function renderAnimalPen() {
   });
 }
 
-// 渲染动物到地图格子中
+// 渲染动物到地图格子中（支持平滑动画）
 function renderAnimalsOnMap() {
   if (!gameState?.animalPens || !farmGrid) return;
 
@@ -3251,21 +3233,33 @@ function renderAnimalsOnMap() {
   // 移除旧的浮动层（如有）
   document.getElementById('animals-layer')?.remove();
 
-  // 清除所有格子上的动物 overlay
-  document.querySelectorAll('.animal-in-cell').forEach(el => el.remove());
-
   const usedPos = new Set();
 
   gameState.animalPens.forEach((pen, index) => {
     if (!pen.animal) {
       delete animalPositions[index];
       animalElements.delete(index);
+      // 移除旧的动物元素
+      document.querySelectorAll(`.animal-in-cell[data-pen-index="${index}"]`).forEach(el => el.remove());
       return;
     }
 
     // 优先使用服务端的位置，否则本地生成
     if (gameState.animalPositions && gameState.animalPositions[index]) {
-      animalPositions[index] = gameState.animalPositions[index];
+      const serverPos = gameState.animalPositions[index];
+      const oldPos = animalPositions[index];
+
+      // 检查是否有移动（用于平滑动画）
+      if (oldPos && (oldPos.x !== serverPos.x || oldPos.y !== serverPos.y)) {
+        // 记录移动信息
+        animalPositions[index] = {
+          ...serverPos,
+          isMoving: true,
+          moveStartTime: serverPos.moveStartTime || Date.now()
+        };
+      } else {
+        animalPositions[index] = serverPos;
+      }
     } else if (!animalPositions[index]) {
       let x, y, tries = 0;
       do {
@@ -3278,19 +3272,97 @@ function renderAnimalsOnMap() {
     const { x, y } = animalPositions[index];
     usedPos.add(`${x},${y}`);
 
-    const cell = document.getElementById(`plot-${x}-${y}`);
-    if (!cell) return;
+    // 查找目标格子
+    const targetCell = document.getElementById(`plot-${x}-${y}`);
+    if (!targetCell) return;
 
-    const overlay = document.createElement('div');
-    overlay.className = `animal-in-cell${pen.isReady ? ' is-ready' : ''}${(pen.hunger || 0) >= 80 ? ' hungry-alert' : ''}`;
-    overlay.dataset.penIndex = index;
-    overlay.innerHTML = `<span class="animal-cell-emoji">${pen.emoji}</span>${pen.isReady ? '<span class="animal-ready-dot">!</span>' : ''}`;
-    overlay.addEventListener('click', e => {
-      e.stopPropagation();
-      showAnimalCellPopup(index, pen, cell);
-    });
-    cell.appendChild(overlay);
+    // 查找现有的动物元素
+    let overlay = document.querySelector(`.animal-in-cell[data-pen-index="${index}"]`);
+
+    // 如果有移动动画需求
+    const isMoving = animalPositions[index].isMoving;
+    const moveStartTime = animalPositions[index].moveStartTime;
+
+    if (isMoving && moveStartTime && overlay) {
+      // 计算动画进度
+      const animDuration = 500; // 500ms 动画时间
+      const elapsed = Date.now() - moveStartTime;
+
+      if (elapsed < animDuration) {
+        // 执行平滑移动动画
+        const previousX = animalPositions[index].previousX;
+        const previousY = animalPositions[index].previousY;
+
+        if (previousX !== undefined && previousY !== undefined) {
+          const prevCell = document.getElementById(`plot-${previousX}-${previousY}`);
+          if (prevCell) {
+            // 使用缓动函数计算当前位置
+            const progress = easeOutQuad(Math.min(1, elapsed / animDuration));
+
+            // 获取格子位置
+            const prevRect = prevCell.getBoundingClientRect();
+            const targetRect = targetCell.getBoundingClientRect();
+
+            // 计算插值位置
+            const currentLeft = prevRect.left + (targetRect.left - prevRect.left) * progress;
+            const currentTop = prevRect.top + (targetRect.top - prevRect.top) * progress;
+
+            // 设置绝对定位进行动画
+            overlay.style.position = 'fixed';
+            overlay.style.left = currentLeft + 2 + 'px';
+            overlay.style.top = currentTop + targetRect.height - 24 + 'px';
+            overlay.style.zIndex = '1000';
+
+            // 继续动画帧
+            requestAnimationFrame(() => {
+              if (animalPositions[index] && animalPositions[index].isMoving) {
+                renderAnimalsOnMap();
+              }
+            });
+            return; // 继续动画中，不更新到目标格子
+          }
+        }
+      } else {
+        // 动画完成
+        animalPositions[index].isMoving = false;
+      }
+    }
+
+    // 移除旧的定位样式
+    const isAdult = pen.currentStage === 'adult';
+    const canHarvest = pen.canHarvest || (isAdult && pen.productReady);
+
+    if (!overlay) {
+      // 创建新的动物元素
+      overlay = document.createElement('div');
+      overlay.className = `animal-in-cell${canHarvest ? ' is-ready' : ''}${(pen.hunger || 0) >= 80 ? ' hungry-alert' : ''}`;
+      overlay.dataset.penIndex = index;
+      overlay.innerHTML = `<span class="animal-cell-emoji">${pen.emoji}</span>${canHarvest ? '<span class="animal-ready-dot">!</span>' : ''}`;
+      overlay.addEventListener('click', e => {
+        e.stopPropagation();
+        showAnimalCellPopup(index, pen, targetCell);
+      });
+    } else {
+      // 更新现有元素的类和内容
+      overlay.className = `animal-in-cell${canHarvest ? ' is-ready' : ''}${(pen.hunger || 0) >= 80 ? ' hungry-alert' : ''}`;
+      overlay.innerHTML = `<span class="animal-cell-emoji">${pen.emoji}</span>${canHarvest ? '<span class="animal-ready-dot">!</span>' : ''}`;
+      // 重置定位样式
+      overlay.style.position = '';
+      overlay.style.left = '';
+      overlay.style.top = '';
+      overlay.style.zIndex = '';
+    }
+
+    // 确保在目标格子中
+    if (overlay.parentElement !== targetCell) {
+      targetCell.appendChild(overlay);
+    }
   });
+}
+
+// 缓动函数：easeOutQuad
+function easeOutQuad(t) {
+  return t * (2 - t);
 }
 
 // 显示喂养动物模态框
@@ -3360,21 +3432,39 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
   const hungerPct = Math.round(pen.hunger || 0);
   const hungerText = hungerPct >= 80 ? '🔴 非常饿' : hungerPct >= 60 ? '🟡 有点饿' : '🟢 饱';
 
+  // 成长阶段信息
+  const isAdult = pen.currentStage === 'adult';
+  const canHarvest = pen.canHarvest || (isAdult && pen.productReady);
+  const stageLabels = { baby: '幼年期', young: '青年期', adult: '成年期' };
+  const stageLabel = stageLabels[pen.currentStage] || '幼年期';
+
+  // 状态文本
+  let statusText = '';
+  if (canHarvest) {
+    statusText = `✅ 可收获 ${pen.product || '产品'}！`;
+  } else if (!isAdult) {
+    statusText = `🐣 ${stageLabel} - 还需 ${pen.remainingTime || 0} 秒长大`;
+  } else {
+    statusText = `⏳ 产品准备中... ${pen.stageRemainingTime || 0} 秒`;
+  }
+
   const popup = document.createElement('div');
   popup.id = 'animal-cell-popup';
   popup.className = 'animal-cell-popup';
   popup.innerHTML = `
     <div class="acp-header">
-      <span>${pen.emoji} ${pen.animalName}</span>
+      <span>${pen.emoji} ${pen.stageName || pen.animalName}</span>
+      <span class="acp-stage">${stageLabel}</span>
       <button class="acp-close">✕</button>
     </div>
     <div class="acp-hunger">${hungerText} (${hungerPct}%)</div>
-    <div class="acp-status${pen.isReady ? ' ready' : ''}">
-      ${pen.isReady ? '✅ 可收获产品！' : `⏳ 还需 ${pen.remainingTime} 秒`}
+    <div class="acp-status${canHarvest ? ' ready' : ''}">
+      ${statusText}
     </div>
+    ${isAdult && pen.product ? `<div class="acp-product">产品: ${pen.product} ${pen.productPrice}💰</div>` : ''}
     <div class="acp-actions">
       <button class="acp-feed">🌾 喂养</button>
-      <button class="acp-harvest" ${!pen.isReady ? 'disabled' : ''}>🧺 收获 ${pen.product || ''}</button>
+      <button class="acp-harvest" ${!canHarvest ? 'disabled' : ''}>🧺 收获 ${pen.product || ''}</button>
       <button class="acp-sell">💰 出售动物</button>
     </div>
   `;
@@ -3397,7 +3487,7 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
     showFeedAnimalModal(penIndex, pen);
   };
   popup.querySelector('.acp-harvest').onclick = () => {
-    if (!pen.isReady) return;
+    if (!canHarvest) return;
     const animalPos = animalPositions[penIndex];
     const playerPos = currentPlayer?.position;
     if (animalPos && playerPos) {

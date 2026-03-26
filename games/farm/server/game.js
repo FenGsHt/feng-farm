@@ -222,19 +222,131 @@ const CROPS = {
   tea:        { name: '茶叶',   growthTime: 2400, sellPrice: 90,  seedPrice: 18, emoji: '🍵', category: 'cash' }       // 40 min
 };
 
+// 动物成长阶段配置
+const ANIMAL_STAGES = {
+  baby: { name: '幼年期', durationRatio: 0.3 },   // 占总成长时间的30%
+  young: { name: '青年期', durationRatio: 0.3 }, // 占总成长时间的30%
+  adult: { name: '成年期', durationRatio: 0.4 }  // 占总成长时间的40%
+};
+
 // 动物配置
 const ANIMALS = {
   // 家禽
-  chicken: { name: '鸡', growthTime: 60, sellPrice: 30, buyPrice: 50, emoji: '🐔', product: '鸡蛋', productPrice: 5 },
-  duck: { name: '鸭', growthTime: 80, sellPrice: 45, buyPrice: 80, emoji: '🦆', product: '鸭蛋', productPrice: 8 },
+  chicken: {
+    name: '鸡',
+    growthTime: 60,
+    sellPrice: 30,
+    buyPrice: 50,
+    emoji: '🐔',
+    product: '鸡蛋',
+    productPrice: 5,
+    stages: {
+      baby: { emoji: '🐤', name: '小鸡' },
+      young: { emoji: '🐥', name: '青年鸡' },
+      adult: { emoji: '🐔', name: '成年鸡', sellPrice: 30 }
+    }
+  },
+  duck: {
+    name: '鸭',
+    growthTime: 80,
+    sellPrice: 45,
+    buyPrice: 80,
+    emoji: '🦆',
+    product: '鸭蛋',
+    productPrice: 8,
+    stages: {
+      baby: { emoji: '🐣', name: '小鸭' },
+      young: { emoji: '🐥', name: '青年鸭' },
+      adult: { emoji: '🦆', name: '成年鸭', sellPrice: 45 }
+    }
+  },
   // 畜牧
-  sheep: { name: '羊', growthTime: 120, sellPrice: 100, buyPrice: 200, emoji: '🐑', product: '羊毛', productPrice: 20 },
-  cow: { name: '牛', growthTime: 180, sellPrice: 200, buyPrice: 400, emoji: '🐄', product: '牛奶', productPrice: 30 },
-  pig: { name: '猪', growthTime: 150, sellPrice: 150, buyPrice: 300, emoji: '🐖', product: '猪肉', productPrice: 40 },
-  horse: { name: '马', growthTime: 240, sellPrice: 350, buyPrice: 700, emoji: '🐴', product: '马奶', productPrice: 50 },
+  sheep: {
+    name: '羊',
+    growthTime: 120,
+    sellPrice: 100,
+    buyPrice: 200,
+    emoji: '🐑',
+    product: '羊毛',
+    productPrice: 20,
+    stages: {
+      baby: { emoji: '🐑', name: '小羊' },
+      young: { emoji: '🐑', name: '青年羊' },
+      adult: { emoji: '🐑', name: '成年羊', sellPrice: 100 }
+    }
+  },
+  cow: {
+    name: '牛',
+    growthTime: 180,
+    sellPrice: 200,
+    buyPrice: 400,
+    emoji: '🐄',
+    product: '牛奶',
+    productPrice: 30,
+    stages: {
+      baby: { emoji: '🐄', name: '小牛' },
+      young: { emoji: '🐄', name: '青年牛' },
+      adult: { emoji: '🐄', name: '成年牛', sellPrice: 200 }
+    }
+  },
+  pig: {
+    name: '猪',
+    growthTime: 150,
+    sellPrice: 150,
+    buyPrice: 300,
+    emoji: '🐖',
+    product: '有机肥',  // 改为有机肥
+    productPrice: 20,
+    specialAbility: 'fertilize',  // 特殊能力：恢复肥力
+    stages: {
+      baby: { emoji: '🐷', name: '小猪' },
+      young: { emoji: '🐽', name: '青年猪' },
+      adult: { emoji: '🐖', name: '成年猪', sellPrice: 300 }  // 成年猪卖出收益大
+    }
+  },
+  horse: {
+    name: '马',
+    growthTime: 240,
+    sellPrice: 350,
+    buyPrice: 700,
+    emoji: '🐴',
+    product: '马奶',
+    productPrice: 50,
+    stages: {
+      baby: { emoji: '🐴', name: '小马' },
+      young: { emoji: '🐴', name: '青年马' },
+      adult: { emoji: '🐴', name: '成年马', sellPrice: 350 }
+    }
+  },
   // 特殊
-  rabbit: { name: '兔子', growthTime: 90, sellPrice: 60, buyPrice: 120, emoji: '🐰', product: '兔毛', productPrice: 15 },
-  bee: { name: '蜜蜂', growthTime: 120, sellPrice: 40, buyPrice: 80, emoji: '🐝', product: '蜂蜜', productPrice: 4 }
+  rabbit: {
+    name: '兔子',
+    growthTime: 90,
+    sellPrice: 60,
+    buyPrice: 120,
+    emoji: '🐰',
+    product: '兔毛',
+    productPrice: 15,
+    stages: {
+      baby: { emoji: '🐰', name: '小兔' },
+      young: { emoji: '🐰', name: '青年兔' },
+      adult: { emoji: '🐰', name: '成年兔', sellPrice: 60 }
+    }
+  },
+  bee: {
+    name: '蜜蜂',
+    growthTime: 120,
+    sellPrice: 40,
+    buyPrice: 80,
+    emoji: '🐝',
+    product: '蜂蜜',
+    productPrice: 4,
+    stages: {
+      baby: { emoji: '🐝', name: '蜂群' },
+      young: { emoji: '🐝', name: '壮年蜂群' },
+      adult: { emoji: '🐝', name: '成熟蜂群', sellPrice: 40 }
+    }
+  }
 };
 
 // 食物配置（供农夫进食使用）
@@ -462,7 +574,9 @@ class AnimalPen {
     this.index = index;
     this.animal = null; // 动物类型
     this.ownedAt = null; // 购买时间
-    this.isReady = false; // 是否可以收获
+    this.currentStage = 'baby'; // 当前成长阶段: baby/young/adult
+    this.stageStartedAt = null; // 当前阶段开始时间
+    this.productReady = false; // 是否可以收获产品（成年后才能收获）
     this.owner = null; // 拥有者
     this.hunger = 0;  // 动物饥饿度 0=饱 100=非常饿
     this._growthTicks = 0; // 内部计数器，用于控制饥饿增速
@@ -471,100 +585,204 @@ class AnimalPen {
   // 放置动物
   place(animalType, playerName) {
     if (this.animal) return { success: false, message: '栏位已有动物' };
-    
+
     const animal = ANIMALS[animalType];
     if (!animal) return { success: false, message: '未知动物' };
-    
+
     this.animal = animalType;
     this.ownedAt = Date.now();
-    this.isReady = false;
+    this.currentStage = 'baby';
+    this.stageStartedAt = Date.now();
+    this.productReady = false;
     this.owner = playerName;
     return { success: true };
+  }
+
+  // 计算当前成长阶段
+  calculateStage() {
+    if (!this.animal || !this.ownedAt) return 'baby';
+
+    const animal = ANIMALS[this.animal];
+    const elapsed = (Date.now() - this.ownedAt) / 1000;
+    const totalTime = animal.growthTime;
+
+    // 根据时间比例判断阶段
+    if (elapsed >= totalTime * (ANIMAL_STAGES.baby.durationRatio + ANIMAL_STAGES.young.durationRatio)) {
+      return 'adult';
+    } else if (elapsed >= totalTime * ANIMAL_STAGES.baby.durationRatio) {
+      return 'young';
+    }
+    return 'baby';
   }
 
   // 更新动物状态（每1s调用一次）
   updateAnimal() {
     if (!this.animal) return;
 
+    // 更新成长阶段
+    const newStage = this.calculateStage();
+    if (newStage !== this.currentStage) {
+      this.currentStage = newStage;
+      this.stageStartedAt = Date.now();
+    }
+
+    // 成年后才能收获产品
+    if (this.currentStage === 'adult' && !this.productReady) {
+      // 检查产品是否准备好
+      this.productReady = true;
+    }
+
     // 饥饿增加（每20s +4，约500s=8分钟到达饥饿阈值60）
     this._growthTicks = (this._growthTicks || 0) + 1;
     if (this._growthTicks % 20 === 0) {
       this.hunger = Math.min(100, (this.hunger || 0) + 4);
-    }
-
-    // 过饿时生产暂停（饥饿度>=80则不再更新 isReady）
-    if (this.isReady || (this.hunger || 0) >= 80) return;
-
-    const animal = ANIMALS[this.animal];
-    const elapsed = (Date.now() - this.ownedAt) / 1000;
-    if (elapsed >= animal.growthTime) {
-      this.isReady = true;
     }
   }
 
   // 收获产品
   harvest() {
     if (!this.animal) return { success: false, message: '栏位没有动物' };
-    if (!this.isReady) return { success: false, message: '动物还未成熟' };
-    
+    if (this.currentStage !== 'adult') return { success: false, message: '动物还未成年，无法收获产品' };
+    if (!this.productReady) return { success: false, message: '产品还未准备好' };
+
+    // 过饿时无法收获
+    if (this.hunger >= 80) return { success: false, message: '动物太饿了，请先喂养' };
+
     const animal = ANIMALS[this.animal];
     const reward = animal.productPrice;
     const productName = animal.product;
-    
-    // 重置状态（动物继续存在，可以再次收获产品）
-    this.isReady = false;
-    this.ownedAt = Date.now();
-    
-    return { success: true, reward, product: productName, animalType: this.animal };
+    const specialAbility = animal.specialAbility;
+
+    // 重置产品状态（动物继续存在，可以再次收获产品）
+    this.productReady = false;
+    // 成年动物每30秒可以再次产出
+    this._productCooldownStart = Date.now();
+
+    return {
+      success: true,
+      reward,
+      product: productName,
+      animalType: this.animal,
+      specialAbility,
+      stage: this.currentStage
+    };
   }
 
   // 出售动物
   sell() {
     if (!this.animal) return { success: false, message: '栏位没有动物' };
-    
+
     const animal = ANIMALS[this.animal];
-    const reward = animal.sellPrice;
+    // 根据成长阶段确定售价
+    let reward = animal.sellPrice;
+    if (animal.stages && animal.stages[this.currentStage]) {
+      reward = animal.stages[this.currentStage].sellPrice || animal.sellPrice;
+    }
+
     const animalType = this.animal;
-    
+    const stage = this.currentStage;
+
     // 清空栏位
     this.animal = null;
     this.ownedAt = null;
-    this.isReady = false;
+    this.currentStage = 'baby';
+    this.stageStartedAt = null;
+    this.productReady = false;
     this.owner = null;
-    
-    return { success: true, reward, animalType };
+    this.hunger = 0;
+    this._growthTicks = 0;
+
+    return { success: true, reward, animalType, stage };
+  }
+
+  // 获取当前阶段的 emoji 和名称
+  getStageInfo() {
+    if (!this.animal) return { emoji: null, name: null };
+
+    const animal = ANIMALS[this.animal];
+    if (animal.stages && animal.stages[this.currentStage]) {
+      return {
+        emoji: animal.stages[this.currentStage].emoji,
+        name: animal.stages[this.currentStage].name
+      };
+    }
+    return { emoji: animal.emoji, name: animal.name };
+  }
+
+  // 获取成长进度（当前阶段内的进度）
+  getStageProgress() {
+    if (!this.animal || !this.ownedAt) return { progress: 0, remainingTime: null };
+
+    const animal = ANIMALS[this.animal];
+    const totalTime = animal.growthTime;
+    const elapsed = (Date.now() - this.ownedAt) / 1000;
+
+    if (this.currentStage === 'adult') {
+      // 成年后显示产品冷却进度
+      if (this._productCooldownStart) {
+        const cooldownElapsed = (Date.now() - this._productCooldownStart) / 1000;
+        const cooldownTime = 30; // 30秒冷却
+        const progress = Math.min(1, cooldownElapsed / cooldownTime);
+        if (progress >= 1) {
+          this.productReady = true;
+        }
+        return { progress, remainingTime: Math.ceil(Math.max(0, cooldownTime - cooldownElapsed)), stageProgress: 1 };
+      }
+      return { progress: 1, remainingTime: 0, stageProgress: 1 };
+    }
+
+    // 计算当前阶段内的进度
+    let stageStartRatio = 0;
+    let stageEndRatio = 0;
+
+    if (this.currentStage === 'baby') {
+      stageStartRatio = 0;
+      stageEndRatio = ANIMAL_STAGES.baby.durationRatio;
+    } else if (this.currentStage === 'young') {
+      stageStartRatio = ANIMAL_STAGES.baby.durationRatio;
+      stageEndRatio = stageStartRatio + ANIMAL_STAGES.young.durationRatio;
+    }
+
+    const currentRatio = elapsed / totalTime;
+    const stageProgress = Math.min(1, Math.max(0, (currentRatio - stageStartRatio) / (stageEndRatio - stageStartRatio)));
+    const nextStageTime = Math.ceil((stageEndRatio * totalTime) - elapsed);
+
+    return { progress: stageProgress, remainingTime: Math.max(0, nextStageTime), stageProgress };
   }
 
   getState() {
     const animal = this.animal ? ANIMALS[this.animal] : null;
-    let remainingTime = null;
-    let progress = 0;
-    
-    if (this.animal && this.ownedAt) {
-      const animalConfig = ANIMALS[this.animal];
+    const stageInfo = this.getStageInfo();
+    const stageProgress = this.getStageProgress();
+
+    // 计算到成年的总剩余时间
+    let totalRemainingTime = null;
+    if (this.animal && this.ownedAt && this.currentStage !== 'adult') {
+      const totalTime = ANIMALS[this.animal].growthTime;
       const elapsed = (Date.now() - this.ownedAt) / 1000;
-      progress = Math.min(1, elapsed / animalConfig.growthTime);
-      
-      if (!this.isReady) {
-        const remaining = Math.max(0, animalConfig.growthTime - elapsed);
-        remainingTime = Math.ceil(remaining);
-      }
+      totalRemainingTime = Math.ceil(Math.max(0, totalTime - elapsed));
     }
-    
+
     return {
       index: this.index,
       animal: this.animal,
       animalName: animal ? animal.name : null,
-      emoji: animal ? animal.emoji : null,
+      emoji: stageInfo.emoji,
+      stageName: stageInfo.name,
+      currentStage: this.currentStage,
       product: animal ? animal.product : null,
       productPrice: animal ? animal.productPrice : null,
-      isReady: this.isReady,
+      productReady: this.productReady,
+      canHarvest: this.currentStage === 'adult' && this.productReady && this.hunger < 80,
       owner: this.owner,
-      progress: progress,
-      remainingTime: remainingTime,
+      progress: stageProgress.progress,
+      stageProgress: stageProgress.stageProgress || stageProgress.progress,
+      remainingTime: totalRemainingTime,
+      stageRemainingTime: stageProgress.remainingTime,
       hunger: this.hunger || 0,
       isHungry: (this.hunger || 0) >= 60,
-      isStarving: (this.hunger || 0) >= 80
+      isStarving: (this.hunger || 0) >= 80,
+      specialAbility: animal ? animal.specialAbility : null
     };
   }
 }
@@ -743,8 +961,29 @@ class FarmGame {
         const pen = this.animalPens[i];
         pen.animal  = d.animal;
         pen.ownedAt = d.ownedAt || Date.now();
-        pen.isReady = d.isReady || false;
         pen.owner   = d.owner   || null;
+
+        // 兼容旧数据：如果有 isReady 则自动设为成年期
+        if (d.currentStage) {
+          pen.currentStage = d.currentStage;
+          pen.stageStartedAt = d.stageStartedAt || pen.ownedAt;
+          pen.productReady = d.productReady || false;
+        } else if (d.isReady) {
+          // 旧数据迁移：isReady=true 意味着已经是成年且可以收获
+          pen.currentStage = 'adult';
+          pen.stageStartedAt = pen.ownedAt;
+          pen.productReady = true;
+        } else {
+          // 旧数据迁移：根据 ownedAt 计算当前阶段
+          pen.currentStage = pen.calculateStage();
+          pen.stageStartedAt = pen.ownedAt;
+          pen.productReady = pen.currentStage === 'adult';
+        }
+
+        // 加载饥饿度
+        if (typeof d.hunger === 'number') {
+          pen.hunger = d.hunger;
+        }
       }
     }
 
@@ -753,16 +992,6 @@ class FarmGame {
       this.pests = saved.pests.filter(
         p => p && p.type && typeof p.x === 'number' && typeof p.y === 'number'
       );
-    }
-
-    // 动物栏饥饿度
-    if (Array.isArray(saved.animalPens)) {
-      for (let i = 0; i < Math.min(saved.animalPens.length, this.animalPens.length); i++) {
-        const d = saved.animalPens[i];
-        if (d && typeof d.hunger === 'number') {
-          this.animalPens[i].hunger = d.hunger;
-        }
-      }
     }
 
     //农夫数据（姓名 + 饥饿度）
@@ -850,9 +1079,13 @@ class FarmGame {
       animalPens: this.animalPens.map(pen => ({
         animal:  pen.animal,
         ownedAt: pen.ownedAt,
-        isReady: pen.isReady,
+        currentStage: pen.currentStage,
+        stageStartedAt: pen.stageStartedAt,
+        productReady: pen.productReady,
         owner:   pen.owner,
-        hunger:  pen.hunger || 0
+        hunger:  pen.hunger || 0,
+        // 兼容旧版本：同时保存 isReady
+        isReady: pen.currentStage === 'adult' && pen.productReady
       })),
       pests:   this.pests,
       farmers: this.farmers.map(f => ({ name: f.name, hunger: f.hunger })),
@@ -1973,10 +2206,14 @@ class FarmGame {
       // 初始化或移动位置
       if (!this.animalPositions[i]) {
         // 随机初始位置
-        this.animalPositions[i] = {
+        const pos = {
           x: Math.floor(Math.random() * this.width),
-          y: Math.floor(Math.random() * this.height)
+          y: Math.floor(Math.random() * this.height),
+          previousX: null,
+          previousY: null,
+          moveStartTime: null
         };
+        this.animalPositions[i] = pos;
       } else if (Math.random() < 0.5) {
         // 50%概率移动
         const directions = [
@@ -1989,7 +2226,17 @@ class FarmGame {
         const dir = directions[Math.floor(Math.random() * directions.length)];
         const newX = Math.max(0, Math.min(this.width - 1, this.animalPositions[i].x + dir.dx));
         const newY = Math.max(0, Math.min(this.height - 1, this.animalPositions[i].y + dir.dy));
-        this.animalPositions[i] = { x: newX, y: newY };
+
+        // 记录移动信息用于平滑动画
+        if (newX !== this.animalPositions[i].x || newY !== this.animalPositions[i].y) {
+          this.animalPositions[i] = {
+            x: newX,
+            y: newY,
+            previousX: this.animalPositions[i].x,
+            previousY: this.animalPositions[i].y,
+            moveStartTime: Date.now()
+          };
+        }
       }
     }
   }
@@ -3010,12 +3257,22 @@ class FarmGame {
     }
 
     if (!pen.animal) return { success: false, message: '栏位没有动物' };
-    if (!pen.isReady) {
-      const animal = ANIMALS[pen.animal];
-      const remaining = pen.remainingTime || 0;
-      return { success: false, message: `${animal.name}还需要 ${remaining} 秒产出产品` };
+
+    // 检查成长阶段
+    if (pen.currentStage !== 'adult') {
+      const stageNames = { baby: '幼年期', young: '青年期', adult: '成年期' };
+      return { success: false, message: `动物处于${stageNames[pen.currentStage]}，需要成年后才能收获产品` };
     }
-    
+
+    if (!pen.productReady) {
+      const remaining = pen.stageRemainingTime || 0;
+      return { success: false, message: `产品还需要 ${remaining} 秒准备好` };
+    }
+
+    if (pen.hunger >= 80) {
+      return { success: false, message: '动物太饿了，请先喂养' };
+    }
+
     const result = pen.harvest();
     if (result.success) {
       // 应用多样性系数
@@ -3028,33 +3285,70 @@ class FarmGame {
 
       // 加金币
       this.sharedMoney += adjustedReward;
-      
+
+      // 猪的特殊处理：收获有机肥时恢复附近地块肥力
+      let fertilizedPlots = [];
+      if (result.specialAbility === 'fertilize' && animalPos) {
+        fertilizedPlots = this._fertilizeNearbyPlots(animalPos.x, animalPos.y, 30);
+      }
+
       // 保存玩家数据
-      dataStore.savePlayer(socketId, { 
-        name: player.name, 
-        money: this.sharedMoney, 
-        color: player.color, 
+      dataStore.savePlayer(socketId, {
+        name: player.name,
+        money: this.sharedMoney,
+        color: player.color,
         position: player.position,
         inventory: player.inventory,
         items: player.items
       });
-      
+
       // 记录操作日志
       dataStore.logAction(socketId, player.name, 'harvest-animal', {
         penIndex,
         animalType: result.animalType,
         product: result.product,
         reward: adjustedReward,
-        diversityCoef
+        diversityCoef,
+        fertilizedPlots: fertilizedPlots.length
       });
+
+      return {
+        success: true,
+        message: fertilizedPlots.length > 0
+          ? `收获 ${result.product} +${adjustedReward}金币，恢复了 ${fertilizedPlots.length} 块地的肥力`
+          : `收获 ${result.product} +${adjustedReward}金币`,
+        reward: adjustedReward,
+        product: result.product,
+        fertilizedPlots
+      };
     }
 
-    return {
-      success: true,
-      message: `收获 ${result.product} +${adjustedReward}金币`,
-      reward: adjustedReward,
-      product: result.product
-    };
+    return result;
+  }
+
+  // 恢复附近地块肥力（猪的特殊能力）
+  _fertilizeNearbyPlots(centerX, centerY, amount = 30) {
+    const fertilizedPlots = [];
+
+    // 恢复周围 3x3 范围内的地块肥力
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = centerX + dx;
+        const y = centerY + dy;
+
+        if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+          const plot = this.plots[y][x];
+          const oldFertility = plot.fertility;
+          plot.fertility = Math.min(100, plot.fertility + amount);
+
+          if (plot.fertility > oldFertility) {
+            fertilizedPlots.push({ x, y, fertility: plot.fertility });
+          }
+        }
+      }
+    }
+
+    return fertilizedPlots;
   }
 
   // 出售动物
@@ -3096,10 +3390,11 @@ class FarmGame {
       });
     }
     
-    return { 
-      success: true, 
-      message: `出售 ${ANIMALS[result.animalType].emoji}${ANIMALS[result.animalType].name} +${result.reward}金币`,
-      reward: result.reward
+    return {
+      success: true,
+      message: `出售 ${ANIMALS[result.animalType].emoji}${result.stage ? ANIMALS[result.animalType].stages[result.stage].name : ANIMALS[result.animalType].name} +${result.reward}金币`,
+      reward: result.reward,
+      stage: result.stage
     };
   }
 

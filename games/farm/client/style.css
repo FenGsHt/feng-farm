@@ -2038,6 +2038,54 @@ button:active {
   margin-top: 4px;
 }
 
+.animal-pen-stage {
+  font-size: 10px;
+  color: #81c784;
+  background: rgba(129, 199, 132, 0.2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.animal-pen-stage.baby {
+  color: #ffb74d;
+  background: rgba(255, 183, 77, 0.2);
+}
+
+.animal-pen-stage.young {
+  color: #64b5f6;
+  background: rgba(100, 181, 246, 0.2);
+}
+
+.animal-pen-stage.adult {
+  color: #81c784;
+  background: rgba(129, 199, 132, 0.2);
+}
+
+.animal-product-info {
+  font-size: 10px;
+  color: #ffd54f;
+  margin-top: 2px;
+}
+
+.acp-stage {
+  font-size: 11px;
+  color: #81c784;
+  background: rgba(129, 199, 132, 0.2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.acp-product {
+  font-size: 11px;
+  color: #ffd54f;
+  margin: 6px 0;
+  padding: 4px 6px;
+  background: rgba(255, 213, 79, 0.1);
+  border-radius: 4px;
+}
+
 .animal-pen-status {
   font-size: 11px;
   color: var(--text-muted);
