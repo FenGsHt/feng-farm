@@ -85,8 +85,22 @@
       <!-- 农场地图 -->
       <div class="farm-wrapper">
         <div id="active-tool-indicator" class="active-tool-indicator"></div>
-        <div id="farm-grid" class="farm-grid"></div>
-        <div id="players-layer" class="players-layer"></div>
+        <div class="farm-grid-scroll">
+          <div id="farm-grid" class="farm-grid"></div>
+          <div id="players-layer" class="players-layer"></div>
+        </div>
+
+        <!-- 农场日志 -->
+        <div class="farm-log-panel" id="farm-log-panel">
+          <div class="farm-log-header" onclick="toggleFarmLog()">
+            <span class="farm-log-title">📋 农场日志</span>
+            <span class="farm-log-farmer-status" id="farmer-status">🧑‍🌾 阿明 — 准备工作</span>
+            <span class="farm-log-toggle" id="farm-log-toggle">▲</span>
+          </div>
+          <div class="farm-log-body" id="farm-log-body">
+            <div id="farm-log-list" class="farm-log-list"></div>
+          </div>
+        </div>
       </div>
 
       <!-- 操作面板 -->
@@ -382,6 +396,15 @@
       const btn = panel.querySelector('.panel-toggle-btn');
       const collapsed = panel.classList.toggle('collapsed');
       btn.textContent = collapsed ? '▶' : '◀';
+    }
+
+    // 农场日志折叠/展开
+    function toggleFarmLog() {
+      const body   = document.getElementById('farm-log-body');
+      const toggle = document.getElementById('farm-log-toggle');
+      const panel  = document.getElementById('farm-log-panel');
+      const collapsed = panel.classList.toggle('log-collapsed');
+      toggle.textContent = collapsed ? '▼' : '▲';
     }
 
     // 分类折叠/展开功能

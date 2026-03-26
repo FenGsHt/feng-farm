@@ -1,6 +1,7 @@
 // 多人种田游戏逻辑
 const dataStore = require('./dataStore');
 const antiCheat = require('./antiCheat');
+const { Farmer } = require('./farmer');
 
 // ========== 天气系统 ==========
 const WEATHER_TYPES = {
@@ -485,6 +486,9 @@ class FarmGame {
     // 保存定时器ID，用于销毁时清理
     this._intervals = [];
 
+    // ========== 农场日志 ==========
+    this.farmLog = []; // [{ time, message, emoji, type }]
+
     // 启动生长更新循环
     this.startGrowthLoop();
 
@@ -499,6 +503,25 @@ class FarmGame {
 
     // 启动害虫生成循环
     this.startPestLoop();
+
+    // ========== 农夫 NPC ==========
+    this.farmer = new Farmer(this, (message, emoji, type) => {
+      this.addFarmLog(message, emoji, type);
+    });
+  }
+
+  // 添加农场日志（最多保留 40 条）
+  addFarmLog(message, emoji = '📝', type = 'info') {
+    const now = new Date();
+    const h = String((now.getUTCHours() + 8) % 24).padStart(2, '0');
+    const m = String(now.getUTCMinutes()).padStart(2, '0');
+    this.farmLog.unshift({ time: `${h}:${m}`, message, emoji, type });
+    if (this.farmLog.length > 40) this.farmLog.length = 40;
+  }
+
+  // 获取作物配置（供农夫等模块使用）
+  getCropConfig(cropType) {
+    return CROPS[cropType] || { name: cropType, emoji: '🌱' };
   }
   
   // ========== 天气系统方法 ==========
@@ -545,7 +568,9 @@ class FarmGame {
     const weatherKeys = Object.keys(WEATHER_TYPES);
     const newWeather = weatherKeys[Math.floor(Math.random() * weatherKeys.length)];
     this.weather = newWeather;
-    console.log(`[Weather] Weather changed to: ${WEATHER_TYPES[newWeather].emoji} ${WEATHER_TYPES[newWeather].name}`);
+    const w = WEATHER_TYPES[newWeather];
+    console.log(`[Weather] Weather changed to: ${w.emoji} ${w.name}`);
+    this.addFarmLog(`天气变为 ${w.emoji} ${w.name}：${w.description}`, w.emoji, 'weather');
   }
   
   // 获取天气信息
@@ -637,6 +662,8 @@ class FarmGame {
           y,
           turnsRemaining: 30 // 持续30个周期（约5分钟）
         });
+        const pd = PEST_TYPES[type];
+        this.addFarmLog(`${pd.emoji}${pd.name} 出现在 (${x},${y})！${pd.description}`, pd.emoji, 'pest');
       }
     }
   }
@@ -1756,7 +1783,11 @@ class FarmGame {
       taskConfig: {
         dailyTasks: DAILY_TASKS,
         achievements: ACHIEVEMENTS
-      }
+      },
+      // 农夫 NPC
+      farmer: this.farmer ? this.farmer.getState() : null,
+      // 农场日志（最新 40 条）
+      farmLog: this.farmLog
     };
   }
 
@@ -1766,6 +1797,10 @@ class FarmGame {
       clearInterval(id);
     }
     this._intervals = [];
+    if (this.farmer) {
+      this.farmer.destroy();
+      this.farmer = null;
+    }
   }
 }
 

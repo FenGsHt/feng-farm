@@ -585,8 +585,18 @@ button:active {
   position: relative;
   background: var(--bg-light);
   border-radius: 12px;
-  padding: 20px;
+  padding: 20px 20px 0 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.farm-grid-scroll {
+  position: relative;
   overflow: auto;
+  flex: 1;
+  padding-bottom: 20px;
 }
 
 .farm-grid {
@@ -640,10 +650,10 @@ button:active {
 /* 玩家标记 */
 .players-layer {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  right: 20px;
-  bottom: 20px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   pointer-events: none;
 }
 
@@ -2505,3 +2515,147 @@ button:active {
 .levelup-particle {
   box-shadow: 0 0 10px currentColor;
 }
+
+/* ========== 农夫 NPC ========== */
+.farmer-in-cell {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 18px;
+  line-height: 1;
+  z-index: 6;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7));
+  animation: farmer-walk 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.farmer-in-cell.farmer-sleeping {
+  animation: farmer-sleep 2s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+@keyframes farmer-walk {
+  0%, 100% { transform: translateY(0) scaleX(1); }
+  25%       { transform: translateY(-2px) scaleX(1); }
+  50%       { transform: translateY(0) scaleX(-1); }
+  75%       { transform: translateY(-2px) scaleX(-1); }
+}
+
+@keyframes farmer-sleep {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+  50%       { transform: scale(0.95) rotate(-5deg); opacity: 0.5; }
+}
+
+/* ========== 农场日志面板 ========== */
+.farm-log-panel {
+  width: 100%;
+  background: rgba(26, 31, 22, 0.92);
+  border: 1px solid rgba(124, 179, 66, 0.35);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  max-height: 220px;
+  flex-shrink: 0;
+}
+
+.farm-log-panel.log-collapsed {
+  max-height: 34px;
+}
+
+.farm-log-panel.log-collapsed .farm-log-body {
+  display: none;
+}
+
+.farm-log-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: rgba(44, 58, 36, 0.95);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid rgba(124, 179, 66, 0.25);
+  min-height: 34px;
+}
+
+.farm-log-header:hover {
+  background: rgba(60, 76, 50, 0.95);
+}
+
+.farm-log-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-green);
+  white-space: nowrap;
+}
+
+.farm-log-farmer-status {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farm-log-toggle {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.farm-log-body {
+  height: 180px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.farm-log-body::-webkit-scrollbar { width: 4px; }
+.farm-log-body::-webkit-scrollbar-track { background: transparent; }
+.farm-log-body::-webkit-scrollbar-thumb { background: rgba(124,179,66,0.3); border-radius: 2px; }
+
+.farm-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.farm-log-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  border-left: 2px solid transparent;
+  transition: background 0.15s;
+}
+
+.farm-log-item:hover {
+  background: rgba(124, 179, 66, 0.07);
+}
+
+.log-time {
+  color: #888;
+  font-size: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.log-msg {
+  color: var(--text-light);
+  line-height: 1.4;
+}
+
+/* 日志类型颜色 */
+.log-type-farmer  { border-left-color: #8bc34a; }
+.log-type-farmer .log-msg { color: #c5e1a5; }
+
+.log-type-weather { border-left-color: #42a5f5; }
+.log-type-weather .log-msg { color: #90caf9; }
+
+.log-type-pest    { border-left-color: #ef5350; }
+.log-type-pest .log-msg { color: #ef9a9a; }
+
+.log-type-system  { border-left-color: #ffd54f; }
+.log-type-system .log-msg { color: #ffe082; }

@@ -784,6 +784,8 @@ function updateGameState(state) {
   renderWeather();
   renderPests();
   renderAnimalsOnMap();
+  renderFarmer();
+  renderFarmLog();
   
   // 更新当前玩家等级信息
   if (currentPlayer && gameState.players) {
@@ -1065,6 +1067,54 @@ function renderFarm() {
   if (farmSizeDisplay) {
     farmSizeDisplay.textContent = `${width}×${height}`;
   }
+}
+
+// ========== 农夫 NPC 渲染 ==========
+function renderFarmer() {
+  if (!gameState) return;
+  const farmer = gameState.farmer;
+
+  // 清除旧的农夫标记
+  document.querySelectorAll('.farmer-in-cell').forEach(el => el.remove());
+
+  if (!farmer) return;
+
+  const cell = document.getElementById(`plot-${farmer.x}-${farmer.y}`);
+  if (!cell) return;
+
+  const el = document.createElement('div');
+  el.className = 'farmer-in-cell' + (farmer.isSleeping ? ' farmer-sleeping' : '');
+  el.textContent = farmer.emoji;
+  el.title = `${farmer.fullName} — ${farmer.currentAction}`;
+  cell.appendChild(el);
+}
+
+// ========== 农场日志渲染 ==========
+function renderFarmLog() {
+  if (!gameState) return;
+
+  // 更新农夫状态
+  const farmer = gameState.farmer;
+  const farmerStatusEl = document.getElementById('farmer-status');
+  if (farmerStatusEl && farmer) {
+    farmerStatusEl.textContent = `🧑‍🌾 ${farmer.name} — ${farmer.currentAction}`;
+  }
+
+  const listEl = document.getElementById('farm-log-list');
+  if (!listEl || !gameState.farmLog) return;
+
+  // 只在日志有变化时更新
+  const newHash = (gameState.farmLog[0] || {}).time + (gameState.farmLog[0] || {}).message;
+  if (listEl.dataset.lastHash === newHash) return;
+  listEl.dataset.lastHash = newHash;
+
+  listEl.innerHTML = '';
+  gameState.farmLog.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = `farm-log-item log-type-${entry.type || 'info'}`;
+    item.innerHTML = `<span class="log-time">${entry.time}</span><span class="log-msg">${entry.message}</span>`;
+    listEl.appendChild(item);
+  });
 }
 
 // 高亮选中的地块
@@ -2208,7 +2258,8 @@ function resetZoom() {
 
 // 地图拖拽滚动和缩放
 function initDragScroll() {
-  const farmWrapper = document.querySelector('.farm-wrapper');
+  // 拖拽滚动作用在内层滚动容器上（farm-grid-scroll）
+  const farmWrapper = document.querySelector('.farm-grid-scroll') || document.querySelector('.farm-wrapper');
   if (!farmWrapper) return;
   
   // 鼠标按下开始拖拽
