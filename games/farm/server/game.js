@@ -996,28 +996,47 @@ class FarmGame {
     }, 3600000)); // 1小时 = 3600000ms
   }
 
-  // 获取金价（模拟真实市场波动）
+  // 获取金价（从免费API获取真实金价）
   async fetchGoldPrice() {
+    const { exec } = require('child_process');
+
     try {
-      // 模拟真实金价波动（基于国际金价约580-650元/克）
-      // 使用正弦波 + 随机噪声模拟市场走势
-      const basePrice = 580;  // 基准价格
-      const time = Date.now() / 1000 / 3600; // 小时为单位
+      const price = await new Promise((resolve, reject) => {
+        // 使用 fawazahmed0/currency-api 免费API
+        const url = 'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json';
 
-      // 周期性波动（模拟市场周期）+ 随机噪声
-      const wave = Math.sin(time * 0.3) * 30;  // 周期波动 ±30
-      const noise = (Math.random() - 0.5) * 20; // 随机噪声 ±10
-      const trend = Math.sin(time * 0.05) * 15; // 长期趋势
+        exec(`curl -s --max-time 10 "${url}"`, (error, stdout) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          try {
+            const json = JSON.parse(stdout);
+            if (json.xau && json.xau.cny) {
+              // 1盎司黄金 = X 人民币，1盎司 ≈ 31.1035克
+              const pricePerOunce = json.xau.cny;
+              const pricePerGram = pricePerOunce / 31.1035;
+              // 游戏中简化：除以10，使价格在合理范围
+              const gamePrice = Math.round(pricePerGram / 10);
+              resolve(Math.max(50, Math.min(200, gamePrice)));
+            } else {
+              reject(new Error('Invalid response'));
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
 
-      const newPrice = Math.round(basePrice + wave + noise + trend);
-      const clampedPrice = Math.max(500, Math.min(700, newPrice)); // 限制在500-700范围
-
-      this.updateGoldPrice(clampedPrice);
-      console.log(`[GoldPrice] 金价更新: ${clampedPrice}💰/g`);
+      this.updateGoldPrice(price);
+      console.log(`[GoldPrice] 实时金价: ${price}💰/g (实际: ${(price * 10).toFixed(0)}元/克)`);
 
     } catch (error) {
-      console.error('[GoldPrice] 金价计算错误:', error.message);
-      this.updateGoldPrice(this.goldPrice || 580);
+      console.error('[GoldPrice] 获取失败，使用模拟:', error.message);
+      // 失败时使用模拟波动
+      const basePrice = this.goldPrice || 100;
+      const change = (Math.random() - 0.5) * 10;
+      this.updateGoldPrice(Math.round(basePrice + change));
     }
   }
 
