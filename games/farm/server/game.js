@@ -196,10 +196,10 @@ const ANIMALS = {
 
 // 食物配置（供农夫进食使用）
 const FARMER_FOODS = {
-  'food-bread':     { name: '面包',   emoji: '🍞', price: 15,  satiety: 25 },
-  'food-rice-bowl': { name: '米饭',   emoji: '🍚', price: 28,  satiety: 40 },
-  'food-meat':      { name: '肉食',   emoji: '🥩', price: 50,  satiety: 65 },
-  'food-feast':     { name: '大餐',   emoji: '🍱', price: 100, satiety: 100 },
+  'food-bread':     { name: '面包',   emoji: '🍞', price: 5,  satiety: 25 },
+  'food-rice-bowl': { name: '米饭',   emoji: '🍚', price: 10, satiety: 40 },
+  'food-meat':      { name: '肉食',   emoji: '🥩', price: 18, satiety: 65 },
+  'food-feast':     { name: '大餐',   emoji: '🍱', price: 35, satiety: 100 },
 };
 
 // 商店物品配置
@@ -241,10 +241,10 @@ const SHOP_ITEMS = {
   'animal-rabbit': { type: 'animal', animal: 'rabbit', name: '小兔', price: 120, emoji: '🐰' },
   'animal-bee': { type: 'animal', animal: 'bee', name: '蜜蜂群', price: 80, emoji: '🐝' },
   // 农夫食物
-  'food-bread':     { type: 'farmer-food', name: '面包',   emoji: '🍞', price: 15,  satiety: 25,  desc: '简单充饥，回复饱腹 25%' },
-  'food-rice-bowl': { type: 'farmer-food', name: '米饭',   emoji: '🍚', price: 28,  satiety: 40,  desc: '家常便饭，回复饱腹 40%' },
-  'food-meat':      { type: 'farmer-food', name: '肉食',   emoji: '🥩', price: 50,  satiety: 65,  desc: '营养丰富，回复饱腹 65%' },
-  'food-feast':     { type: 'farmer-food', name: '大餐',   emoji: '🍱', price: 100, satiety: 100, desc: '丰盛大餐，完全填饱！' },
+  'food-bread':     { type: 'farmer-food', name: '面包',   emoji: '🍞', price: 5,  satiety: 25,  desc: '简单充饥，回复饱腹 25%' },
+  'food-rice-bowl': { type: 'farmer-food', name: '米饭',   emoji: '🍚', price: 10, satiety: 40,  desc: '家常便饭，回复饱腹 40%' },
+  'food-meat':      { type: 'farmer-food', name: '肉食',   emoji: '🥩', price: 18, satiety: 65,  desc: '营养丰富，回复饱腹 65%' },
+  'food-feast':     { type: 'farmer-food', name: '大餐',   emoji: '🍱', price: 35, satiety: 100, desc: '丰盛大餐，完全填饱！' },
   // 雇佣农夫（价格动态计算，此处为基础值占位）
   'hire-farmer':    { type: 'hire-farmer', name: '雇佣农夫', emoji: '👨‍🌾', price: 500, desc: '雇佣一名新农夫，价格随人数增加' },
 };
@@ -679,8 +679,8 @@ class FarmGame {
   // ========== 农夫管理 ==========
 
   getNextHireCost() {
-    // 第1次雇佣500，第2次1000，第3次2000，上限5000
-    return Math.min(500 * Math.pow(2, this.farmers.length - 1), 5000);
+    // 第1次雇佣1500，第2次3000，第3次6000，第4次12000，上限20000
+    return Math.min(1500 * Math.pow(2, this.farmers.length - 1), 20000);
   }
 
   hireNewFarmer() {

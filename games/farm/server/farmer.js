@@ -75,7 +75,7 @@ class EatBehavior extends FarmerBehavior {
 
   canExecute(farmer, game) {
     // 饿了就想吃，没钱就凑合扛着
-    return farmer.hunger >= 45 && game.sharedMoney >= 15;
+    return farmer.hunger >= 45 && game.sharedMoney >= 5;
   }
 
   getTarget() { return null; } // 原地吃
@@ -83,12 +83,12 @@ class EatBehavior extends FarmerBehavior {
   execute(farmer, game) {
     // 按饥饿程度和钱包选食物档次
     let cost, satiety, foodName;
-    if (game.sharedMoney < 30 || farmer.hunger < 60) {
-      cost = 15; satiety = 25; foodName = '面包 🍞';
-    } else if (game.sharedMoney < 60 || farmer.hunger < 75) {
-      cost = 28; satiety = 40; foodName = '米饭 🍚';
+    if (game.sharedMoney < 15 || farmer.hunger < 60) {
+      cost = 5;  satiety = 25; foodName = '面包 🍞';
+    } else if (game.sharedMoney < 30 || farmer.hunger < 75) {
+      cost = 10; satiety = 40; foodName = '米饭 🍚';
     } else {
-      cost = 50; satiety = 65; foodName = '肉食 🥩';
+      cost = 18; satiety = 65; foodName = '肉食 🥩';
     }
 
     if (game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
@@ -620,7 +620,7 @@ class Farmer {
 
     try {
       // ====== 饥饿增加（睡觉时代谢较慢）======
-      const hungerRate = this.state === 'sleeping' ? 0.6 : 1.2;
+      const hungerRate = this.state === 'sleeping' ? 0.2 : 0.4;
       this.hunger = Math.min(100, this.hunger + hungerRate);
 
       // 死亡检查
