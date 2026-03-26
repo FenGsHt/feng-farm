@@ -601,35 +601,25 @@ const SCALE_STEP = 0.1;
 function initSocket() {
   socket = io(SERVER_URL, {
     path: "/socket.io/",
-    transports: ['polling', 'websocket'],  // 先polling再升级websocket
+    transports: ['websocket'],  // 只用 websocket
     reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000
   });
 
   socket.on('connect', () => {
     console.log('[Farm] Connected to server');
-    showNotification('✅ 已连接到服务器', 'success');
     if (currentPlayerName) {
       joinDefaultRoom();
     }
   });
 
-  socket.on('disconnect', (reason) => {
-    console.log('[Farm] Disconnected:', reason);
-    if (reason === 'io server disconnect') {
-      socket.connect();
-    }
+  socket.on('disconnect', () => {
+    console.log('[Farm] Disconnected, reconnecting...');
   });
 
   socket.on('connect_error', (err) => {
     console.error('[Socket] Connection error:', err.message);
-  });
-
-  socket.io.on('reconnect', (attempt) => {
-    console.log('[Farm] Reconnected after', attempt, 'attempts');
-    showNotification('✅ 重连成功', 'success');
   });
 
   socket.on('join-error', ({ message }) => {
