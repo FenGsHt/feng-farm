@@ -602,6 +602,7 @@ function initSocket() {
   socket = io(SERVER_URL, {
     path: "/socket.io/",
     transports: ['websocket'],  // 只用 websocket
+    forceNew: true,
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000
@@ -616,6 +617,7 @@ function initSocket() {
 
   socket.on('disconnect', () => {
     console.log('[Farm] Disconnected, reconnecting...');
+    socket.io.opts.forceNew = true;
   });
 
   socket.on('connect_error', (err) => {
@@ -636,7 +638,7 @@ function initSocket() {
   socket.on('game-state', (state) => {
     updateGameState(state);
     // 自动切换到游戏界面
-    if (currentRoom && !gameScreen.classList.contains('hidden') === false) {
+    if (currentRoom && gameScreen.classList.contains('hidden')) {
       switchToGame();
     }
   });
@@ -3013,7 +3015,7 @@ function initDragScroll() {
 // 键盘控制
 document.addEventListener('keydown', (e) => {
   // 如果不在游戏界面，不响应键盘
-  if (!gameScreen || !gameScreen.classList.contains('hidden') === false) return;
+  if (!gameScreen || gameScreen.classList.contains('hidden')) return;
   if (!currentPlayer || !gameState || !socket) return;
   
   const { width, height } = gameState;
