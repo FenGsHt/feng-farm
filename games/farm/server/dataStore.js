@@ -7,6 +7,7 @@ const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
 const PLAYER_STATS_FILE = path.join(DATA_DIR, 'player_stats.json');
 const LOGS_DIR = path.join(DATA_DIR, 'logs');
 const ROOMS_DIR = path.join(DATA_DIR, 'rooms'); // 房间游戏状态目录
+const BACKUP_DIR = path.join(DATA_DIR, 'backup'); // 备份目录
 
 // 内存缓存（避免每次操作都读写磁盘）
 let playersCache = null;
@@ -32,6 +33,9 @@ function ensureDataDir() {
   if (!fs.existsSync(ROOMS_DIR)) {
     fs.mkdirSync(ROOMS_DIR, { recursive: true });
   }
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
 }
 
 // 将 roomId 转为安全的文件名（支持中文）
@@ -42,11 +46,16 @@ function sanitizeRoomId(roomId) {
 
 // ========== 房间游戏状态持久化 ==========
 
-// 读取房间状态（优先内存缓存，次则磁盘）
+// 读取房间状态（优先内存缓存，次则磁盘，最后备份）
 function getRoomState(roomId) {
   if (roomStateCache.has(roomId)) return roomStateCache.get(roomId);
+
   ensureDataDir();
-  const file = path.join(ROOMS_DIR, `${sanitizeRoomId(roomId)}.json`);
+  const safeId = sanitizeRoomId(roomId);
+  const file = path.join(ROOMS_DIR, `${safeId}.json`);
+  const backupFile = path.join(BACKUP_DIR, `${safeId}.json`);
+
+  // 尝试读取主文件
   try {
     if (fs.existsSync(file)) {
       const state = JSON.parse(fs.readFileSync(file, 'utf-8'));
@@ -57,19 +66,40 @@ function getRoomState(roomId) {
   } catch (err) {
     console.error(`[DataStore] Failed to load room state "${roomId}":`, err.message);
   }
+
+  // 主文件不存在或损坏，尝试从备份恢复
+  try {
+    if (fs.existsSync(backupFile)) {
+      const state = JSON.parse(fs.readFileSync(backupFile, 'utf-8'));
+      console.log(`[DataStore] Restored room state from backup: ${roomId}`);
+      // 恢复到主文件
+      fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf-8');
+      roomStateCache.set(roomId, state);
+      return state;
+    }
+  } catch (err) {
+    console.error(`[DataStore] Failed to restore from backup "${roomId}":`, err.message);
+  }
+
   return null;
 }
 
-// 保存房间状态到缓存并立即写入磁盘
+// 保存房间状态到缓存并立即写入磁盘（同时备份）
 function saveRoomState(roomId, state) {
   roomStateCache.set(roomId, state);
   roomStateDirty.add(roomId);
 
-  // 立即写入磁盘，防止数据丢失
   ensureDataDir();
-  const file = path.join(ROOMS_DIR, `${sanitizeRoomId(roomId)}.json`);
+  const safeId = sanitizeRoomId(roomId);
+  const file = path.join(ROOMS_DIR, `${safeId}.json`);
+  const backupFile = path.join(BACKUP_DIR, `${safeId}.json`);
+
   try {
-    fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf-8');
+    const data = JSON.stringify(state, null, 2);
+    // 写入主文件
+    fs.writeFileSync(file, data, 'utf-8');
+    // 同时写入备份
+    fs.writeFileSync(backupFile, data, 'utf-8');
     roomStateDirty.delete(roomId);
   } catch (err) {
     console.error(`[DataStore] Failed to save room state "${roomId}":`, err.message);
