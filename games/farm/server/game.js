@@ -191,7 +191,7 @@ const ANIMALS = {
   horse: { name: '马', growthTime: 240, sellPrice: 350, buyPrice: 700, emoji: '🐴', product: '马奶', productPrice: 50 },
   // 特殊
   rabbit: { name: '兔子', growthTime: 90, sellPrice: 60, buyPrice: 120, emoji: '🐰', product: '兔毛', productPrice: 15 },
-  bee: { name: '蜜蜂', growthTime: 45, sellPrice: 40, buyPrice: 80, emoji: '🐝', product: '蜂蜜', productPrice: 8 }
+  bee: { name: '蜜蜂', growthTime: 120, sellPrice: 40, buyPrice: 80, emoji: '🐝', product: '蜂蜜', productPrice: 4 }
 };
 
 // 食物配置（供农夫进食使用）
@@ -717,7 +717,10 @@ class FarmGame {
     return { success: true, name: toFire.name };
   }
 
-  feedFarmer(farmerName, foodId) {
+  feedFarmer(socketId, farmerName, foodId) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
     const food = SHOP_ITEMS[foodId];
     if (!food || food.type !== 'farmer-food') return { success: false, message: '无效的食物' };
 
@@ -725,6 +728,14 @@ class FarmGame {
     if (!farmer)                          return { success: false, message: `找不到农夫 ${farmerName}` };
     if (farmer.isDead)                    return { success: false, message: `${farmerName} 已经去世了` };
     if (this.sharedMoney < food.price)    return { success: false, message: `公库金币不足（需 ${food.price}💰）` };
+
+    // 距离验证（曼哈顿距离 <= 2）
+    if (player.position && farmer.x !== undefined && farmer.y !== undefined) {
+      const dist = Math.abs(player.position.x - farmer.x) + Math.abs(player.position.y - farmer.y);
+      if (dist > 2) {
+        return { success: false, message: '距离太远，请靠近农夫' };
+      }
+    }
 
     this.sharedMoney -= food.price;
     farmer.hunger = Math.max(0, farmer.hunger - food.satiety);
@@ -1819,13 +1830,21 @@ class FarmGame {
   }
 
   // 收获动物产品
-  harvestAnimalProduct(socketId, penIndex) {
+  harvestAnimalProduct(socketId, penIndex, animalPos) {
     const player = this.players.get(socketId);
     if (!player) return { success: false, message: '玩家不存在' };
-    
+
     const pen = this.animalPens[penIndex];
     if (!pen) return { success: false, message: '栏位不存在' };
-    
+
+    // 距离验证（曼哈顿距离 <= 2）
+    if (animalPos && player.position) {
+      const dist = Math.abs(player.position.x - animalPos.x) + Math.abs(player.position.y - animalPos.y);
+      if (dist > 2) {
+        return { success: false, message: '距离太远，请靠近动物' };
+      }
+    }
+
     if (!pen.animal) return { success: false, message: '栏位没有动物' };
     if (!pen.isReady) {
       const animal = ANIMALS[pen.animal];
@@ -1870,13 +1889,21 @@ class FarmGame {
   }
 
   // 出售动物
-  sellAnimal(socketId, penIndex) {
+  sellAnimal(socketId, penIndex, animalPos) {
     const player = this.players.get(socketId);
     if (!player) return { success: false, message: '玩家不存在' };
-    
+
     const pen = this.animalPens[penIndex];
     if (!pen) return { success: false, message: '栏位不存在' };
-    
+
+    // 距离验证（曼哈顿距离 <= 2）
+    if (animalPos && player.position) {
+      const dist = Math.abs(player.position.x - animalPos.x) + Math.abs(player.position.y - animalPos.y);
+      if (dist > 2) {
+        return { success: false, message: '距离太远，请靠近动物' };
+      }
+    }
+
     const result = pen.sell();
     if (result.success) {
       // 加金币

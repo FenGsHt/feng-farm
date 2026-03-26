@@ -319,28 +319,28 @@ io.on('connection', (socket) => {
   });
   
   // Harvest animal product
-  socket.on('harvest-animal', ({ penIndex }) => {
+  socket.on('harvest-animal', ({ penIndex, animalPos }) => {
     if (!currentRoomId) return;
     const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-    
-    const result = room.game.harvestAnimalProduct(socket.id, penIndex);
+
+    const result = room.game.harvestAnimalProduct(socket.id, penIndex, animalPos);
     socket.emit('action-result', result);
-    
+
     if (result.success) {
       io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
-  
+
   // Sell animal
-  socket.on('sell-animal', ({ penIndex }) => {
+  socket.on('sell-animal', ({ penIndex, animalPos }) => {
     if (!currentRoomId) return;
     const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-    
-    const result = room.game.sellAnimal(socket.id, penIndex);
+
+    const result = room.game.sellAnimal(socket.id, penIndex, animalPos);
     socket.emit('shop-result', result);
-    
+
     if (result.success) {
       io.to(currentRoomId).emit('game-state', room.game.getState());
     }
@@ -413,7 +413,7 @@ io.on('connection', (socket) => {
     const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
 
-    const result = room.game.feedFarmer(farmerName, foodId);
+    const result = room.game.feedFarmer(socket.id, farmerName, foodId);
     socket.emit('action-result', result);
     if (result.success) {
       io.to(currentRoomId).emit('game-state', room.game.getState());

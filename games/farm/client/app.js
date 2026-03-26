@@ -85,11 +85,11 @@ let animalMoveInterval = null;
 let animalPositions = {}; // penIndex -> {x, y}
 const farmerLastAction = new Map(); // farmerName -> lastAction string
 
-// 检查玩家是否在某坐标旁边（曼哈顿距离 ≤ 1）
+// 检查玩家是否在某坐标旁边（曼哈顿距离 ≤ 2）
 function isNearPos(tx, ty) {
   const p = currentPlayer?.position;
   if (!p) return true;
-  return Math.abs(p.x - tx) + Math.abs(p.y - ty) <= 1;
+  return Math.abs(p.x - tx) + Math.abs(p.y - ty) <= 2;
 }
 
 function isNearAnimalPen(penIndex) {
@@ -2262,13 +2262,13 @@ function renderAnimalPen() {
       e.stopPropagation();
       if (!pen.isReady) return;
       if (!isNearAnimalPen(pen.penIndex)) { showNotification('⚠️ 请先走到动物旁边再收获', 'error'); return; }
-      playSound('harvest'); socket.emit('harvest-animal', { penIndex: pen.penIndex });
+      playSound('harvest'); socket.emit('harvest-animal', { penIndex: pen.penIndex, animalPos: animalPositions[pen.penIndex] });
     });
     card.querySelector('.animal-sell-btn').addEventListener('click', e => {
       e.stopPropagation();
       if (!isNearAnimalPen(pen.penIndex)) { showNotification('⚠️ 请先走到动物旁边再出售', 'error'); return; }
       playSound('coin');
-      socket.emit('sell-animal', { penIndex: pen.penIndex });
+      socket.emit('sell-animal', { penIndex: pen.penIndex, animalPos: animalPositions[pen.penIndex] });
     });
     container.appendChild(card);
   });
@@ -2363,14 +2363,14 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
     const playerPos = currentPlayer?.position;
     if (animalPos && playerPos) {
       const dist = Math.abs(playerPos.x - animalPos.x) + Math.abs(playerPos.y - animalPos.y);
-      if (dist > 1) {
+      if (dist > 2) {
         showNotification('⚠️ 请先走到动物旁边再收获', 'error');
         popup.remove();
         return;
       }
     }
     playSound('harvest');
-    socket.emit('harvest-animal', { penIndex });
+    socket.emit('harvest-animal', { penIndex, animalPos: animalPositions[penIndex] });
     popup.remove();
   };
   popup.querySelector('.acp-sell').onclick = () => {
@@ -2380,7 +2380,7 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
       return;
     }
     playSound('coin');
-    socket.emit('sell-animal', { penIndex });
+    socket.emit('sell-animal', { penIndex, animalPos: animalPositions[penIndex] });
     popup.remove();
   };
 
