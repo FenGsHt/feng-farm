@@ -599,6 +599,10 @@ const SCALE_STEP = 0.1;
 
 // 初始化 Socket
 function initSocket() {
+  console.log('[Farm] 初始化Socket连接...');
+  console.log('[Farm] SERVER_URL:', SERVER_URL);
+  console.log('[Farm] currentPlayerName:', currentPlayerName);
+
   socket = io(SERVER_URL, {
     path: "/socket.io/",
     transports: ['websocket'],  // 只用 websocket
@@ -609,33 +613,58 @@ function initSocket() {
   });
 
   socket.on('connect', () => {
-    console.log('[Farm] Connected to server');
+    console.log('[Farm] ✅ 连接成功! socket.id:', socket.id);
+    console.log('[Farm] 当前playerName:', currentPlayerName);
     if (currentPlayerName) {
       joinDefaultRoom();
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log('[Farm] Disconnected, reconnecting...');
+  socket.on('disconnect', (reason) => {
+    console.log('[Farm] ❌ 断开连接! 原因:', reason);
+    console.log('[Farm] socket.id:', socket.id);
+    console.log('[Farm] socket.connected:', socket.connected);
     socket.io.opts.forceNew = true;
   });
 
   socket.on('connect_error', (err) => {
-    console.error('[Socket] Connection error:', err.message);
+    console.error('[Farm] ❌ 连接错误:', err.message);
+    console.error('[Farm] 错误类型:', err.type);
+    console.error('[Farm] 错误详情:', err);
+  });
+
+  socket.io.on('reconnect_attempt', (attempt) => {
+    console.log('[Farm] 🔄 重连尝试 #' + attempt);
+  });
+
+  socket.io.on('reconnect', (attempt) => {
+    console.log('[Farm] ✅ 重连成功! 尝试次数:', attempt);
+  });
+
+  socket.io.on('reconnect_error', (err) => {
+    console.error('[Farm] ❌ 重连错误:', err.message);
+  });
+
+  socket.io.on('reconnect_failed', () => {
+    console.error('[Farm] ❌ 重连失败! 已达到最大尝试次数');
   });
 
   socket.on('join-error', ({ message }) => {
+    console.error('[Farm] ❌ 加入房间失败:', message);
     showNotification(`❌ ${message}`, 'error');
     // 生成新名字重试
     currentPlayerName = '访客' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    console.log('[Farm] 生成新名字重试:', currentPlayerName);
     setTimeout(() => joinDefaultRoom(), 1000);
   });
 
   socket.on('room-list', (rooms) => {
+    console.log('[Farm] 📋 房间列表:', rooms);
     renderRoomList(rooms);
   });
 
   socket.on('game-state', (state) => {
+    console.log('[Farm] 🎮 收到游戏状态, players:', state.players?.length);
     updateGameState(state);
     // 自动切换到游戏界面
     if (currentRoom && gameScreen.classList.contains('hidden')) {
@@ -644,6 +673,7 @@ function initSocket() {
   });
 
   socket.on('player-info', (player) => {
+    console.log('[Farm] 👤 玩家信息:', player.name, player.id);
     currentPlayer = player;
     currentRoom = DEFAULT_ROOM; // 标记已加入房间
     // 初始化等级数据
@@ -809,6 +839,9 @@ function renderRoomList(rooms) {
 
 // 加入默认房间
 function joinDefaultRoom() {
+  console.log('[Farm] 🚪 尝试加入默认房间:', DEFAULT_ROOM);
+  console.log('[Farm] 玩家名:', currentPlayerName);
+  console.log('[Farm] socket.connected:', socket?.connected);
   currentRoom = DEFAULT_ROOM;
   socket.emit('join-room', { roomId: DEFAULT_ROOM, playerName: currentPlayerName });
 }
