@@ -17,8 +17,8 @@ class FarmerBehavior {
     this.weight     = baseWeight; // 动态权重，由收益数据驱动
 
     // 收益追踪（用于动态调权）
-    this._earnedTotal = 0;  // 累计收入
-    this._callCount   = 0;  // 累计执行次数
+    this._earnedTotal = 0;
+    this._callCount   = 0;
   }
 
   /** 执行后记录收益，重新计算动态权重 */
@@ -27,7 +27,6 @@ class FarmerBehavior {
     this._earnedTotal += earned;
     this._callCount   += 1;
     const avgEarned = this._earnedTotal / this._callCount;
-    // weight = baseWeight + 平均收益 × 系数（上限 baseWeight × 8）
     this.weight = Math.min(
       this.baseWeight + avgEarned * 0.6,
       this.baseWeight * 8
@@ -36,30 +35,14 @@ class FarmerBehavior {
 
   // ---------- 子类实现 ----------
 
-  /** 当前是否可以执行 */
   canExecute(farmer, game) { return false; }
-
-  /**
-   * 返回需要前往的目标坐标，null = 原地执行
-   * @returns {{ x:number, y:number } | null}
-   */
-  getTarget(farmer, game) { return null; }
-
-  /**
-   * 到达目标后执行
-   * @returns {{ log:string, acted:boolean, earned:number }}
-   */
-  execute(farmer, game) { return { log: '', acted: false, earned: 0 }; }
+  getTarget(farmer, game)  { return null; }
+  execute(farmer, game)    { return { log: '', acted: false, earned: 0 }; }
 
   // ---------- 静态注册表 ----------
 
-  /** 全局行为注册表 name → class */
   static registry = new Map();
 
-  /**
-   * 注册一个行为类（在类定义后调用一次即可）
-   * 未来新增功能只需继承 + register，无需改动 Farmer 主类
-   */
   static register(BehaviorClass) {
     const instance = new BehaviorClass();
     FarmerBehavior.registry.set(instance.name, BehaviorClass);
@@ -70,7 +53,7 @@ class FarmerBehavior {
 //  内置行为
 // ============================================================
 
-/** 夜间睡觉（UTC+8 22:00–06:00），回 (0,0) 小屋 */
+/** 夜间睡觉（UTC+8 22:00–06:00） */
 class SleepBehavior extends FarmerBehavior {
   constructor() { super('睡觉', '💤', 1); }
   canExecute(farmer) { return farmer.isNightTime(); }
@@ -83,6 +66,44 @@ class SleepBehavior extends FarmerBehavior {
     farmer.currentAction = '正在睡觉 💤';
     if (wasAwake) return { log: `${farmer.fullName} 回小屋睡觉了，晚安 💤`, acted: true, earned: 0 };
     return { log: '', acted: false, earned: 0 };
+  }
+}
+
+/** 🍽️ 吃东西（饥饿时自动花公库金币买食物） */
+class EatBehavior extends FarmerBehavior {
+  constructor() { super('吃东西', '🍽️', 20); }
+
+  canExecute(farmer, game) {
+    // 饿了就想吃，没钱就凑合扛着
+    return farmer.hunger >= 45 && game.sharedMoney >= 5;
+  }
+
+  getTarget() { return null; } // 原地吃
+
+  execute(farmer, game) {
+    // 按饥饿程度和钱包选食物档次
+    let cost, satiety, foodName;
+    if (game.sharedMoney < 10 || farmer.hunger < 60) {
+      cost = 5; satiety = 25; foodName = '面包 🍞';
+    } else if (game.sharedMoney < 20 || farmer.hunger < 75) {
+      cost = 10; satiety = 40; foodName = '米饭 🍚';
+    } else {
+      cost = 18; satiety = 65; foodName = '肉食 🥩';
+    }
+
+    if (game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
+
+    game.sharedMoney -= cost;
+    farmer.hunger = Math.max(0, farmer.hunger - satiety);
+    farmer.state         = 'idle';
+    farmer.currentAction = `刚吃了${foodName}`;
+
+    const satPct = Math.round(100 - farmer.hunger);
+    return {
+      log:    `${farmer.fullName} 买了${foodName}充饥（-${cost}💰），饱腹度 ${satPct}%`,
+      acted:  true,
+      earned: 0
+    };
   }
 }
 
@@ -149,7 +170,7 @@ class WaterCropBehavior extends FarmerBehavior {
     return {
       log:    `${farmer.fullName} 给 ${cfg.emoji}${cfg.name} 浇了水 💧`,
       acted:  true,
-      earned: 0  // 浇水不直接产生收入，但加速成熟（权重靠 harvest 拉动）
+      earned: 0
     };
   }
 
@@ -185,9 +206,7 @@ class PlantCropBehavior extends FarmerBehavior {
     const available = Object.entries(farmer.seeds).filter(([, v]) => v > 0);
     if (!available.length) return { log: '', acted: false, earned: 0 };
 
-    // 优先种植平均收益最高的（基于 harvest 行为的动态权重估算）
-    const harvestBeh = farmer.behaviors.find(b => b.name === '收获作物');
-    const bestSeed = this._pickBestSeed(available, harvestBeh);
+    const bestSeed = available.sort((a, b) => b[1] - a[1])[0][0];
 
     const t    = this._findEmpty(farmer, game) || { x: farmer.x, y: farmer.y };
     const plot = game.plots[t.y]?.[t.x];
@@ -210,12 +229,6 @@ class PlantCropBehavior extends FarmerBehavior {
     };
   }
 
-  /** 按种子卖价选收益最高的 */
-  _pickBestSeed(available, harvestBeh) {
-    // 简单策略：选卖价最高的种子（后续可接 AI 决策）
-    return available.sort((a, b) => b[1] - a[1])[0][0];
-  }
-
   _findEmpty(farmer, game) {
     let best = null, minDist = Infinity;
     for (let y = 0; y < game.height; y++)
@@ -228,7 +241,7 @@ class PlantCropBehavior extends FarmerBehavior {
   }
 }
 
-/** 消灭害虫（有杀虫剂时） */
+/** 消灭害虫 */
 class KillPestBehavior extends FarmerBehavior {
   constructor() { super('消灭害虫', '🧴', 15); }
 
@@ -254,7 +267,6 @@ class KillPestBehavior extends FarmerBehavior {
     farmer.state         = 'working';
     farmer.emoji         = '🧑‍🌾';
     farmer.currentAction = `消灭了 ${label}`;
-    // 消灭害虫间接保护作物收益，给予象征性权重奖励
     return { log: `${farmer.fullName} 喷洒杀虫剂消灭了 ${label}！`, acted: true, earned: 5 };
   }
 
@@ -268,7 +280,7 @@ class KillPestBehavior extends FarmerBehavior {
   }
 }
 
-/** 收获动物产品（鸡蛋/牛奶/羊毛等） */
+/** 收获动物产品 */
 class HarvestAnimalBehavior extends FarmerBehavior {
   constructor() { super('收获动物产品', '🐾', 12); }
 
@@ -276,7 +288,6 @@ class HarvestAnimalBehavior extends FarmerBehavior {
     return game.animalPens.some(pen => pen.animal && pen.isReady);
   }
 
-  // 动物在"牧场区域"——农场左下角，农夫走过去
   getTarget(farmer, game) {
     return { x: 0, y: game.height - 1 };
   }
@@ -300,7 +311,7 @@ class HarvestAnimalBehavior extends FarmerBehavior {
 
     farmer.state         = 'working';
     farmer.emoji         = '🧑‍🌾';
-    farmer.currentAction = `收获了动物产品`;
+    farmer.currentAction = '收获了动物产品';
     return {
       log:    `${farmer.fullName} 收获了 ${harvested.join('、')}，公库 +${totalEarned} 💰`,
       acted:  true,
@@ -309,26 +320,58 @@ class HarvestAnimalBehavior extends FarmerBehavior {
   }
 }
 
-/** 购买动物（金库充足时自动扩充牧场） */
+/** 🌽 喂养饥饿的动物 */
+class FeedAnimalBehavior extends FarmerBehavior {
+  constructor() { super('喂养动物', '🌽', 9); }
+
+  canExecute(farmer, game) {
+    return game.animalPens.some(p => p.animal && (p.hunger || 0) >= 60)
+      && game.sharedMoney >= 10;
+  }
+
+  getTarget(farmer, game) { return { x: 0, y: game.height - 1 }; }
+
+  execute(farmer, game) {
+    let fed = 0, cost = 0;
+    for (const pen of game.animalPens) {
+      if (pen.animal && (pen.hunger || 0) >= 60) {
+        pen.hunger = Math.max(0, (pen.hunger || 0) - 65);
+        cost += 5;
+        fed++;
+      }
+    }
+    if (!fed || game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
+
+    game.sharedMoney -= cost;
+    farmer.state         = 'working';
+    farmer.emoji         = '🧑‍🌾';
+    farmer.currentAction = `喂养了 ${fed} 只动物`;
+    return {
+      log:    `${farmer.fullName} 喂养了 ${fed} 只动物 🌽，花费 ${cost} 💰`,
+      acted:  true,
+      earned: 0
+    };
+  }
+}
+
+/** 购买动物 */
 class BuyAnimalBehavior extends FarmerBehavior {
   constructor() {
     super('购买动物', '🛒', 4);
-    this._cooldown = 0; // 购买冷却（避免频繁买）
+    this._cooldown = 0;
   }
 
   canExecute(farmer, game) {
     if (Date.now() < this._cooldown) return false;
-    // 有空栏 + 金库足够买最便宜的动物（鸡 50）
     const hasEmpty = game.animalPens.some(p => !p.animal);
-    return hasEmpty && game.sharedMoney >= 100; // 留一点余量
+    return hasEmpty && game.sharedMoney >= 100;
   }
 
   getTarget(farmer, game) {
-    return { x: 0, y: game.height - 1 }; // 走向牧场区域
+    return { x: 0, y: game.height - 1 };
   }
 
   execute(farmer, game) {
-    // 按性价比排序：productPrice / buyPrice 最高的优先
     // 通过 game.ANIMALS 访问，避免循环 require
     const affordable = Object.entries(game.ANIMALS)
       .filter(([, a]) => game.sharedMoney >= a.buyPrice + 50)
@@ -340,12 +383,12 @@ class BuyAnimalBehavior extends FarmerBehavior {
     const pen = game.animalPens.find(p => !p.animal);
     if (!pen) return { log: '', acted: false, earned: 0 };
 
-    const result = pen.occupy(animalType, farmer.fullName);
+    // AnimalPen.place() 方法
+    const result = pen.place(animalType, farmer.fullName);
     if (!result.success) return { log: '', acted: false, earned: 0 };
 
     game.sharedMoney -= animal.buyPrice;
-    // 购买冷却：2 分钟内不再购买，避免一口气买空金库
-    this._cooldown = Date.now() + 120000;
+    this._cooldown = Date.now() + 120000; // 2 分钟冷却
 
     farmer.state         = 'working';
     farmer.currentAction = `买了 ${animal.emoji}${animal.name}`;
@@ -354,6 +397,48 @@ class BuyAnimalBehavior extends FarmerBehavior {
       acted:  true,
       earned: 0
     };
+  }
+}
+
+/** 👥 头号农夫管理人手（雇佣/解雇） */
+class HireFireFarmerBehavior extends FarmerBehavior {
+  constructor() { super('管理人手', '👥', 2); }
+
+  // 只有第一个农夫（位置 0）负责管理招聘
+  canExecute(farmer, game) {
+    return game.farmers && game.farmers[0] === farmer;
+  }
+
+  getTarget() { return null; }
+
+  execute(farmer, game) {
+    const n        = game.farmers.length;
+    const hireCost = game.getNextHireCost();
+
+    // 钱够多且人手不足 → 雇人（额外留 n×300 运营缓冲）
+    const hireThreshold = hireCost + n * 300 + 500;
+    if (n < 6 && game.sharedMoney >= hireThreshold) {
+      const result = game.hireNewFarmer();
+      if (result.success) {
+        return {
+          log:   `${farmer.fullName} 决定雇佣新农夫 ${result.name}（-${result.cost}💰）👥`,
+          acted: true, earned: 0
+        };
+      }
+    }
+
+    // 钱紧张且多人 → 解雇最新员工
+    if (n > 1 && game.sharedMoney < 300) {
+      const result = game.fireFarmer();
+      if (result.success) {
+        return {
+          log:   `${farmer.fullName} 因资金紧张解雇了 ${result.name} 😢`,
+          acted: true, earned: 0
+        };
+      }
+    }
+
+    return { log: '', acted: false, earned: 0 };
   }
 }
 
@@ -380,23 +465,21 @@ class WanderBehavior extends FarmerBehavior {
 
 // ——— 注册所有默认行为 ———
 FarmerBehavior.register(SleepBehavior);
+FarmerBehavior.register(EatBehavior);           // 新增：吃东西
 FarmerBehavior.register(KillPestBehavior);
 FarmerBehavior.register(HarvestCropBehavior);
+FarmerBehavior.register(FeedAnimalBehavior);    // 新增：喂养动物
 FarmerBehavior.register(WaterCropBehavior);
 FarmerBehavior.register(PlantCropBehavior);
 FarmerBehavior.register(HarvestAnimalBehavior);
 FarmerBehavior.register(BuyAnimalBehavior);
+FarmerBehavior.register(HireFireFarmerBehavior); // 新增：管理人手
 FarmerBehavior.register(WanderBehavior);
 
 // ============================================================
 //  农夫 NPC 主类
 // ============================================================
 class Farmer {
-  /**
-   * @param {object}   game         FarmGame 实例
-   * @param {Function} logCallback  (message, emoji, type) => void
-   * @param {object}   [options]
-   */
   constructor(game, logCallback, options = {}) {
     this.game        = game;
     this.logCallback = logCallback;
@@ -408,21 +491,23 @@ class Farmer {
     this.x = options.startX || 0;
     this.y = options.startY || 0;
 
-    // 行走状态
     this.walkTarget       = null;
     this.onArriveCallback = null;
 
     this.state         = 'idle';
     this.currentAction = '准备工作';
 
-    // 农夫库存（从公库购买）
+    // ====== 饥饿系统 ======
+    this.hunger  = options.hunger || 0;  // 0=饱，100=饿死
+    this.isDead  = false;
+
+    // 农夫库存
     this.seeds = options.seeds || { wheat: 8, carrot: 8, tomato: 6, rice: 4 };
     this.items = options.items || { pesticide: 3 };
 
     // 从注册表实例化所有行为
     this.behaviors = Array.from(FarmerBehavior.registry.values()).map(Cls => new Cls());
 
-    // 决策间隔 28s；移动间隔 1.6s/格
     this.tickIntervalMs = options.tickInterval || 28000;
     this.moveIntervalMs = options.moveInterval || 1600;
 
@@ -430,18 +515,16 @@ class Farmer {
     this._moveIntervalId = null;
     this._tickCount      = 0;
 
-    setTimeout(() => this._start(), options.startDelay || 5000);
+    setTimeout(() => this._start(), options.startDelay ?? 5000);
   }
 
   // ---------- 行为管理 ----------
 
-  /** 动态注册额外行为（新功能钩子） */
   registerBehavior(behaviorInstance) {
     this.behaviors.push(behaviorInstance);
     return this;
   }
 
-  /** 按名称移除行为 */
   removeBehavior(name) {
     this.behaviors = this.behaviors.filter(b => b.name !== name);
     return this;
@@ -459,17 +542,26 @@ class Farmer {
     return `${String((now.getUTCHours() + 8) % 24).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
   }
 
+  // ---------- 死亡 ----------
+
+  _die() {
+    if (this.isDead) return;
+    this.isDead      = true;
+    this.state       = 'dead';
+    this.emoji       = '💀';
+    this.currentAction = '因饥饿而倒下';
+    this._log(`${this.fullName} 因长时间饥饿去世了 💀 请记得投喂农夫！`, '💀', 'farmer');
+    this.destroy();
+    // 从 game.farmers 移除自身
+    if (this.game && Array.isArray(this.game.farmers)) {
+      this.game.farmers = this.game.farmers.filter(f => f !== this);
+    }
+  }
+
   // ---------- LLM 预留接口 ----------
 
-  /**
-   * 使用大模型决策下一步行为（stub）
-   * 返回 { behaviorName:string } 则覆盖默认加权随机逻辑；返回 null 则走默认路径
-   * @param {{ farmState, farmerState, weights: Array<{name,weight}> }} context
-   * @returns {Promise<{ behaviorName:string, reason:string } | null>}
-   */
   async thinkWithAI(context) {
     // TODO: 接入 Anthropic Claude / OpenAI 等
-    // const res = await anthropic.messages.create({ model:'claude-opus-4-5', messages:[...] });
     return null;
   }
 
@@ -479,7 +571,10 @@ class Farmer {
     const eligible = this.behaviors.filter(b => b.canExecute(this, this.game));
     if (!eligible.length) return null;
 
-    // SleepBehavior 直接强制执行（夜间必须睡觉）
+    // EatBehavior 和 SleepBehavior 有强制优先级
+    const eat   = eligible.find(b => b.name === '吃东西');
+    if (eat && this.hunger >= 75) return eat; // 非常饿时强制进食
+
     const sleep = eligible.find(b => b.name === '睡觉');
     if (sleep) return sleep;
 
@@ -520,8 +615,20 @@ class Farmer {
   // ---------- 决策 tick ----------
 
   tick() {
+    if (this.isDead) return;
     this._tickCount++;
+
     try {
+      // ====== 饥饿增加（睡觉时代谢较慢）======
+      const hungerRate = this.state === 'sleeping' ? 0.6 : 1.2;
+      this.hunger = Math.min(100, this.hunger + hungerRate);
+
+      // 死亡检查
+      if (this.hunger >= 100) {
+        this._die();
+        return;
+      }
+
       // 起床检查
       if (!this.isNightTime() && this.state === 'sleeping') {
         this.state         = 'idle';
@@ -534,17 +641,16 @@ class Farmer {
 
       if (this._tickCount % 20 === 0) this._restockSeeds();
 
-      // 加权随机选择行为
       const beh = this._pickBehavior();
       if (!beh) return;
 
-      const target = beh.getTarget(this, this.game);
+      const target   = beh.getTarget(this, this.game);
       const needWalk = target && (target.x !== this.x || target.y !== this.y);
 
       if (needWalk) {
-        this.walkTarget    = target;
-        this.state         = 'walking';
-        this.currentAction = `前往 (${target.x},${target.y})`;
+        this.walkTarget       = target;
+        this.state            = 'walking';
+        this.currentAction    = `前往 (${target.x},${target.y})`;
         this.onArriveCallback = () => this._doExecute(beh);
       } else {
         if (target) { this.x = target.x; this.y = target.y; }
@@ -558,7 +664,7 @@ class Farmer {
   _doExecute(beh) {
     const { log, acted, earned } = beh.execute(this, this.game);
     if (acted) {
-      beh.recordProfit(earned); // 更新动态权重
+      beh.recordProfit(earned);
       if (log) this._log(log, beh.emoji, 'farmer');
     }
   }
@@ -585,6 +691,7 @@ class Farmer {
   }
 
   _start() {
+    if (this.isDead) return;
     this._log(`${this.fullName} 上班了，开始照料农场！`, '🧑‍🌾', 'system');
     this._moveIntervalId = setInterval(() => this._moveStep(), this.moveIntervalMs);
     this.tick();
@@ -609,9 +716,15 @@ class Farmer {
       currentAction: this.currentAction,
       isSleeping:    this.state === 'sleeping',
       isWalking:     this.state === 'walking',
+      isDead:        this.isDead,
       walkTarget:    this.walkTarget,
       timeString:    this.getTimeString(),
-      // 权重快照（可供调试/日志查看）
+      // 饥饿状态
+      hunger:        Math.round(this.hunger),
+      hungerPct:     Math.round(this.hunger),
+      isHungry:      this.hunger >= 50,
+      isStarving:    this.hunger >= 80,
+      // 权重快照（调试用）
       behaviorWeights: this.behaviors.map(b => ({
         name:   b.name,
         weight: Math.round(b.weight * 10) / 10
@@ -623,13 +736,15 @@ class Farmer {
 module.exports = {
   Farmer,
   FarmerBehavior,
-  // 导出所有行为类，方便外部扩展
   SleepBehavior,
+  EatBehavior,
   KillPestBehavior,
   HarvestCropBehavior,
   WaterCropBehavior,
   PlantCropBehavior,
   HarvestAnimalBehavior,
+  FeedAnimalBehavior,
   BuyAnimalBehavior,
+  HireFireFarmerBehavior,
   WanderBehavior
 };

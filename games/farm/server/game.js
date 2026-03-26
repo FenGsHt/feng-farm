@@ -194,6 +194,14 @@ const ANIMALS = {
   bee: { name: '蜜蜂', growthTime: 45, sellPrice: 40, buyPrice: 80, emoji: '🐝', product: '蜂蜜', productPrice: 25 }
 };
 
+// 食物配置（供农夫进食使用）
+const FARMER_FOODS = {
+  'food-bread':     { name: '面包',   emoji: '🍞', price: 5,  satiety: 25 },
+  'food-rice-bowl': { name: '米饭',   emoji: '🍚', price: 10, satiety: 40 },
+  'food-meat':      { name: '肉食',   emoji: '🥩', price: 18, satiety: 65 },
+  'food-feast':     { name: '大餐',   emoji: '🍱', price: 35, satiety: 100 },
+};
+
 // 商店物品配置
 const SHOP_ITEMS = {
   // 谷物种子
@@ -231,7 +239,14 @@ const SHOP_ITEMS = {
   'animal-horse': { type: 'animal', animal: 'horse', name: '小马', price: 700, emoji: '🐴' },
   // 动物 - 特殊
   'animal-rabbit': { type: 'animal', animal: 'rabbit', name: '小兔', price: 120, emoji: '🐰' },
-  'animal-bee': { type: 'animal', animal: 'bee', name: '蜜蜂群', price: 80, emoji: '🐝' }
+  'animal-bee': { type: 'animal', animal: 'bee', name: '蜜蜂群', price: 80, emoji: '🐝' },
+  // 农夫食物
+  'food-bread':     { type: 'farmer-food', name: '面包',   emoji: '🍞', price: 5,  satiety: 25,  desc: '简单充饥，回复饱腹 25%' },
+  'food-rice-bowl': { type: 'farmer-food', name: '米饭',   emoji: '🍚', price: 10, satiety: 40,  desc: '家常便饭，回复饱腹 40%' },
+  'food-meat':      { type: 'farmer-food', name: '肉食',   emoji: '🥩', price: 18, satiety: 65,  desc: '营养丰富，回复饱腹 65%' },
+  'food-feast':     { type: 'farmer-food', name: '大餐',   emoji: '🍱', price: 35, satiety: 100, desc: '丰盛大餐，完全填饱！' },
+  // 雇佣农夫（价格动态计算，此处为基础值占位）
+  'hire-farmer':    { type: 'hire-farmer', name: '雇佣农夫', emoji: '👨‍🌾', price: 500, desc: '雇佣一名新农夫，价格随人数增加' },
 };
 
 // 地块类
@@ -350,6 +365,8 @@ class AnimalPen {
     this.ownedAt = null; // 购买时间
     this.isReady = false; // 是否可以收获
     this.owner = null; // 拥有者
+    this.hunger = 0;  // 动物饥饿度 0=饱 100=非常饿
+    this._growthTicks = 0; // 内部计数器，用于控制饥饿增速
   }
 
   // 放置动物
@@ -366,13 +383,21 @@ class AnimalPen {
     return { success: true };
   }
 
-  // 更新动物状态
+  // 更新动物状态（每1s调用一次）
   updateAnimal() {
-    if (!this.animal || this.isReady) return;
-    
+    if (!this.animal) return;
+
+    // 饥饿增加（每20s +4，约500s=8分钟到达饥饿阈值60）
+    this._growthTicks = (this._growthTicks || 0) + 1;
+    if (this._growthTicks % 20 === 0) {
+      this.hunger = Math.min(100, (this.hunger || 0) + 4);
+    }
+
+    // 过饿时生产暂停（饥饿度>=80则不再更新 isReady）
+    if (this.isReady || (this.hunger || 0) >= 80) return;
+
     const animal = ANIMALS[this.animal];
-    const elapsed = (Date.now() - this.ownedAt) / 1000; // 秒
-    
+    const elapsed = (Date.now() - this.ownedAt) / 1000;
     if (elapsed >= animal.growthTime) {
       this.isReady = true;
     }
@@ -437,7 +462,10 @@ class AnimalPen {
       isReady: this.isReady,
       owner: this.owner,
       progress: progress,
-      remainingTime: remainingTime
+      remainingTime: remainingTime,
+      hunger: this.hunger || 0,
+      isHungry: (this.hunger || 0) >= 60,
+      isStarving: (this.hunger || 0) >= 80
     };
   }
 }
@@ -496,6 +524,10 @@ class FarmGame {
     // 暴露动物配置，供 farmer.js 访问（避免循环 require）
     this.ANIMALS = ANIMALS;
 
+    // ========== 农夫列表（多农夫支持）==========
+    this.farmers = [];
+    this._savedFarmerData = null; // _loadState() 会填充
+
     // 启动生长更新循环
     this.startGrowthLoop();
 
@@ -511,13 +543,11 @@ class FarmGame {
     // 启动害虫生成循环
     this.startPestLoop();
 
-    // ========== 农夫 NPC ==========
-    this.farmer = new Farmer(this, (message, emoji, type) => {
-      this.addFarmLog(message, emoji, type);
-    });
-
     // ========== 加载已保存的状态 ==========
     this._loadState();
+
+    // 初始化农夫（基于存档数据或默认一名）
+    this._initFarmers();
 
     // 每 15 秒定期保存一次游戏状态
     this._intervals.push(setInterval(() => this._saveState(), 15000));
@@ -580,7 +610,22 @@ class FarmGame {
       );
     }
 
-    console.log(`[FarmGame] State restored for room "${this.roomId}" — 金库: ${this.sharedMoney}`);
+    // 动物栏饥饿度
+    if (Array.isArray(saved.animalPens)) {
+      for (let i = 0; i < Math.min(saved.animalPens.length, this.animalPens.length); i++) {
+        const d = saved.animalPens[i];
+        if (d && typeof d.hunger === 'number') {
+          this.animalPens[i].hunger = d.hunger;
+        }
+      }
+    }
+
+    // 农夫数据（姓名 + 饥饿度）
+    if (Array.isArray(saved.farmers) && saved.farmers.length > 0) {
+      this._savedFarmerData = saved.farmers;
+    }
+
+    console.log(`[FarmGame] State restored for room "${this.roomId}" — 金库: ${this.sharedMoney}, 农夫: ${(this._savedFarmerData || [{ name: '阿明' }]).length} 人`);
   }
 
   // 将当前游戏状态序列化并存入 dataStore（定期 + 关闭时调用）
@@ -602,11 +647,91 @@ class FarmGame {
         animal:  pen.animal,
         ownedAt: pen.ownedAt,
         isReady: pen.isReady,
-        owner:   pen.owner
+        owner:   pen.owner,
+        hunger:  pen.hunger || 0
       })),
-      pests: this.pests
+      pests:   this.pests,
+      farmers: this.farmers.map(f => ({ name: f.name, hunger: f.hunger }))
     };
     dataStore.saveRoomState(this.roomId, state);
+  }
+
+  // ========== 农夫初始化 ==========
+
+  static _FARMER_NAMES = ['阿明', '阿红', '小王', '老李', '小刘', '阿芳', '小张', '老陈'];
+
+  _initFarmers() {
+    const savedData = (this._savedFarmerData && this._savedFarmerData.length > 0)
+      ? this._savedFarmerData
+      : [{ name: '阿明', hunger: 0 }];
+
+    for (const fd of savedData) {
+      const farmer = new Farmer(this, (msg, emoji, type) => this.addFarmLog(msg, emoji, type), {
+        name:       fd.name,
+        hunger:     fd.hunger || 0,
+        startDelay: 5000
+      });
+      this.farmers.push(farmer);
+    }
+    this._savedFarmerData = null;
+  }
+
+  // ========== 农夫管理 ==========
+
+  getNextHireCost() {
+    // 第1次雇佣500，第2次1000，第3次2000，上限5000
+    return Math.min(500 * Math.pow(2, this.farmers.length - 1), 5000);
+  }
+
+  hireNewFarmer() {
+    const cost = this.getNextHireCost();
+    if (this.sharedMoney < cost)   return { success: false, message: `金币不足（需要 ${cost}💰）` };
+    if (this.farmers.length >= 6)  return { success: false, message: '农场最多只能容纳 6 名农夫' };
+
+    const used = new Set(this.farmers.map(f => f.name));
+    const name = FarmGame._FARMER_NAMES.find(n => !used.has(n)) || `农夫${this.farmers.length + 1}`;
+
+    this.sharedMoney -= cost;
+    const farmer = new Farmer(this, (msg, emoji, type) => this.addFarmLog(msg, emoji, type), {
+      name,
+      startDelay: 2000
+    });
+    this.farmers.push(farmer);
+    this.addFarmLog(`🎉 雇佣了新农夫 ${name}！花费 ${cost} 💰，当前 ${this.farmers.length} 名农夫`, '👥', 'system');
+    return { success: true, name, cost };
+  }
+
+  fireFarmer(farmerName) {
+    if (this.farmers.length <= 1) return { success: false, message: '至少保留一名农夫' };
+
+    // 指定姓名则找对应农夫；否则解雇最近雇的（最后一个）
+    const toFire = farmerName
+      ? this.farmers.find(f => f.name === farmerName && f !== this.farmers[0])
+      : this.farmers[this.farmers.length - 1];
+
+    if (!toFire) return { success: false, message: '找不到可解雇的农夫（无法解雇阿明）' };
+
+    toFire.destroy();
+    this.farmers = this.farmers.filter(f => f !== toFire);
+    this.addFarmLog(`👋 农夫 ${toFire.name} 离职了，当前 ${this.farmers.length} 名农夫`, '👋', 'system');
+    return { success: true, name: toFire.name };
+  }
+
+  feedFarmer(farmerName, foodId) {
+    const food = SHOP_ITEMS[foodId];
+    if (!food || food.type !== 'farmer-food') return { success: false, message: '无效的食物' };
+
+    const farmer = this.farmers.find(f => f.name === farmerName);
+    if (!farmer)                          return { success: false, message: `找不到农夫 ${farmerName}` };
+    if (farmer.isDead)                    return { success: false, message: `${farmerName} 已经去世了` };
+    if (this.sharedMoney < food.price)    return { success: false, message: `公库金币不足（需 ${food.price}💰）` };
+
+    this.sharedMoney -= food.price;
+    farmer.hunger = Math.max(0, farmer.hunger - food.satiety);
+
+    const satPct = Math.round(100 - farmer.hunger);
+    this.addFarmLog(`给 ${farmerName} 喂了 ${food.emoji}${food.name}，饱腹度恢复至 ${satPct}%`, food.emoji, 'farmer');
+    return { success: true, message: `喂给农夫${farmerName} ${food.emoji}${food.name}！` };
   }
 
   // 添加农场日志（最多保留 40 条）
@@ -1886,8 +2011,12 @@ class FarmGame {
         dailyTasks: DAILY_TASKS,
         achievements: ACHIEVEMENTS
       },
-      // 农夫 NPC
-      farmer: this.farmer ? this.farmer.getState() : null,
+      // 农夫 NPC（多农夫支持）
+      farmer:       this.farmers[0] ? this.farmers[0].getState() : null, // 向后兼容
+      farmers:      this.farmers.map(f => f.getState()),
+      farmerCount:  this.farmers.length,
+      nextHireCost: this.getNextHireCost(),
+      farmerFoods:  FARMER_FOODS,
       // 农场日志（最新 40 条）
       farmLog: this.farmLog
     };
@@ -1895,15 +2024,11 @@ class FarmGame {
 
   // 销毁游戏实例，清理所有定时器
   destroy() {
-    this._saveState(); // 关闭前强制保存
-    for (const id of this._intervals) {
-      clearInterval(id);
-    }
+    this._saveState();
+    for (const id of this._intervals) clearInterval(id);
     this._intervals = [];
-    if (this.farmer) {
-      this.farmer.destroy();
-      this.farmer = null;
-    }
+    for (const farmer of this.farmers) farmer.destroy();
+    this.farmers = [];
   }
 }
 
@@ -1979,4 +2104,4 @@ class RoomManager {
   }
 }
 
-module.exports = { FarmGame, RoomManager, CROPS, ANIMALS, SHOP_ITEMS };
+module.exports = { FarmGame, RoomManager, CROPS, ANIMALS, SHOP_ITEMS, FARMER_FOODS };

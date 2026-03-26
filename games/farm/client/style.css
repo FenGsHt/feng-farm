@@ -2779,8 +2779,11 @@ button:active {
   font-size: 11px;
   color: var(--text-muted);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* 多农夫时允许换行展示芯片 */
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
 }
 
 .farm-log-toggle {
@@ -2844,3 +2847,234 @@ button:active {
 
 .log-type-system  { border-left-color: #ffd54f; }
 .log-type-system .log-msg { color: #ffe082; }
+
+/* ========== 农夫饥饿条 ========== */
+.ff-hunger-bar {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ff-hunger-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #66bb6a 0%, #ff9800 55%, #ef5350 100%);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+/* ========== 饥饿/濒死状态 ========== */
+
+/* 头部颜色随饥饿变化 */
+.farmer-in-cell.farmer-hungry .ff-head {
+  background: #f0b060;
+}
+
+.farmer-in-cell.farmer-starving .ff-head {
+  background: #d08840;
+  animation: farmer-starve-shake 0.4s ease-in-out infinite;
+}
+
+@keyframes farmer-starve-shake {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-1.5px); }
+  75%       { transform: translateX(1.5px); }
+}
+
+/* ========== 农夫状态芯片（日志栏） ========== */
+.farmer-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 4px;
+  border-radius: 10px;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  white-space: nowrap;
+}
+
+.farmer-dead-chip {
+  color: #ef5350;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* ========== 农夫管理标签页 ========== */
+.farmer-mgmt-section {
+  margin-bottom: 14px;
+}
+
+.farmer-mgmt-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-green);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(124, 179, 66, 0.2);
+}
+
+.farmer-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.farmer-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 6px;
+  margin-bottom: 6px;
+}
+
+.farmer-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.farmer-card-action {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farmer-hunger-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.farmer-hunger-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.farmer-hunger-prog {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s, background 0.5s;
+}
+
+.farmer-feed-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.feed-btn {
+  background: rgba(124, 179, 66, 0.15);
+  border: 1px solid rgba(124, 179, 66, 0.3);
+  border-radius: 6px;
+  color: var(--text-light);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.feed-btn:hover {
+  background: rgba(124, 179, 66, 0.3);
+}
+
+.feed-btn small {
+  color: #ffd54f;
+  margin-left: 2px;
+}
+
+.fire-farmer-btn {
+  background: rgba(239, 83, 80, 0.12);
+  border: 1px solid rgba(239, 83, 80, 0.3);
+  border-radius: 6px;
+  color: #ef9a9a;
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+
+.fire-farmer-btn:hover {
+  background: rgba(239, 83, 80, 0.25);
+}
+
+/* 雇佣新农夫 */
+.hire-farmer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.hire-farmer-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.hire-farmer-desc strong {
+  color: #ffd54f;
+}
+
+.hire-farmer-desc small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.hire-farmer-btn {
+  background: linear-gradient(135deg, #558b2f, #7cb342);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+.hire-farmer-btn:hover {
+  opacity: 0.85;
+}
+
+.hire-farmer-btn.disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* ========== 动物饥饿提示 ========== */
+.animal-pen-hungry {
+  border-color: #ff9800 !important;
+}
+
+.animal-pen-starving {
+  border-color: #ef5350 !important;
+  animation: pen-starve-pulse 1s ease-in-out infinite;
+}
+
+@keyframes pen-starve-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 83, 80, 0.0); }
+  50%       { box-shadow: 0 0 0 4px rgba(239, 83, 80, 0.3); }
+}

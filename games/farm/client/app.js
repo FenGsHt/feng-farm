@@ -1077,63 +1077,92 @@ function renderFarm() {
 }
 
 // ========== 农夫 NPC 渲染 ==========
+// 农夫帽子颜色（区分多农夫）
+const FARMER_HAT_COLORS = ['#c8920a', '#e53935', '#1565c0', '#6a1b9a', '#00695c', '#37474f'];
+
 function renderFarmer() {
   if (!gameState) return;
-  const farmer = gameState.farmer;
+
+  // 支持多农夫：优先使用 farmers 数组，向后兼容单 farmer
+  const farmers = gameState.farmers && gameState.farmers.length > 0
+    ? gameState.farmers
+    : (gameState.farmer ? [gameState.farmer] : []);
 
   // 清除旧元素和格子高亮
   document.querySelectorAll('.farmer-in-cell, .farmer-walk-target').forEach(el => el.remove());
   document.querySelectorAll('.plot-cell.farmer-here').forEach(el => el.classList.remove('farmer-here'));
 
-  if (!farmer) return;
+  farmers.forEach((farmer, idx) => {
+    if (!farmer || farmer.isDead) return;
 
-  const cell = document.getElementById(`plot-${farmer.x}-${farmer.y}`);
-  if (!cell) return;
+    const cell = document.getElementById(`plot-${farmer.x}-${farmer.y}`);
+    if (!cell) return;
 
-  // 高亮当前格
-  cell.classList.add('farmer-here');
+    cell.classList.add('farmer-here');
 
-  // 状态 class
-  let stateClass = '';
-  if (farmer.isSleeping)               stateClass = ' farmer-sleeping';
-  else if (farmer.isWalking)           stateClass = ' farmer-walking';
-  else if (farmer.state === 'working') stateClass = ' farmer-working';
+    // 状态 class
+    let stateClass = '';
+    if (farmer.isSleeping)               stateClass = ' farmer-sleeping';
+    else if (farmer.isWalking)           stateClass = ' farmer-walking';
+    else if (farmer.state === 'working') stateClass = ' farmer-working';
 
-  // 人型结构：草帽 + 头 + 身体（含伪元素手臂）+ 双腿
-  const el = document.createElement('div');
-  el.className = 'farmer-in-cell' + stateClass;
-  el.title = `${farmer.fullName} — ${farmer.currentAction}`;
-  el.innerHTML = `
-    <div class="ff-hat"></div>
-    <div class="ff-head"></div>
-    <div class="ff-body"></div>
-    <div class="ff-legs">
-      <div class="ff-leg ff-leg-l"></div>
-      <div class="ff-leg ff-leg-r"></div>
-    </div>`;
-  cell.appendChild(el);
+    // 饥饿状态 class
+    const hunger = farmer.hungerPct || farmer.hunger || 0;
+    if (hunger >= 80) stateClass += ' farmer-starving';
+    else if (hunger >= 50) stateClass += ' farmer-hungry';
 
-  // 行走目标格：小黄点
-  if (farmer.isWalking && farmer.walkTarget) {
-    const tc = document.getElementById(`plot-${farmer.walkTarget.x}-${farmer.walkTarget.y}`);
-    if (tc) {
-      const dot = document.createElement('div');
-      dot.className = 'farmer-walk-target';
-      dot.textContent = '🟡';
-      tc.appendChild(dot);
+    const hatColor = FARMER_HAT_COLORS[idx % FARMER_HAT_COLORS.length];
+
+    // 饥饿条 HTML（饥饿度 >= 40 时显示）
+    const hungerBarHtml = hunger >= 40
+      ? `<div class="ff-hunger-bar"><div class="ff-hunger-fill" style="width:${hunger}%"></div></div>`
+      : '';
+
+    // 人型结构
+    const el = document.createElement('div');
+    el.className = 'farmer-in-cell' + stateClass;
+    el.title = `${farmer.fullName} — ${farmer.currentAction}\n饥饿度: ${hunger}%`;
+    el.innerHTML = `
+      <div class="ff-hat" style="background:${hatColor}"></div>
+      <div class="ff-head"></div>
+      <div class="ff-body"></div>
+      <div class="ff-legs">
+        <div class="ff-leg ff-leg-l"></div>
+        <div class="ff-leg ff-leg-r"></div>
+      </div>
+      ${hungerBarHtml}`;
+    cell.appendChild(el);
+
+    // 行走目标格：彩色点
+    if (farmer.isWalking && farmer.walkTarget) {
+      const tc = document.getElementById(`plot-${farmer.walkTarget.x}-${farmer.walkTarget.y}`);
+      if (tc) {
+        const dot = document.createElement('div');
+        dot.className = 'farmer-walk-target';
+        dot.textContent = idx === 0 ? '🟡' : '🟠';
+        tc.appendChild(dot);
+      }
     }
-  }
+  });
 }
 
 // ========== 农场日志渲染 ==========
 function renderFarmLog() {
   if (!gameState) return;
 
-  // 更新农夫状态
-  const farmer = gameState.farmer;
+  // 更新农夫状态（支持多农夫）
+  const farmers = gameState.farmers && gameState.farmers.length > 0
+    ? gameState.farmers
+    : (gameState.farmer ? [gameState.farmer] : []);
   const farmerStatusEl = document.getElementById('farmer-status');
-  if (farmerStatusEl && farmer) {
-    farmerStatusEl.textContent = `🧑‍🌾 ${farmer.name} — ${farmer.currentAction}`;
+  if (farmerStatusEl && farmers.length > 0) {
+    farmerStatusEl.innerHTML = farmers.map((f, idx) => {
+      if (f.isDead) return `<span class="farmer-chip farmer-dead-chip">💀${f.name}</span>`;
+      const hunger = f.hungerPct || f.hunger || 0;
+      const hungerEmoji = hunger >= 80 ? '😫' : hunger >= 50 ? '😋' : '😊';
+      const hatColor = FARMER_HAT_COLORS[idx % FARMER_HAT_COLORS.length];
+      return `<span class="farmer-chip" style="border-left:3px solid ${hatColor}" title="饥饿度:${hunger}%">${hungerEmoji}${f.name}：${f.currentAction}</span>`;
+    }).join('');
   }
 
   const listEl = document.getElementById('farm-log-list');
@@ -1720,8 +1749,10 @@ function renderShopItems(shopItems) {
     itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'seed');
   } else if (currentShopTab === 'items') {
     itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'item');
+  } else if (currentShopTab === 'farmers') {
+    renderFarmerTab(shopItemsContainer);
+    return;
   } else if (currentShopTab === 'sell') {
-    // 出售页面：显示背包中的物品
     renderSellTab(shopItemsContainer);
     return;
   }
@@ -1747,6 +1778,107 @@ function renderShopItems(shopItems) {
       }, 300);
     });
     shopItemsContainer.appendChild(itemEl);
+  });
+}
+
+// ========== 农夫管理标签页 ==========
+function renderFarmerTab(container) {
+  if (!gameState) {
+    container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
+    return;
+  }
+
+  const farmers     = gameState.farmers || (gameState.farmer ? [gameState.farmer] : []);
+  const nextCost    = gameState.nextHireCost || 500;
+  const sharedMoney = gameState.sharedMoney || 0;
+  const foods       = gameState.farmerFoods || {};
+
+  container.innerHTML = '';
+
+  // ——— 当前农夫状态卡片 ———
+  const farmerSection = document.createElement('div');
+  farmerSection.className = 'farmer-mgmt-section';
+  farmerSection.innerHTML = `<div class="farmer-mgmt-title">👨‍🌾 当前农夫（${farmers.length}/6）</div>`;
+
+  farmers.forEach((f, idx) => {
+    const hunger   = f.hungerPct || f.hunger || 0;
+    const hatColor = FARMER_HAT_COLORS[idx % FARMER_HAT_COLORS.length];
+    const statusIcon = f.isDead ? '💀' : hunger >= 80 ? '😫' : hunger >= 50 ? '😋' : '😊';
+    const barColor = hunger >= 80 ? '#ef5350' : hunger >= 50 ? '#ff9800' : '#66bb6a';
+
+    const card = document.createElement('div');
+    card.className = 'farmer-card';
+    card.innerHTML = `
+      <div class="farmer-card-header" style="border-left: 4px solid ${hatColor}">
+        <span class="farmer-card-name">${statusIcon} ${f.fullName || '农夫'+f.name}</span>
+        <span class="farmer-card-action">${f.isDead ? '已去世' : f.currentAction}</span>
+      </div>
+      ${!f.isDead ? `
+      <div class="farmer-hunger-row">
+        <span>🍽️ 饥饿度</span>
+        <div class="farmer-hunger-track">
+          <div class="farmer-hunger-prog" style="width:${hunger}%;background:${barColor}"></div>
+        </div>
+        <span>${hunger}%</span>
+      </div>
+      <div class="farmer-feed-btns">
+        ${Object.entries(foods).map(([foodId, food]) => `
+          <button class="feed-btn" data-farmer="${f.name}" data-food="${foodId}"
+            title="${food.desc || food.name}（-${food.price}💰，+${food.satiety}%饱腹）">
+            ${food.emoji} ${food.name} <small>${food.price}💰</small>
+          </button>
+        `).join('')}
+      </div>
+      ${idx > 0 ? `<button class="fire-farmer-btn" data-farmer="${f.name}">👋 解雇</button>` : ''}
+      ` : ''}
+    `;
+    farmerSection.appendChild(card);
+  });
+
+  container.appendChild(farmerSection);
+
+  // ——— 雇佣新农夫 ———
+  if (farmers.length < 6) {
+    const hireSection = document.createElement('div');
+    hireSection.className = 'farmer-mgmt-section';
+    const canAfford = sharedMoney >= nextCost;
+    hireSection.innerHTML = `
+      <div class="farmer-mgmt-title">➕ 雇佣新农夫</div>
+      <div class="hire-farmer-row">
+        <div class="hire-farmer-desc">
+          <span>下一名农夫费用：<strong>${nextCost} 💰</strong></span>
+          <small>价格随人数增加（当前公库：${sharedMoney}💰）</small>
+        </div>
+        <button class="hire-farmer-btn ${canAfford ? '' : 'disabled'}" ${canAfford ? '' : 'disabled'}>
+          👨‍🌾 雇佣
+        </button>
+      </div>
+    `;
+    container.appendChild(hireSection);
+  }
+
+  // ——— 绑定事件 ———
+  container.querySelectorAll('.feed-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const farmerName = btn.dataset.farmer;
+      const foodId     = btn.dataset.food;
+      socket.emit('feed-farmer', { farmerName, foodId });
+      playSound('buy');
+    });
+  });
+
+  container.querySelectorAll('.fire-farmer-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const farmerName = btn.dataset.farmer;
+      if (confirm(`确定要解雇 ${farmerName} 吗？`)) {
+        socket.emit('fire-farmer', { farmerName });
+      }
+    });
+  });
+
+  container.querySelector('.hire-farmer-btn')?.addEventListener('click', () => {
+    socket.emit('hire-farmer');
+    playSound('buy');
   });
 }
 

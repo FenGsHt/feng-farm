@@ -405,6 +405,47 @@ io.on('connection', (socket) => {
     }
   });
   
+  // ====== 农夫管理 ======
+
+  // 喂食农夫（玩家主动投喂）
+  socket.on('feed-farmer', ({ farmerName, foodId }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.feedFarmer(farmerName, foodId);
+    socket.emit('action-result', result);
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 雇佣新农夫（玩家手动雇）
+  socket.on('hire-farmer', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.hireNewFarmer();
+    socket.emit('action-result', result);
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 解雇农夫（玩家手动解雇）
+  socket.on('fire-farmer', ({ farmerName }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.fireFarmer(farmerName);
+    socket.emit('action-result', result);
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
   // New farm (reset)
   socket.on('new-farm', () => {
     if (!currentRoomId) return;
