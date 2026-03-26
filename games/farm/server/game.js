@@ -191,7 +191,7 @@ const ANIMALS = {
   horse: { name: '马', growthTime: 240, sellPrice: 350, buyPrice: 700, emoji: '🐴', product: '马奶', productPrice: 50 },
   // 特殊
   rabbit: { name: '兔子', growthTime: 90, sellPrice: 60, buyPrice: 120, emoji: '🐰', product: '兔毛', productPrice: 15 },
-  bee: { name: '蜜蜂', growthTime: 45, sellPrice: 40, buyPrice: 80, emoji: '🐝', product: '蜂蜜', productPrice: 25 }
+  bee: { name: '蜜蜂', growthTime: 45, sellPrice: 40, buyPrice: 80, emoji: '🐝', product: '蜂蜜', productPrice: 8 }
 };
 
 // 食物配置（供农夫进食使用）
