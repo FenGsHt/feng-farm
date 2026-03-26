@@ -45,6 +45,11 @@ io.on('connection', (socket) => {
     const room = roomManager.createRoom(roomId, width, height);
     currentRoomId = roomId;
 
+    // 设置io实例给game，用于市场事件广播
+    if (!room.game._io) {
+      room.game._io = io;
+    }
+
     // 检查同名玩家（同一房间内不允许重名）
     const name = playerName || '匿名农夫';
     const duplicate = Array.from(room.players.values()).find(p => p.name === name);

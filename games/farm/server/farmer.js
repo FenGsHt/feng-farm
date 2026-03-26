@@ -266,13 +266,18 @@ class PlantCropBehavior extends FarmerBehavior {
   }
 
   _findEmpty(farmer, game) {
-    let best = null, minDist = Infinity;
-    for (let y = 0; y < game.height; y++)
-      for (let x = 0; x < game.width; x++)
-        if (!game.plots[y][x].crop) {
+    let best = null, bestScore = -Infinity;
+    for (let y = 0; y < game.height; y++) {
+      for (let x = 0; x < game.width; x++) {
+        const plot = game.plots[y][x];
+        if (!plot.crop && plot.fertility > 0) { // 只考虑有肥力的地块
           const d = Math.abs(x - farmer.x) + Math.abs(y - farmer.y);
-          if (d < minDist) { minDist = d; best = { x, y }; }
+          // 评分：肥力高优先，距离近次之
+          const score = (plot.fertility || 100) * 10 - d;
+          if (score > bestScore) { bestScore = score; best = { x, y }; }
         }
+      }
+    }
     return best;
   }
 }
@@ -839,6 +844,7 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
 
     // 地块统计
     let planted = 0, ripe = 0, watered = 0;
+    let lowFertilityPlots = 0, emptyPlots = 0;
     const cropCounts = {};
     for (let y = 0; y < game.height; y++) {
       for (let x = 0; x < game.width; x++) {
@@ -848,10 +854,17 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
           cropCounts[plot.crop] = (cropCounts[plot.crop] || 0) + 1;
           if (plot.growthStage >= 3) ripe++;
           if (plot.isWatered) watered++;
+        } else {
+          emptyPlots++;
+          if (plot.fertility <= 0) lowFertilityPlots++;
         }
       }
     }
     lines.push(`🌱 已种植地块: ${planted}, 成熟: ${ripe}, 已浇水: ${watered}`);
+    lines.push(`🟫 空地: ${emptyPlots}, 肥力耗尽: ${lowFertilityPlots}`);
+    if (lowFertilityPlots > 0) {
+      lines.push(`⚠️ 有${lowFertilityPlots}块地肥力耗尽，需要使用有机肥恢复！`);
+    }
 
     // 多样性系数（重要！影响收益）
     const diversity = game.getDiversityInfo ? game.getDiversityInfo() : null;

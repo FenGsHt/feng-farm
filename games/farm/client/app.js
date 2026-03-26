@@ -730,6 +730,14 @@ function initSocket() {
     }
   });
 
+  // ===== 市场供需系统 =====
+  socket.on('market-event', (event) => {
+    const pricePct = Math.round((event.priceMultiplier - 1) * 100);
+    const priceText = pricePct > 0 ? `价格+${pricePct}%` : `价格${pricePct}%`;
+    showNotification(`${event.emoji} ${event.name}：${event.description} (${priceText})`, 'market');
+    playSound('coin');
+  });
+
   // ===== 农夫聊天系统 =====
   socket.on('farmer-chat-result', (result) => {
     if (result.success) {
@@ -828,12 +836,12 @@ function createRoom() {
 function updateGameState(state) {
   gameState = state;
   renderFarm();
-  
+
   // 上帝视角：隐藏玩家角色显示（只显示农田）
   if (playersLayer) {
     playersLayer.style.display = 'none';
   }
-  
+
   // 保留在线列表显示
   renderPlayerList();
   renderInventory();
@@ -849,6 +857,7 @@ function updateGameState(state) {
   renderFarmer();
   renderFarmLog();
   renderFarmerThoughts();
+  renderSalaryAndTax();
   updateFarmerSelect();
 
   // 更新当前玩家等级信息
@@ -940,6 +949,133 @@ function renderDiversity() {
   }
   diversityDisplay.textContent = `🌱 ${avgPercent}%`;
   diversityDisplay.title = `多样性系数影响收益\n${detailText}\n种植/饲养更多种类可提高收益`;
+}
+
+// ========== 工资和税收系统渲染 ==========
+function renderSalaryAndTax() {
+  if (!gameState) return;
+
+  const salary = gameState.salary || {};
+  const tax = gameState.tax || {};
+
+  // 更新工资信息显示
+  const salaryDisplay = document.getElementById('salary-display');
+  if (salaryDisplay) {
+    const farmerCount = salary.farmerCount || 0;
+    const hourlyCost = salary.estimatedHourlyCost || 0;
+    const unpaid = salary.unpaidSalary || 0;
+
+    let salaryText = `💵 ${farmerCount}人`;
+    let salaryTitle = `农夫工资系统\n工资标准: 50💰/人/小时\n当前农夫: ${farmerCount}人\n每小时支出: ${hourlyCost}💰`;
+
+    if (unpaid > 0) {
+      salaryText += ` (欠薪:${unpaid})`;
+      salaryTitle += `\n累计欠薪: ${unpaid}💰`;
+    }
+
+    salaryDisplay.textContent = salaryText;
+    salaryDisplay.title = salaryTitle;
+
+    // 欠薪警告样式
+    salaryDisplay.classList.remove('warning', 'danger');
+    if (unpaid > 200) {
+      salaryDisplay.classList.add('danger');
+    } else if (unpaid > 0) {
+      salaryDisplay.classList.add('warning');
+    }
+  }
+
+  // 更新税收信息显示
+  const taxDisplay = document.getElementById('tax-display');
+  if (taxDisplay) {
+    const totalAssets = tax.totalAssets || 0;
+    const estimatedTax = tax.estimatedTax || 0;
+    const isProtected = tax.isProtected || false;
+    const protectionRemaining = tax.protectionRemaining || 0;
+
+    let taxText = `🏦 资产:${totalAssets}`;
+    let taxTitle = `税收系统\n总资产: ${totalAssets}💰\n`;
+
+    if (isProtected) {
+      taxText = `🏦 保护期(${protectionRemaining}h)`;
+      taxTitle += `新玩家保护期\n剩余: ${protectionRemaining}小时`;
+    } else if (estimatedTax > 0) {
+      taxText += ` 预估税:${estimatedTax}`;
+      taxTitle += `预估税额: ${estimatedTax}💰\n\n阶梯税率:\n0-5,000: 0%\n5,001-15,000: 2%\n15,001-50,000: 5%\n50,001-150,000: 10%\n150,001+: 15%`;
+    } else {
+      taxTitle += `当前无需缴税\n(资产未达5000💰)`;
+    }
+
+    taxDisplay.textContent = taxText;
+    taxDisplay.title = taxTitle;
+  }
+
+  // 更新扩展面板（如果存在）
+  const salaryPanel = document.getElementById('salary-panel');
+  if (salaryPanel && salary) {
+    salaryPanel.innerHTML = `
+      <div class="salary-info">
+        <div class="info-row">
+          <span>农夫数量:</span>
+          <span>${salary.farmerCount || 0} 人</span>
+        </div>
+        <div class="info-row">
+          <span>工资标准:</span>
+          <span>50💰/人/小时</span>
+        </div>
+        <div class="info-row">
+          <span>每小时支出:</span>
+          <span>${salary.estimatedHourlyCost || 0}💰</span>
+        </div>
+        <div class="info-row ${salary.unpaidSalary > 0 ? 'warning' : ''}">
+          <span>累计欠薪:</span>
+          <span>${salary.unpaidSalary || 0}💰</span>
+        </div>
+        <div class="info-row">
+          <span>已发工资:</span>
+          <span>${salary.totalSalaryPaid || 0}💰</span>
+        </div>
+      </div>
+    `;
+  }
+
+  const taxPanel = document.getElementById('tax-panel');
+  if (taxPanel && tax) {
+    const taxBrackets = [
+      { min: 0, max: 5000, rate: '0%' },
+      { min: 5001, max: 15000, rate: '2%' },
+      { min: 15001, max: 50000, rate: '5%' },
+      { min: 50001, max: 150000, rate: '10%' },
+      { min: 150001, max: '∞', rate: '15%' }
+    ];
+
+    taxPanel.innerHTML = `
+      <div class="tax-info">
+        <div class="info-row">
+          <span>总资产:</span>
+          <span>${tax.totalAssets || 0}💰</span>
+        </div>
+        <div class="info-row ${tax.estimatedTax > 0 ? 'warning' : ''}">
+          <span>预估税额:</span>
+          <span>${tax.estimatedTax || 0}💰</span>
+        </div>
+        <div class="info-row">
+          <span>已缴税款:</span>
+          <span>${gameState.totalTaxPaid || 0}💰</span>
+        </div>
+        ${tax.isProtected ? `
+        <div class="info-row protected">
+          <span>保护期剩余:</span>
+          <span>${tax.protectionRemaining || 0}小时</span>
+        </div>
+        ` : ''}
+        <div class="tax-brackets">
+          <small>阶梯税率:</small>
+          ${taxBrackets.map(b => `<span>${b.min}-${b.max}: ${b.rate}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  }
 }
 
 // ========== 害虫系统渲染 ==========
@@ -1106,12 +1242,30 @@ function renderFarm() {
         farmGrid.appendChild(cell);
       }
 
-      // 更新土壤颜色（湿度越高越深）
+      // 更新土壤颜色（湿度越高越深，肥力影响绿色）
       const moistureRatio = plot.soilMoisture / 100;
+      const fertilityRatio = (plot.fertility || 100) / 100;
       const r = Math.floor(139 + moistureRatio * 60);
-      const g = Math.floor(119 + moistureRatio * 60);
+      const g = Math.floor(119 + moistureRatio * 60 + fertilityRatio * 30);
       const b = Math.floor(101 + moistureRatio * 40);
       cell.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+      
+      // 肥力指示器（在地块右下角显示）
+      if (plot.fertility !== undefined) {
+        let fertilityIndicator = cell.querySelector('.fertility-indicator');
+        if (!fertilityIndicator) {
+          fertilityIndicator = document.createElement('div');
+          fertilityIndicator.className = 'fertility-indicator';
+          cell.appendChild(fertilityIndicator);
+        }
+        // 根据肥力等级显示不同颜色
+        let fertilityColor = '#4CAF50'; // 绿色 - 正常
+        if (plot.fertility >= 80) fertilityColor = '#2E7D32'; // 深绿 - 优秀
+        else if (plot.fertility < 20) fertilityColor = '#D32F2F'; // 红色 - 贫瘠
+        else if (plot.fertility < 50) fertilityColor = '#FF9800'; // 橙色 - 较差
+        fertilityIndicator.style.backgroundColor = fertilityColor;
+        fertilityIndicator.style.width = `${plot.fertility}%`;
+      }
 
       // 更新作物显示
       const oldCrop = cell.dataset.crop;
@@ -1365,18 +1519,37 @@ function showPlotTooltip(e, plot, cropConfig) {
       remainingTimeText = '✨ 已成熟，可收获！';
     }
     
+    // 肥力等级文本
+    const fertilityLevelText = plot.fertilityLevel === 'excellent' ? '肥沃' :
+                               plot.fertilityLevel === 'poor' ? '较贫瘠' :
+                               plot.fertilityLevel === 'depleted' ? '贫瘠' : '正常';
+    const fertilityColor = plot.fertility >= 80 ? '#2E7D32' :
+                           plot.fertility >= 50 ? '#4CAF50' :
+                           plot.fertility >= 20 ? '#FF9800' : '#D32F2F';
+    
     content = `
       <div class="tooltip-title">${crop.emoji} ${crop.name}</div>
       <div class="tooltip-row">阶段: ${stageNames[plot.growthStage]}</div>
       <div class="tooltip-row">湿度: ${plot.soilMoisture}%</div>
+      <div class="tooltip-row">肥力: <span style="color:${fertilityColor}">${plot.fertility}% (${fertilityLevelText})</span></div>
       <div class="tooltip-row">${plot.isWatered ? '💧 已浇水' : '💧 未浇水'}</div>
       ${remainingTimeText ? `<div class="tooltip-row ${plot.growthStage >= 3 ? 'ready-text' : ''}">${remainingTimeText}</div>` : ''}
       ${plot.growthStage >= 3 ? `<div class="tooltip-row ready-text">💰 售价: +${crop.sellPrice}</div>` : ''}
     `;
   } else {
+    // 肥力等级文本
+    const fertilityLevelText = plot.fertilityLevel === 'excellent' ? '肥沃' :
+                               plot.fertilityLevel === 'poor' ? '较贫瘠' :
+                               plot.fertilityLevel === 'depleted' ? '贫瘠' : '正常';
+    const fertilityColor = plot.fertility >= 80 ? '#2E7D32' :
+                           plot.fertility >= 50 ? '#4CAF50' :
+                           plot.fertility >= 20 ? '#FF9800' : '#D32F2F';
+    
     content = `
       <div class="tooltip-title">🟫 空地</div>
       <div class="tooltip-row">湿度: ${plot.soilMoisture}%</div>
+      <div class="tooltip-row">肥力: <span style="color:${fertilityColor}">${plot.fertility}% (${fertilityLevelText})</span></div>
+      ${plot.fertility <= 0 ? `<div class="tooltip-row" style="color:#D32F2F">⚠️ 肥力耗尽，无法种植！</div>` : ''}
       <div class="tooltip-row">点击选择此地块</div>
     `;
   }
@@ -2033,23 +2206,62 @@ function renderSellTab(container) {
     container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
     return;
   }
-  
+
   const player = gameState.players.find(p => p.id === currentPlayer.id);
   if (!player) return;
-  
+
   const inventory = player.inventory || {};
   const crops = gameState.crops || {};
-  
+  const market = gameState.market || { crops: {}, activeEvents: [] };
+
   const items = Object.entries(inventory).filter(([cropType]) => crops[cropType]);
-  
+
   if (items.length === 0) {
     container.innerHTML = '<div class="inventory-empty">背包中没有可出售的物品</div>';
     return;
   }
-  
+
+  // 显示活跃市场事件
+  if (market.activeEvents && market.activeEvents.length > 0) {
+    const eventBanner = document.createElement('div');
+    eventBanner.className = 'market-events-banner';
+    eventBanner.innerHTML = market.activeEvents.map(event => `
+      <div class="market-event-item">
+        <span class="event-emoji">${event.emoji}</span>
+        <span class="event-name">${event.name}</span>
+        <span class="event-timer">${event.remaining}s</span>
+      </div>
+    `).join('');
+    container.appendChild(eventBanner);
+  }
+
   container.innerHTML = '';
   items.forEach(([cropType, count]) => {
     const crop = crops[cropType];
+    const marketCrop = market.crops?.[cropType] || { currentPrice: crop.sellPrice, trend: 'stable' };
+    const currentPrice = marketCrop.currentPrice || crop.sellPrice;
+    const basePrice = crop.sellPrice;
+    const trend = marketCrop.trend || 'stable';
+
+    // 价格趋势指示
+    let trendIcon = '→';
+    let trendColor = '#aaa';
+    if (trend === 'rising') {
+      trendIcon = '↑';
+      trendColor = '#4caf50';
+    } else if (trend === 'falling') {
+      trendIcon = '↓';
+      trendColor = '#ef5350';
+    }
+
+    // 价格变化指示
+    let priceChangeIndicator = '';
+    if (currentPrice > basePrice) {
+      priceChangeIndicator = `<span class="price-up">(+${Math.round((currentPrice/basePrice - 1) * 100)}%)</span>`;
+    } else if (currentPrice < basePrice) {
+      priceChangeIndicator = `<span class="price-down">(${Math.round((currentPrice/basePrice - 1) * 100)}%)</span>`;
+    }
+
     const row = document.createElement('div');
     row.className = 'sell-item-row';
     row.innerHTML = `
@@ -2058,7 +2270,11 @@ function renderSellTab(container) {
         <div class="item-name">${crop.name}</div>
         <div class="item-count">库存: ${count}</div>
       </div>
-      <span class="sell-price">+${crop.sellPrice}💰</span>
+      <span class="sell-price">
+        +${currentPrice}💰
+        ${priceChangeIndicator}
+        <span class="price-trend" style="color:${trendColor}">${trendIcon}</span>
+      </span>
       <button class="sell-btn" data-crop="${cropType}">出售</button>
     `;
     container.appendChild(row);

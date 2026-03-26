@@ -1457,6 +1457,36 @@ button:active {
   color: #C62828;
 }
 
+/* 工资显示 */
+.salary-badge {
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+  color: #1565C0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.salary-badge.warning {
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+  color: #E65100;
+}
+
+.salary-badge.danger {
+  background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+  color: #C62828;
+}
+
+/* 税收显示 */
+.tax-badge {
+  background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
+  color: #7B1FA2;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
 /* 害虫数量 */
 .pest-count {
   background: #ef5350;
@@ -3719,4 +3749,138 @@ button:active {
   font-size: 11px;
   font-style: italic;
   padding: 4px 0;
+}
+
+/* 肥力指示器样式 */
+.fertility-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  height: 3px;
+  border-radius: 2px;
+  transition: width 0.3s, background-color 0.3s;
+  opacity: 0.8;
+}
+
+.plot-cell {
+  position: relative;
+}
+}
+
+/* ========== 市场供需系统样式 ========== */
+.market-events-banner {
+  background: linear-gradient(135deg, #2d3a24 0%, #1a237e 100%);
+  border: 1px solid #4a90d9;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.market-event-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(74, 144, 217, 0.2);
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 13px;
+}
+
+.market-event-item .event-emoji {
+  font-size: 16px;
+}
+
+.market-event-item .event-name {
+  color: #fff;
+  font-weight: 500;
+}
+
+.market-event-item .event-timer {
+  color: #4caf50;
+  font-size: 11px;
+  background: rgba(76, 175, 80, 0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.sell-item-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: background 0.2s;
+}
+
+.sell-item-row:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.sell-item-row .item-emoji {
+  font-size: 28px;
+  margin-right: 12px;
+}
+
+.sell-item-row .item-info {
+  flex: 1;
+}
+
+.sell-item-row .item-name {
+  font-weight: 500;
+  color: #fff;
+}
+
+.sell-item-row .item-count {
+  font-size: 12px;
+  color: #888;
+}
+
+.sell-item-row .sell-price {
+  font-size: 14px;
+  color: #4caf50;
+  font-weight: 500;
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sell-item-row .price-up {
+  color: #4caf50;
+  font-size: 11px;
+}
+
+.sell-item-row .price-down {
+  color: #ef5350;
+  font-size: 11px;
+}
+
+.sell-item-row .price-trend {
+  font-size: 14px;
+  margin-left: 2px;
+}
+
+.sell-item-row .sell-btn {
+  background: #4caf50;
+  color: #fff;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.sell-item-row .sell-btn:hover {
+  background: #388e3c;
+}
+
+/* 市场事件通知样式 */
+.notification.market {
+  background: linear-gradient(135deg, #1a237e 0%, #4a148c 100%);
+  border-left: 4px solid #7c4dff;
 }

@@ -90,6 +90,49 @@ const ANTI_PEST_ITEMS = {
   'scarer': { name: '稻草人', price: 100, emoji: '🎃', effect: 'scare_pest', duration: 600 }
 };
 
+// ========== 市场供需系统 ==========
+const MARKET_EVENT_TYPES = {
+  demand_surge: {
+    name: '需求暴涨',
+    emoji: '📈',
+    description: '市场对该作物需求激增！',
+    priceMultiplier: 1.3,  // +30%
+    duration: 300,  // 5分钟
+    category: 'all'  // 适用于所有作物
+  },
+  oversupply: {
+    name: '丰收过剩',
+    emoji: '📉',
+    description: '市场供应过剩，价格下跌...',
+    priceMultiplier: 0.8,  // -20%
+    duration: 300,
+    category: 'all'
+  },
+  festival: {
+    name: '节日庆典',
+    emoji: '🎉',
+    description: '节日庆典，农产品价格上涨！',
+    priceMultiplier: 1.2,  // +20%
+    duration: 600,  // 10分钟
+    category: 'all'
+  },
+  special_order: {
+    name: '特殊订单',
+    emoji: '📋',
+    description: '收到一笔特殊订单，高价收购！',
+    priceMultiplier: 1.5,  // +50%
+    duration: 180,  // 3分钟
+    category: 'all'
+  }
+};
+
+// 每种作物的市场状态默认值
+const DEFAULT_CROP_MARKET_STATE = {
+  totalSold: 0,           // 累计销售量
+  priceModifier: 1.0,     // 价格修正系数
+  recentSales: []         // 最近销售记录 [{timestamp, quantity}]
+};
+
 // 每日任务配置
 const DAILY_TASKS = [
   { id: 'plant_10', name: '辛勤耕耘', desc: '种植10次', reward: 50, type: 'plant', target: 10 },
@@ -259,6 +302,8 @@ class Plot {
     this.x = x;
     this.y = y;
     this.soilMoisture = 50; // 土壤湿度 0-100
+    this.fertility = 100; // 土地肥力 0-100，初始满肥力
+    this.fallowTime = 0; // 闲置累计时间（秒）
     this.crop = null; // 作物类型
     this.plantedAt = null; // 种植时间
     this.growthStage = 0; // 0-3 (0=种子, 1=幼苗, 2=生长中, 3=成熟)
@@ -266,15 +311,48 @@ class Plot {
     this.owner = null; // 种植者
   }
 
+  // 获取肥力效果
+  getFertilityEffect() {
+    if (this.fertility >= 80) {
+      return { growthMultiplier: 1.2, yieldMultiplier: 1.1, level: 'excellent' }; // 肥力 80-100：生长速度 +20%，产量 +10%
+    } else if (this.fertility >= 50) {
+      return { growthMultiplier: 1.0, yieldMultiplier: 1.0, level: 'normal' }; // 肥力 50-79：正常
+    } else if (this.fertility >= 20) {
+      return { growthMultiplier: 0.8, yieldMultiplier: 0.85, level: 'poor' }; // 肥力 20-49：生长速度 -20%，产量 -15%
+    } else {
+      return { growthMultiplier: 0.5, yieldMultiplier: 0.6, level: 'depleted' }; // 肥力 0-19：生长速度 -50%，产量 -40%
+    }
+  }
+
+  // 恢复肥力（每秒调用一次）
+  recoverFertility() {
+    // 只有闲置时才恢复肥力
+    if (!this.crop) {
+      this.fallowTime++;
+      // 每秒恢复1点肥力
+      this.fertility = Math.min(100, this.fertility + 1);
+    } else {
+      this.fallowTime = 0;
+    }
+  }
+
+  // 使用有机肥恢复肥力
+  useFertilizer(amount = 50) {
+    this.fertility = Math.min(100, this.fertility + amount);
+    return { success: true, newFertility: this.fertility };
+  }
+
   // 种植
   plant(cropType, playerName) {
     if (this.crop) return { success: false, message: '这块地已经有作物了' };
-    
+    if (this.fertility <= 0) return { success: false, message: '这块地肥力耗尽，无法种植！请使用有机肥恢复肥力' };
+
     this.crop = cropType;
     this.plantedAt = Date.now();
     this.growthStage = 0;
     this.owner = playerName;
     this.isWatered = false;
+    this.fallowTime = 0;
     return { success: true };
   }
 
@@ -282,7 +360,7 @@ class Plot {
   water() {
     if (!this.crop) return { success: false, message: '没有作物可浇水' };
     if (this.isWatered) return { success: false, message: '已经浇过水了' };
-    
+
     this.soilMoisture = Math.min(100, this.soilMoisture + 30);
     this.isWatered = true;
     return { success: true };
@@ -292,50 +370,62 @@ class Plot {
   harvest() {
     if (!this.crop) return { success: false, message: '没有作物可收获' };
     if (this.growthStage < 3) return { success: false, message: '作物还未成熟' };
-    
+
     const crop = CROPS[this.crop];
-    const reward = crop.sellPrice;
     const harvestedCrop = this.crop;
-    
+
+    // 根据肥力计算产量
+    const fertilityEffect = this.getFertilityEffect();
+    const baseReward = crop.sellPrice;
+    const reward = Math.floor(baseReward * fertilityEffect.yieldMultiplier);
+
+    // 消耗肥力
+    const fertilityCost = crop.fertilityCost || 10; // 默认消耗10点肥力
+    this.fertility = Math.max(0, this.fertility - fertilityCost);
+
     // 重置地块
     this.crop = null;
     this.plantedAt = null;
     this.growthStage = 0;
     this.owner = null;
     this.isWatered = false;
-    
-    return { success: true, reward, cropType: harvestedCrop };
+
+    return { success: true, reward, cropType: harvestedCrop, fertilityUsed: fertilityCost };
   }
 
   // 铲除作物
   remove() {
     if (!this.crop) return { success: false, message: '没有作物可铲除' };
-    
+
     const removedCrop = this.crop;
-    
+
     // 重置地块
     this.crop = null;
     this.plantedAt = null;
     this.growthStage = 0;
     this.owner = null;
     this.isWatered = false;
-    
+
     return { success: true, message: '已铲除作物', cropType: removedCrop };
   }
 
   // 更新生长阶段
   updateGrowth() {
     if (!this.crop || this.growthStage >= 3) return;
-    
+
     const crop = CROPS[this.crop];
     const elapsed = (Date.now() - this.plantedAt) / 1000; // 秒
     let effectiveTime = elapsed;
-    
+
     // 浇水加速 50%
     if (this.isWatered) {
       effectiveTime *= 1.5;
     }
-    
+
+    // 肥力影响生长速度
+    const fertilityEffect = this.getFertilityEffect();
+    effectiveTime *= fertilityEffect.growthMultiplier;
+
     // 计算生长阶段
     const progress = effectiveTime / crop.growthTime;
     if (progress >= 1) {
@@ -348,10 +438,15 @@ class Plot {
   }
 
   getState() {
+    const fertilityEffect = this.getFertilityEffect();
     return {
       x: this.x,
       y: this.y,
       soilMoisture: this.soilMoisture,
+      fertility: this.fertility,
+      fertilityLevel: fertilityEffect.level,
+      growthMultiplier: fertilityEffect.growthMultiplier,
+      yieldMultiplier: fertilityEffect.yieldMultiplier,
       crop: this.crop,
       growthStage: this.growthStage,
       isWatered: this.isWatered,
@@ -542,6 +637,27 @@ class FarmGame {
     // ========== 农夫AI思考记录 ==========
     this.farmerThoughts = []; // 最近思考记录
 
+    // ========== 农夫工资系统 ==========
+    this.lastSalaryTime = Date.now(); // 上次工资结算时间
+    this.unpaidSalary = 0;            // 累计欠薪
+    this.totalSalaryPaid = 0;         // 累计已发工资
+
+    // ========== 税收系统 ==========
+    this.lastTaxTime = Date.now();    // 上次征税时间
+    this.totalTaxPaid = 0;            // 累计缴税
+    this.gameCreatedAt = Date.now();  // 游戏创建时间（用于新玩家保护）
+
+    // ========== 市场供需系统 ==========
+    this.marketState = {
+      crops: {},  // { cropType: { totalSold, priceModifier, recentSales } }
+      activeEvents: []  // [{ eventType, cropType, startTime, duration }]
+    };
+    // 初始化所有作物的市场状态
+    for (const cropType of Object.keys(CROPS)) {
+      this.marketState.crops[cropType] = { ...DEFAULT_CROP_MARKET_STATE };
+    }
+    this.lastPriceRecovery = Date.now();  // 上次价格恢复时间
+
     // 启动生长更新循环
     this.startGrowthLoop();
 
@@ -562,6 +678,15 @@ class FarmGame {
 
     // 启动农夫AI思考循环（每30分钟思考一次）
     this.startFarmerAILoop();
+
+    // 启动农夫工资结算循环（每分钟检查一次整点结算）
+    this.startSalaryLoop();
+
+    // 启动税收征收循环（每分钟检查一次）
+    this.startTaxLoop();
+
+    // 启动市场供需循环（价格恢复和事件检查）
+    this.startMarketLoop();
 
     // ========== 加载已保存的状态 ==========
     this._loadState();
@@ -661,6 +786,49 @@ class FarmGame {
       this.farmerThoughts = saved.farmerThoughts;
     }
 
+    // 工资和税收系统
+    if (typeof saved.lastSalaryTime === 'number') {
+      this.lastSalaryTime = saved.lastSalaryTime;
+    }
+    if (typeof saved.unpaidSalary === 'number') {
+      this.unpaidSalary = saved.unpaidSalary;
+    }
+    if (typeof saved.totalSalaryPaid === 'number') {
+      this.totalSalaryPaid = saved.totalSalaryPaid;
+    }
+    if (typeof saved.lastTaxTime === 'number') {
+      this.lastTaxTime = saved.lastTaxTime;
+    }
+    if (typeof saved.totalTaxPaid === 'number') {
+      this.totalTaxPaid = saved.totalTaxPaid;
+    }
+    if (typeof saved.gameCreatedAt === 'number') {
+      this.gameCreatedAt = saved.gameCreatedAt;
+    }
+
+    // 市场供需系统
+    if (saved.marketState) {
+      // 加载作物市场状态
+      if (saved.marketState.crops) {
+        for (const cropType of Object.keys(saved.marketState.crops)) {
+          if (this.marketState.crops[cropType]) {
+            this.marketState.crops[cropType] = saved.marketState.crops[cropType];
+          }
+        }
+      }
+      // 加载活跃事件
+      if (Array.isArray(saved.marketState.activeEvents)) {
+        // 过滤已过期的事件
+        const now = Date.now();
+        this.marketState.activeEvents = saved.marketState.activeEvents.filter(
+          e => e && e.startTime && e.duration && (now - e.startTime < e.duration * 1000)
+        );
+      }
+    }
+    if (saved.lastPriceRecovery) {
+      this.lastPriceRecovery = saved.lastPriceRecovery;
+    }
+
     console.log(`[FarmGame] State restored for room "${this.roomId}" — 金库: ${this.sharedMoney}, 黄金: ${this.goldAmount}g, 农夫: ${(this._savedFarmerData || [{ name: '阿明' }]).length} 人`);
   }
 
@@ -691,7 +859,17 @@ class FarmGame {
       goldAmount: this.goldAmount,
       goldPrice: this.goldPrice,
       goldPriceHistory: this.goldPriceHistory,
-      farmerThoughts: this.farmerThoughts
+      farmerThoughts: this.farmerThoughts,
+      // 工资和税收系统
+      lastSalaryTime: this.lastSalaryTime,
+      unpaidSalary: this.unpaidSalary,
+      totalSalaryPaid: this.totalSalaryPaid,
+      lastTaxTime: this.lastTaxTime,
+      totalTaxPaid: this.totalTaxPaid,
+      gameCreatedAt: this.gameCreatedAt,
+      // 市场供需系统
+      marketState: this.marketState,
+      lastPriceRecovery: this.lastPriceRecovery
     };
     dataStore.saveRoomState(this.roomId, state);
   }
@@ -901,6 +1079,285 @@ class FarmGame {
     };
   }
 
+
+  // ========== 农夫工资系统 ==========
+
+  // 计算总资产（用于税收计算）
+  calculateTotalAssets() {
+    let totalAssets = 0;
+
+    // 1. 公库金币
+    totalAssets += this.sharedMoney;
+
+    // 2. 黄金价值
+    totalAssets += this.goldAmount * this.goldPrice;
+
+    // 3. 作物估值（按种子价格计算，已种植的作物价值）
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const plot = this.plots[y][x];
+        if (plot.crop) {
+          const crop = CROPS[plot.crop];
+          if (crop) {
+            // 成熟度越高价值越高
+            const growthValue = crop.seedPrice * (plot.growthStage + 1);
+            totalAssets += growthValue;
+          }
+        }
+      }
+    }
+
+    // 4. 动物估值（按购买价格的50%计算）
+    for (const pen of this.animalPens) {
+      if (pen.animal) {
+        const animal = ANIMALS[pen.animal];
+        if (animal) {
+          totalAssets += Math.floor(animal.buyPrice * 0.5);
+        }
+      }
+    }
+
+    return totalAssets;
+  }
+
+  // 计算应缴税额（阶梯税率）
+  calculateTaxAmount(totalAssets) {
+    if (totalAssets <= 5000) return 0;
+
+    let tax = 0;
+
+    // 5,001-15,000: 2%
+    if (totalAssets > 5000) {
+      const bracket = Math.min(totalAssets - 5000, 10000);
+      tax += bracket * 0.02;
+    }
+
+    // 15,001-50,000: 5%
+    if (totalAssets > 15000) {
+      const bracket = Math.min(totalAssets - 15000, 35000);
+      tax += bracket * 0.05;
+    }
+
+    // 50,001-150,000: 10%
+    if (totalAssets > 50000) {
+      const bracket = Math.min(totalAssets - 50000, 100000);
+      tax += bracket * 0.10;
+    }
+
+    // 150,001+: 15%
+    if (totalAssets > 150000) {
+      const bracket = totalAssets - 150000;
+      tax += bracket * 0.15;
+    }
+
+    return Math.floor(tax);
+  }
+
+  // 结算农夫工资
+  settleFarmerSalaries() {
+    const now = Date.now();
+    const farmerCount = this.farmers.filter(f => !f.isDead).length;
+
+    if (farmerCount === 0) return { settled: false, reason: '没有农夫' };
+
+    // 计算距离上次结算过了多少整小时
+    const hoursPassed = Math.floor((now - this.lastSalaryTime) / (1000 * 60 * 60));
+
+    if (hoursPassed < 1) {
+      return { settled: false, reason: '未到结算时间' };
+    }
+
+    // 工资标准：50金币/人/小时
+    const salaryPerFarmerPerHour = 50;
+    const totalSalary = farmerCount * salaryPerFarmerPerHour * hoursPassed;
+
+    // 尝试从公库扣除工资
+    if (this.sharedMoney >= totalSalary) {
+      this.sharedMoney -= totalSalary;
+      this.totalSalaryPaid += totalSalary;
+      this.lastSalaryTime = now;
+
+      // 如果有欠薪，优先偿还
+      if (this.unpaidSalary > 0) {
+        const repayAmount = Math.min(this.sharedMoney, this.unpaidSalary);
+        this.sharedMoney -= repayAmount;
+        this.unpaidSalary -= repayAmount;
+        if (repayAmount > 0) {
+          this.addFarmLog('偿还欠薪 ' + repayAmount + ' 💰，剩余欠薪: ' + this.unpaidSalary, '💰', 'salary');
+        }
+      }
+
+      this.addFarmLog('结算农夫工资: ' + farmerCount + '人 x ' + hoursPassed + '小时 = ' + totalSalary + ' 💰', '💵', 'salary');
+
+      return {
+        settled: true,
+        farmerCount,
+        hoursPassed,
+        totalSalary,
+        unpaidSalary: this.unpaidSalary
+      };
+    } else {
+      // 公库不足，记录欠薪
+      const canPay = this.sharedMoney;
+      const actualUnpaid = totalSalary - canPay;
+
+      this.sharedMoney = 0;
+      this.unpaidSalary += actualUnpaid;
+      this.totalSalaryPaid += canPay;
+      this.lastSalaryTime = now;
+
+      this.addFarmLog('工资结算: 公库不足，欠薪 ' + actualUnpaid + ' 💰（累计欠薪: ' + this.unpaidSalary + '）', '⚠️', 'salary');
+
+      return {
+        settled: true,
+        farmerCount,
+        hoursPassed,
+        totalSalary,
+        paid: canPay,
+        unpaid: actualUnpaid,
+        totalUnpaid: this.unpaidSalary
+      };
+    }
+  }
+
+  // 执行征税
+  collectTax() {
+    const now = Date.now();
+
+    // 检查是否在新玩家保护期内（前24小时）
+    const protectionPeriodMs = 24 * 60 * 60 * 1000; // 24小时
+    const gameAge = now - this.gameCreatedAt;
+
+    if (gameAge < protectionPeriodMs) {
+      const remainingHours = Math.ceil((protectionPeriodMs - gameAge) / (1000 * 60 * 60));
+      return {
+        collected: false,
+        reason: '新玩家保护期，剩余 ' + remainingHours + ' 小时',
+        protectionRemaining: remainingHours
+      };
+    }
+
+    // 检查是否到征税时间（每日固定时间，比如每24小时征一次）
+    const taxIntervalMs = 24 * 60 * 60 * 1000; // 24小时
+    const timeSinceLastTax = now - this.lastTaxTime;
+
+    if (timeSinceLastTax < taxIntervalMs) {
+      const nextTaxIn = Math.ceil((taxIntervalMs - timeSinceLastTax) / (1000 * 60));
+      return {
+        collected: false,
+        reason: '未到征税时间',
+        nextTaxInMinutes: nextTaxIn
+      };
+    }
+
+    // 计算总资产
+    const totalAssets = this.calculateTotalAssets();
+
+    // 计算应缴税额
+    const taxAmount = this.calculateTaxAmount(totalAssets);
+
+    if (taxAmount <= 0) {
+      this.lastTaxTime = now;
+      return {
+        collected: true,
+        totalAssets,
+        taxAmount: 0,
+        reason: '资产未达征税标准'
+      };
+    }
+
+    // 从公库扣除税款
+    if (this.sharedMoney >= taxAmount) {
+      this.sharedMoney -= taxAmount;
+      this.totalTaxPaid += taxAmount;
+      this.lastTaxTime = now;
+
+      this.addFarmLog('税收征收: 资产 ' + totalAssets + ' 💰，税率阶梯，缴税 ' + taxAmount + ' 💰', '🏦', 'tax');
+
+      return {
+        collected: true,
+        totalAssets,
+        taxAmount,
+        totalTaxPaid: this.totalTaxPaid
+      };
+    } else {
+      // 公库不足，扣除所有金币并记录欠税
+      const actualTax = this.sharedMoney;
+      const unpaidTax = taxAmount - actualTax;
+
+      this.sharedMoney = 0;
+      this.totalTaxPaid += actualTax;
+      this.lastTaxTime = now;
+
+      this.addFarmLog('税收征收: 公库不足，仅缴纳 ' + actualTax + ' 💰（应缴 ' + taxAmount + '）', '⚠️', 'tax');
+
+      return {
+        collected: true,
+        totalAssets,
+        taxAmount: actualTax,
+        requiredTax: taxAmount,
+        unpaidTax,
+        totalTaxPaid: this.totalTaxPaid
+      };
+    }
+  }
+
+  // 获取预估税额（用于UI显示）
+  getEstimatedTax() {
+    const totalAssets = this.calculateTotalAssets();
+    const taxAmount = this.calculateTaxAmount(totalAssets);
+    const now = Date.now();
+    const timeSinceLastTax = now - this.lastTaxTime;
+    const taxIntervalMs = 24 * 60 * 60 * 1000;
+    const nextTaxIn = Math.max(0, taxIntervalMs - timeSinceLastTax);
+
+    // 检查保护期
+    const protectionPeriodMs = 24 * 60 * 60 * 1000;
+    const gameAge = now - this.gameCreatedAt;
+    const isProtected = gameAge < protectionPeriodMs;
+
+    return {
+      totalAssets,
+      estimatedTax: taxAmount,
+      nextTaxIn,
+      isProtected,
+      protectionRemaining: isProtected ? Math.ceil((protectionPeriodMs - gameAge) / (1000 * 60 * 60)) : 0
+    };
+  }
+
+  // 获取工资信息（用于UI显示）
+  getSalaryInfo() {
+    const now = Date.now();
+    const timeSinceLastSalary = now - this.lastSalaryTime;
+    const farmerCount = this.farmers.filter(f => !f.isDead).length;
+    const salaryPerFarmerPerHour = 50;
+
+    return {
+      farmerCount,
+      salaryPerFarmerPerHour,
+      lastSalaryTime: this.lastSalaryTime,
+      unpaidSalary: this.unpaidSalary,
+      totalSalaryPaid: this.totalSalaryPaid,
+      nextSalaryIn: Math.max(0, 60 * 60 * 1000 - timeSinceLastSalary), // 下次结算剩余时间
+      estimatedHourlyCost: farmerCount * salaryPerFarmerPerHour
+    };
+  }
+
+  // 启动工资结算循环（每分钟检查一次）
+  startSalaryLoop() {
+    this._intervals.push(setInterval(() => {
+      this.settleFarmerSalaries();
+    }, 60000)); // 每分钟检查一次
+  }
+
+  // 启动税收征收循环（每分钟检查一次）
+  startTaxLoop() {
+    this._intervals.push(setInterval(() => {
+      this.collectTax();
+    }, 60000)); // 每分钟检查一次
+  }
+
+
   // ========== 天气系统方法 ==========
   
   // 启动天气循环
@@ -974,7 +1431,250 @@ class FarmGame {
   // 更新害虫
   updatePests() {
     const weatherData = WEATHER_TYPES[this.weather];
-    
+  }
+
+// ========== 市场供需系统方法 ==========
+
+  // 计算作物最终价格（基准售价 x 价格倍率 x 事件倍率）
+  calculateCropPrice(cropType) {
+    const crop = CROPS[cropType];
+    if (!crop) return { finalPrice: 0, priceModifier: 1, eventMultiplier: 1 };
+
+    const marketCrop = this.marketState.crops[cropType] || { ...DEFAULT_CROP_MARKET_STATE };
+    const priceModifier = marketCrop.priceModifier;
+
+    // 计算事件倍率（取所有对该作物生效的事件的乘积）
+    let eventMultiplier = 1;
+    const now = Date.now();
+    for (const event of this.marketState.activeEvents) {
+      if (event.startTime && event.duration) {
+        const elapsed = now - event.startTime;
+        if (elapsed < event.duration * 1000) {
+          const eventType = MARKET_EVENT_TYPES[event.eventType];
+          if (eventType && (eventType.category === 'all' || eventType.category === crop.category)) {
+            eventMultiplier *= eventType.priceMultiplier;
+          }
+        }
+      }
+    }
+
+    // 最终价格 = 基准售价 x 价格修正系数 x 事件倍率
+    const finalPrice = Math.floor(crop.sellPrice * priceModifier * eventMultiplier);
+
+    return { finalPrice, priceModifier, eventMultiplier };
+  }
+
+  // 更新市场状态（出售时调用）
+  updateMarketOnSale(cropType, quantity) {
+    const marketCrop = this.marketState.crops[cropType];
+    if (!marketCrop) return;
+
+    const now = Date.now();
+
+    // 更新累计销售量
+    marketCrop.totalSold += quantity;
+
+    // 记录最近销售
+    marketCrop.recentSales.push({ timestamp: now, quantity });
+    // 只保留最近1小时的销售记录
+    marketCrop.recentSales = marketCrop.recentSales.filter(s => now - s.timestamp < 3600000);
+
+    // 计算价格影响：每销售50个单位影响5%（价格下降）
+    // 累计销售量每增加50，价格修正系数下降5%
+    const priceImpact = Math.floor(marketCrop.totalSold / 50) * 0.05;
+    const targetModifier = Math.max(0.5, 1 - priceImpact); // 最低50%
+
+    // 渐进式调整（每次最多变化2%）
+    if (marketCrop.priceModifier > targetModifier) {
+      marketCrop.priceModifier = Math.max(targetModifier, marketCrop.priceModifier - 0.02);
+    }
+
+    // 添加农场日志
+    if (marketCrop.priceModifier < 0.8) {
+      const crop = CROPS[cropType];
+      this.addFarmLog(`${crop.emoji}${crop.name} 市场供应充足，价格下跌`, '📉', 'market');
+    }
+  }
+
+  // 启动市场循环（价格恢复和事件触发）
+  startMarketLoop() {
+    // 每10秒检查一次
+    this._intervals.push(setInterval(() => {
+      this.recoverPrices();
+      this.checkExpiredEvents();
+
+      // 随机事件触发（每次有5%概率触发）
+      if (Math.random() < 0.05) {
+        this.triggerRandomEvent();
+      }
+    }, 10000));
+  }
+
+  // 价格恢复（每小时恢复10%偏差）
+  recoverPrices() {
+    const now = Date.now();
+    const hoursPassed = (now - this.lastPriceRecovery) / 3600000;
+
+    if (hoursPassed < 1) return; // 不到一小时不恢复
+
+    const recoveryRate = 0.1 * hoursPassed; // 每小时恢复10%
+
+    for (const cropType of Object.keys(this.marketState.crops)) {
+      const marketCrop = this.marketState.crops[cropType];
+      if (marketCrop.priceModifier < 1) {
+        // 价格偏低，向1恢复
+        marketCrop.priceModifier = Math.min(1, marketCrop.priceModifier + recoveryRate);
+      } else if (marketCrop.priceModifier > 1) {
+        // 价格偏高，向1恢复
+        marketCrop.priceModifier = Math.max(1, marketCrop.priceModifier - recoveryRate);
+      }
+    }
+
+    this.lastPriceRecovery = now;
+  }
+
+  // 检查并移除过期事件
+  checkExpiredEvents() {
+    const now = Date.now();
+    this.marketState.activeEvents = this.marketState.activeEvents.filter(event => {
+      if (!event.startTime || !event.duration) return false;
+      const elapsed = now - event.startTime;
+      return elapsed < event.duration * 1000;
+    });
+  }
+
+  // 触发随机市场事件
+  triggerRandomEvent() {
+    // 如果已有2个以上活跃事件，不再触发
+    if (this.marketState.activeEvents.length >= 2) return;
+
+    const eventTypes = Object.keys(MARKET_EVENT_TYPES);
+    const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+    const eventConfig = MARKET_EVENT_TYPES[eventType];
+
+    const event = {
+      eventType,
+      startTime: Date.now(),
+      duration: eventConfig.duration
+    };
+
+    this.marketState.activeEvents.push(event);
+
+    // 添加农场日志
+    this.addFarmLog(
+      `${eventConfig.emoji} ${eventConfig.name}：${eventConfig.description}`,
+      eventConfig.emoji,
+      'market'
+    );
+
+    // 广播事件通知
+    this.broadcastMarketEvent(event, eventConfig);
+
+    return event;
+  }
+
+  // 广播市场事件（给客户端）
+  broadcastMarketEvent(event, eventConfig) {
+    // 通过io广播（需要在socket处理中设置）
+    if (this._io) {
+      this._io.to(this.roomId).emit('market-event', {
+        eventType: event.eventType,
+        name: eventConfig.name,
+        emoji: eventConfig.emoji,
+        description: eventConfig.description,
+        priceMultiplier: eventConfig.priceMultiplier,
+        duration: eventConfig.duration,
+        startTime: event.startTime
+      });
+    }
+  }
+
+  // 手动触发事件（管理员用）
+  triggerEvent(eventType) {
+    const eventConfig = MARKET_EVENT_TYPES[eventType];
+    if (!eventConfig) return { success: false, message: '未知事件类型' };
+
+    const event = {
+      eventType,
+      startTime: Date.now(),
+      duration: eventConfig.duration
+    };
+
+    this.marketState.activeEvents.push(event);
+
+    this.addFarmLog(
+      `${eventConfig.emoji} ${eventConfig.name}：${eventConfig.description}`,
+      eventConfig.emoji,
+      'market'
+    );
+
+    this.broadcastMarketEvent(event, eventConfig);
+
+    return { success: true, message: `已触发事件: ${eventConfig.name}` };
+  }
+
+  // 获取市场信息
+  getMarketInfo() {
+    const cropsInfo = {};
+    for (const cropType of Object.keys(CROPS)) {
+      const crop = CROPS[cropType];
+      const marketCrop = this.marketState.crops[cropType] || { ...DEFAULT_CROP_MARKET_STATE };
+      const { finalPrice, priceModifier, eventMultiplier } = this.calculateCropPrice(cropType);
+
+      cropsInfo[cropType] = {
+        name: crop.name,
+        emoji: crop.emoji,
+        basePrice: crop.sellPrice,
+        currentPrice: finalPrice,
+        priceModifier,
+        eventMultiplier,
+        totalSold: marketCrop.totalSold,
+        trend: this.calculatePriceTrend(cropType)
+      };
+    }
+
+    return {
+      crops: cropsInfo,
+      activeEvents: this.marketState.activeEvents.map(event => {
+        const eventConfig = MARKET_EVENT_TYPES[event.eventType];
+        const remaining = eventConfig
+          ? Math.max(0, event.duration - Math.floor((Date.now() - event.startTime) / 1000))
+          : 0;
+        return {
+          ...event,
+          name: eventConfig?.name,
+          emoji: eventConfig?.emoji,
+          description: eventConfig?.description,
+          priceMultiplier: eventConfig?.priceMultiplier,
+          remaining
+        };
+      }),
+      lastRecovery: this.lastPriceRecovery
+    };
+  }
+
+  // 计算价格趋势
+  calculatePriceTrend(cropType) {
+    const marketCrop = this.marketState.crops[cropType];
+    if (!marketCrop || marketCrop.recentSales.length < 2) {
+      return 'stable'; // 稳定
+    }
+
+    const recentSales = marketCrop.recentSales.slice(-10);
+    const avgQuantity = recentSales.reduce((sum, s) => sum + s.quantity, 0) / recentSales.length;
+
+    // 如果最近销售量大，价格可能下降
+    if (avgQuantity > 20) {
+      return 'falling'; // 下跌
+    } else if (avgQuantity < 5 && marketCrop.priceModifier < 1) {
+      return 'rising'; // 上涨
+    }
+
+    return 'stable'; // 稳定
+  }
+
+  // 更新害虫
+  updatePests() {
     // 减少害虫持续时间，移除到期的害虫
     this.pests = this.pests.filter(pest => {
       pest.turnsRemaining--;
@@ -1637,10 +2337,12 @@ class FarmGame {
 
   startGrowthLoop() {
     this._intervals.push(setInterval(() => {
-      // 更新作物生长
+      // 更新作物生长和肥力恢复
       for (let y = 0; y < this.height; y++) {
         for (let x = 0; x < this.width; x++) {
           this.plots[y][x].updateGrowth();
+          // 闲置地块恢复肥力
+          this.plots[y][x].recoverFertility();
         }
       }
       // 更新动物状态
@@ -2020,31 +2722,37 @@ class FarmGame {
   sellItem(socketId, cropType, quantity = 1) {
     const player = this.players.get(socketId);
     if (!player) return { success: false, message: '玩家不存在' };
-    
+
     if (!player.inventory[cropType] || player.inventory[cropType] < quantity) {
       return { success: false, message: '背包中没有足够的物品' };
     }
-    
+
     const crop = CROPS[cropType];
     if (!crop) return { success: false, message: '未知作物' };
-    
-    const totalReward = crop.sellPrice * quantity;
+
+    // 获取动态价格
+    const { finalPrice, priceModifier, eventMultiplier } = this.calculateCropPrice(cropType);
+    const totalReward = Math.floor(finalPrice * quantity);
+
     player.inventory[cropType] -= quantity;
-    
+
     if (player.inventory[cropType] <= 0) {
       delete player.inventory[cropType];
     }
-    
+
     this.sharedMoney += totalReward;
-    
+
+    // 更新市场状态
+    this.updateMarketOnSale(cropType, quantity);
+
     // 更新任务进度（出售任务和赚取金币任务）
     this.updateTaskProgress(socketId, 'sell', quantity);
-    
+
     // 保存玩家数据
-    dataStore.savePlayer(socketId, { 
-      name: player.name, 
-      money: this.sharedMoney, 
-      color: player.color, 
+    dataStore.savePlayer(socketId, {
+      name: player.name,
+      money: this.sharedMoney,
+      color: player.color,
       position: player.position,
       inventory: player.inventory,
       items: player.items,
@@ -2054,15 +2762,31 @@ class FarmGame {
       stats: player.stats,
       totalTaskRewards: player.totalTaskRewards
     });
-    
+
     // 记录操作日志
     dataStore.logAction(socketId, player.name, 'sell', { cropType, quantity, reward: totalReward });
-    
-    return { 
-      success: true, 
-      message: `出售 ${crop.name} x${quantity} 获得 ${totalReward} 金币`,
+
+    // 构建价格信息消息
+    let priceInfo = '';
+    if (eventMultiplier !== 1) {
+      const eventPct = Math.round((eventMultiplier - 1) * 100);
+      priceInfo = eventPct > 0 ? ` (事件+${eventPct}%)` : ` (事件${eventPct}%)`;
+    } else if (priceModifier !== 1) {
+      const modPct = Math.round((priceModifier - 1) * 100);
+      priceInfo = modPct > 0 ? ` (市场+${modPct}%)` : ` (市场${modPct}%)`;
+    }
+
+    return {
+      success: true,
+      message: `出售 ${crop.name} x${quantity} 获得 ${totalReward} 金币${priceInfo}`,
       reward: totalReward,
-      inventory: player.inventory
+      inventory: player.inventory,
+      priceInfo: {
+        basePrice: crop.sellPrice,
+        priceModifier,
+        eventMultiplier,
+        finalPrice
+      }
     };
   }
 
@@ -2180,6 +2904,27 @@ class FarmGame {
       
       const scareMsg = scareCount > 0 ? `驱赶了${scareCount}只害虫！` : '';
       return { success: true, message: `稻草人已放置，10分钟内害虫不敢靠近！${scareMsg}` };
+    }
+    
+    // 有机肥：恢复地块肥力
+    if (item.effect === 'restore_fertility') {
+      const restoreAmount = item.fertilityRestore || 50;
+      const result = plot.useFertilizer(restoreAmount);
+      
+      player.items[itemId]--;
+      if (player.items[itemId] <= 0) delete player.items[itemId];
+      
+      // 保存数据
+      dataStore.savePlayer(socketId, { 
+        name: player.name, 
+        money: this.sharedMoney, 
+        color: player.color, 
+        position: player.position,
+        inventory: player.inventory,
+        items: player.items
+      });
+      
+      return { success: true, message: `使用有机肥，地块肥力恢复${restoreAmount}点！当前肥力: ${result.newFertility}` };
     }
     
     return { success: false, message: '该道具无法在此使用' };
@@ -2511,12 +3256,17 @@ class FarmGame {
       farmerFoods:  FARMER_FOODS,
       // 黄金交易系统
       gold: this.getGoldInfo(),
+      // 市场供需系统
+      market: this.getMarketInfo(),
       // 多样性系数
       diversity: this.getDiversityInfo(),
       // 动物位置（地图上）
       animalPositions: this.animalPositions,
       // 农夫AI思考记录
       farmerThoughts: this.farmerThoughts,
+      // 工资和税收系统
+      salary: this.getSalaryInfo(),
+      tax: this.getEstimatedTax(),
       // 农场日志（最新 40 条）
       farmLog: this.farmLog
     };
