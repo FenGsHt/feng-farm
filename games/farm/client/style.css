@@ -3288,3 +3288,171 @@ button:active {
 .acp-feed {
   background: linear-gradient(135deg, #81c784, #4caf50);
 }
+
+/* ========== 黄金交易系统 ========== */
+.gold-trading-panel {
+  padding: 15px;
+}
+
+.gold-price-header {
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  color: #3e2723;
+}
+
+.gold-current-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.gold-price-label {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.gold-price-value {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.gold-trend {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.gold-holdings {
+  display: flex;
+  gap: 20px;
+}
+
+.gold-holding-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.holding-label {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.holding-value {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.gold-price-chart {
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+
+.chart-title {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 70px;
+}
+
+.chart-bar {
+  flex: 1;
+  background: linear-gradient(to top, #ffd700, #ffb300);
+  border-radius: 2px 2px 0 0;
+  min-width: 6px;
+  transition: height 0.3s;
+}
+
+.gold-trade-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.trade-header {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #ffd700;
+}
+
+.trade-input-group {
+  margin-bottom: 12px;
+}
+
+.trade-input-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.trade-input-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-light);
+  font-size: 16px;
+}
+
+.trade-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.gold-buy-btn,
+.gold-sell-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gold-buy-btn {
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  color: #3e2723;
+}
+
+.gold-buy-btn:hover {
+  background: linear-gradient(135deg, #ffeb3b, #ffc107);
+  transform: translateY(-1px);
+}
+
+.gold-sell-btn {
+  background: linear-gradient(135deg, #78909c, #546e7a);
+  color: white;
+}
+
+.gold-sell-btn:hover {
+  background: linear-gradient(135deg, #90a4ae, #78909c);
+  transform: translateY(-1px);
+}
+
+.trade-preview {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.preview-row {
+  padding: 4px 0;
+}
+
+.preview-row strong {
+  color: #ffd700;
+}

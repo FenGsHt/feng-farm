@@ -525,6 +525,12 @@ class FarmGame {
     // ========== 共用金库 ==========
     this.sharedMoney = 1000; // 所有玩家 + 农夫共用的金币池
 
+    // ========== 黄金交易系统 ==========
+    this.goldAmount = 0;           // 持有黄金数量（克）
+    this.goldPrice = 580;          // 当前金价（金币/克），初始值
+    this.goldPriceHistory = [];    // 金价历史 [{time, price}]
+    this.lastGoldPriceUpdate = 0;  // 上次更新时间
+
     // 暴露动物配置，供 farmer.js 访问（避免循环 require）
     this.ANIMALS = ANIMALS;
 
@@ -546,6 +552,9 @@ class FarmGame {
 
     // 启动害虫生成循环
     this.startPestLoop();
+
+    // 启动金价更新循环（每小时更新一次）
+    this.startGoldPriceLoop();
 
     // ========== 加载已保存的状态 ==========
     this._loadState();
@@ -624,12 +633,23 @@ class FarmGame {
       }
     }
 
-    // 农夫数据（姓名 + 饥饿度）
+    //农夫数据（姓名 + 饥饿度）
     if (Array.isArray(saved.farmers) && saved.farmers.length > 0) {
       this._savedFarmerData = saved.farmers;
     }
 
-    console.log(`[FarmGame] State restored for room "${this.roomId}" — 金库: ${this.sharedMoney}, 农夫: ${(this._savedFarmerData || [{ name: '阿明' }]).length} 人`);
+    // 黄金数据
+    if (typeof saved.goldAmount === 'number') {
+      this.goldAmount = saved.goldAmount;
+    }
+    if (typeof saved.goldPrice === 'number') {
+      this.goldPrice = saved.goldPrice;
+    }
+    if (Array.isArray(saved.goldPriceHistory)) {
+      this.goldPriceHistory = saved.goldPriceHistory;
+    }
+
+    console.log(`[FarmGame] State restored for room "${this.roomId}" — 金库: ${this.sharedMoney}, 黄金: ${this.goldAmount}g, 农夫: ${(this._savedFarmerData || [{ name: '阿明' }]).length} 人`);
   }
 
   // 将当前游戏状态序列化并存入 dataStore（定期 + 关闭时调用）
@@ -655,7 +675,10 @@ class FarmGame {
         hunger:  pen.hunger || 0
       })),
       pests:   this.pests,
-      farmers: this.farmers.map(f => ({ name: f.name, hunger: f.hunger }))
+      farmers: this.farmers.map(f => ({ name: f.name, hunger: f.hunger })),
+      goldAmount: this.goldAmount,
+      goldPrice: this.goldPrice,
+      goldPriceHistory: this.goldPriceHistory
     };
     dataStore.saveRoomState(this.roomId, state);
   }
@@ -959,6 +982,172 @@ class FarmGame {
   // 检查某地块是否有害虫
   hasPest(x, y) {
     return this.pests.some(p => p.x === x && p.y === y);
+  }
+
+  // ========== 黄金交易系统 ==========
+
+  // 启动金价更新循环
+  startGoldPriceLoop() {
+    // 立即更新一次
+    this.fetchGoldPrice();
+    // 每小时更新一次
+    this._intervals.push(setInterval(() => {
+      this.fetchGoldPrice();
+    }, 3600000)); // 1小时 = 3600000ms
+  }
+
+  // 从外部API获取实时金价
+  async fetchGoldPrice() {
+    try {
+      // 使用金价API（这里用模拟数据，实际可替换为真实API）
+      // 常见API: goldprice.org, metals-api.com 等
+      const http = require('http');
+      const https = require('https');
+
+      // 模拟金价波动（实际应替换为真实API调用）
+      // 基于当前价格随机波动 ±3%
+      const basePrice = this.goldPrice || 580;
+      const change = (Math.random() - 0.5) * 0.06; // ±3%
+      const newPrice = Math.round(basePrice * (1 + change));
+
+      this.updateGoldPrice(newPrice);
+
+    } catch (error) {
+      console.error('[GoldPrice] 获取金价失败:', error.message);
+      // 失败时保持原价格或小幅波动
+      const change = (Math.random() - 0.5) * 0.02;
+      this.updateGoldPrice(Math.round(this.goldPrice * (1 + change)));
+    }
+  }
+
+  // 更新金价
+  updateGoldPrice(newPrice) {
+    const oldPrice = this.goldPrice;
+    this.goldPrice = Math.max(100, Math.min(2000, newPrice)); // 限制在100-2000之间
+    this.lastGoldPriceUpdate = Date.now();
+
+    // 记录历史（保留最近24条）
+    this.goldPriceHistory.push({
+      time: Date.now(),
+      price: this.goldPrice
+    });
+    if (this.goldPriceHistory.length > 24) {
+      this.goldPriceHistory.shift();
+    }
+
+    // 记录日志
+    const changePercent = ((this.goldPrice - oldPrice) / oldPrice * 100).toFixed(2);
+    const direction = this.goldPrice > oldPrice ? '📈' : '📉';
+    this.addFarmLog(`💰 金价更新: ${this.goldPrice}💰/g (${direction}${changePercent}%)`, '💰', 'gold');
+
+    // 保存状态
+    this._saveState();
+  }
+
+  // 买入黄金
+  buyGold(socketId, amount) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    if (amount <= 0) return { success: false, message: '购买数量必须大于0' };
+
+    const cost = Math.ceil(amount * this.goldPrice);
+    if (this.sharedMoney < cost) {
+      return { success: false, message: `金币不足，需要 ${cost}💰 购买 ${amount}g 黄金` };
+    }
+
+    this.sharedMoney -= cost;
+    this.goldAmount += amount;
+
+    this.addFarmLog(`💰 买入 ${amount.toFixed(2)}g 黄金，花费 ${cost}💰`, '💰', 'gold');
+    this._saveState();
+
+    return {
+      success: true,
+      message: `成功买入 ${amount.toFixed(2)}g 黄金，花费 ${cost}💰`,
+      goldAmount: this.goldAmount,
+      sharedMoney: this.sharedMoney
+    };
+  }
+
+  // 卖出黄金
+  sellGold(socketId, amount) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    if (amount <= 0) return { success: false, message: '卖出数量必须大于0' };
+
+    if (this.goldAmount < amount) {
+      return { success: false, message: `黄金不足，当前持有 ${this.goldAmount.toFixed(2)}g` };
+    }
+
+    const revenue = Math.floor(amount * this.goldPrice);
+    this.goldAmount -= amount;
+    this.sharedMoney += revenue;
+
+    this.addFarmLog(`💰 卖出 ${amount.toFixed(2)}g 黄金，获得 ${revenue}💰`, '💰', 'gold');
+    this._saveState();
+
+    return {
+      success: true,
+      message: `成功卖出 ${amount.toFixed(2)}g 黄金，获得 ${revenue}💰`,
+      goldAmount: this.goldAmount,
+      sharedMoney: this.sharedMoney
+    };
+  }
+
+  // 获取黄金信息
+  getGoldInfo() {
+    return {
+      goldAmount: this.goldAmount,
+      goldPrice: this.goldPrice,
+      goldValue: Math.floor(this.goldAmount * this.goldPrice),
+      priceHistory: this.goldPriceHistory,
+      lastUpdate: this.lastGoldPriceUpdate
+    };
+  }
+
+  // 农夫AI：判断是否交易黄金
+  farmerGoldDecision(farmer) {
+    // 农夫的黄金交易策略
+    const goldInfo = this.getGoldInfo();
+    const history = goldInfo.priceHistory;
+
+    if (history.length < 3) return null; // 数据不足
+
+    // 计算平均价格
+    const avgPrice = history.reduce((sum, h) => sum + h.price, 0) / history.length;
+    const currentPrice = goldInfo.goldPrice;
+    const priceRatio = currentPrice / avgPrice;
+
+    // 策略：
+    // 1. 金价低于均价5%以上，且有闲钱，考虑买入
+    // 2. 金价高于均价5%以上，且有黄金，考虑卖出
+    // 3. 农夫性格影响（随机性）
+
+    const personality = farmer.personality || 0.5; // 保守-激进 0-1
+
+    if (priceRatio < 0.95 && this.sharedMoney > 500) {
+      // 金价低，考虑买入
+      const buyAmount = Math.min(
+        (this.sharedMoney * 0.2 * personality) / currentPrice, // 用20%*性格比例的钱买
+        10 // 最多买10克
+      );
+      if (buyAmount >= 0.1) {
+        return { action: 'buy', amount: buyAmount, reason: '金价走低，逢低买入' };
+      }
+    } else if (priceRatio > 1.05 && goldInfo.goldAmount > 0.5) {
+      // 金价高，考虑卖出
+      const sellAmount = Math.min(
+        goldInfo.goldAmount * personality, // 按性格比例卖出
+        goldInfo.goldAmount * 0.5 // 最多卖出50%
+      );
+      if (sellAmount >= 0.1) {
+        return { action: 'sell', amount: sellAmount, reason: '金价走高，逢高卖出' };
+      }
+    }
+
+    return null;
   }
 
   // 检查并执行每日重置
@@ -2080,6 +2269,8 @@ class FarmGame {
       farmerCount:  this.farmers.length,
       nextHireCost: this.getNextHireCost(),
       farmerFoods:  FARMER_FOODS,
+      // 黄金交易系统
+      gold: this.getGoldInfo(),
       // 农场日志（最新 40 条）
       farmLog: this.farmLog
     };

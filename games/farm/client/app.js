@@ -721,6 +721,15 @@ function initSocket() {
     renderShopItems(items);
   });
 
+  // ===== 黄金交易系统 =====
+  socket.on('gold-trade-result', (result) => {
+    if (result.success) {
+      showNotification(`💰 ${result.message}`, 'success');
+    } else {
+      showNotification(`❌ ${result.message}`, 'error');
+    }
+  });
+
   socket.on('error', (error) => {
     showNotification(error.message || '发生错误', 'error');
   });
@@ -1782,22 +1791,27 @@ function renderInventory() {
 function renderShopItems(shopItems) {
   const shopItemsContainer = document.getElementById('shop-items');
   if (!shopItemsContainer) return;
-  
+
   // 过滤当前标签页的物品
   let itemsToShow = [];
-  
+
   if (currentShopTab === 'seeds') {
     itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'seed');
   } else if (currentShopTab === 'items') {
-    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'item');
+    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'item' || item.type === 'animal-feed');
+  } else if (currentShopTab === 'animals') {
+    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'animal');
   } else if (currentShopTab === 'farmers') {
     renderFarmerTab(shopItemsContainer);
+    return;
+  } else if (currentShopTab === 'gold') {
+    renderGoldTab(shopItemsContainer);
     return;
   } else if (currentShopTab === 'sell') {
     renderSellTab(shopItemsContainer);
     return;
   }
-  
+
   shopItemsContainer.innerHTML = '';
   itemsToShow.forEach(([itemId, item]) => {
     const itemEl = document.createElement('div');
@@ -1971,6 +1985,137 @@ function renderSellTab(container) {
       playSound('sell');
       socket.emit('sell-item', { cropType, quantity: 1 });
     });
+  });
+}
+
+// 渲染黄金交易标签页
+function renderGoldTab(container) {
+  if (!gameState) {
+    container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
+    return;
+  }
+
+  const gold = gameState.gold || { goldAmount: 0, goldPrice: 580, goldValue: 0, priceHistory: [] };
+  const sharedMoney = gameState.sharedMoney || 0;
+  const history = gold.priceHistory || [];
+
+  // 计算价格趋势
+  let trend = '→';
+  let trendColor = '#fff';
+  if (history.length >= 2) {
+    const lastTwo = history.slice(-2);
+    if (lastTwo[1].price > lastTwo[0].price) {
+      trend = '↑';
+      trendColor = '#4caf50';
+    } else if (lastTwo[1].price < lastTwo[0].price) {
+      trend = '↓';
+      trendColor = '#ef5350';
+    }
+  }
+
+  container.innerHTML = `
+    <div class="gold-trading-panel">
+      <div class="gold-price-header">
+        <div class="gold-current-price">
+          <span class="gold-price-label">当前金价</span>
+          <span class="gold-price-value">${gold.goldPrice}<span style="font-size:14px">💰/g</span></span>
+          <span class="gold-trend" style="color:${trendColor}">${trend}</span>
+        </div>
+        <div class="gold-holdings">
+          <div class="gold-holding-item">
+            <span class="holding-label">持有黄金</span>
+            <span class="holding-value">${gold.goldAmount.toFixed(2)}g</span>
+          </div>
+          <div class="gold-holding-item">
+            <span class="holding-label">持仓价值</span>
+            <span class="holding-value">${gold.goldValue}💰</span>
+          </div>
+          <div class="gold-holding-item">
+            <span class="holding-label">可用金币</span>
+            <span class="holding-value">${sharedMoney}💰</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="gold-price-chart">
+        <div class="chart-title">📊 金价走势（最近${Math.min(history.length, 24)}小时）</div>
+        <div class="chart-bars">
+          ${history.map((h, i) => {
+            const maxPrice = Math.max(...history.map(p => p.price));
+            const minPrice = Math.min(...history.map(p => p.price));
+            const range = maxPrice - minPrice || 1;
+            const height = ((h.price - minPrice) / range * 60 + 10);
+            return `<div class="chart-bar" style="height:${height}px" title="${h.price}💰"></div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="gold-trade-section">
+        <div class="trade-header">💱 交易黄金</div>
+        <div class="trade-input-group">
+          <label>交易数量（克）</label>
+          <input type="number" id="gold-amount-input" min="0.1" step="0.1" value="1" />
+        </div>
+        <div class="trade-buttons">
+          <button class="gold-buy-btn" id="buy-gold-btn">💰 买入黄金</button>
+          <button class="gold-sell-btn" id="sell-gold-btn">💵 卖出黄金</button>
+        </div>
+        <div class="trade-preview" id="trade-preview"></div>
+      </div>
+    </div>
+  `;
+
+  // 绑定事件
+  const amountInput = container.querySelector('#gold-amount-input');
+  const preview = container.querySelector('#trade-preview');
+  const buyBtn = container.querySelector('#buy-gold-btn');
+  const sellBtn = container.querySelector('#sell-gold-btn');
+
+  const updatePreview = () => {
+    const amount = parseFloat(amountInput.value) || 0;
+    const cost = Math.ceil(amount * gold.goldPrice);
+    const revenue = Math.floor(amount * gold.goldPrice);
+    preview.innerHTML = `
+      <div class="preview-row">买入 ${amount}g 需要 <strong>${cost}💰</strong></div>
+      <div class="preview-row">卖出 ${amount}g 可得 <strong>${revenue}💰</strong></div>
+    `;
+  };
+
+  amountInput.addEventListener('input', updatePreview);
+  updatePreview();
+
+  buyBtn.addEventListener('click', () => {
+    const amount = parseFloat(amountInput.value);
+    if (amount <= 0) {
+      showNotification('请输入有效的购买数量', 'error');
+      return;
+    }
+    const cost = Math.ceil(amount * gold.goldPrice);
+    if (cost > sharedMoney) {
+      showNotification(`金币不足，需要 ${cost}💰`, 'error');
+      return;
+    }
+    if (confirm(`确认买入 ${amount}g 黄金，花费 ${cost}💰？`)) {
+      playSound('buy');
+      socket.emit('buy-gold', { amount });
+    }
+  });
+
+  sellBtn.addEventListener('click', () => {
+    const amount = parseFloat(amountInput.value);
+    if (amount <= 0) {
+      showNotification('请输入有效的卖出数量', 'error');
+      return;
+    }
+    if (amount > gold.goldAmount) {
+      showNotification(`黄金不足，当前持有 ${gold.goldAmount.toFixed(2)}g`, 'error');
+      return;
+    }
+    const revenue = Math.floor(amount * gold.goldPrice);
+    if (confirm(`确认卖出 ${amount}g 黄金，获得 ${revenue}💰？`)) {
+      playSound('coin');
+      socket.emit('sell-gold', { amount });
+    }
   });
 }
 

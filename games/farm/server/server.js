@@ -460,6 +460,43 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ====== 黄金交易系统 ======
+
+  // 买入黄金
+  socket.on('buy-gold', ({ amount }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.buyGold(socket.id, amount);
+    socket.emit('gold-trade-result', result);
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 卖出黄金
+  socket.on('sell-gold', ({ amount }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.sellGold(socket.id, amount);
+    socket.emit('gold-trade-result', result);
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 获取金价信息
+  socket.on('get-gold-info', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    socket.emit('gold-info', room.game.getGoldInfo());
+  });
+
   // New farm (reset)
   socket.on('new-farm', () => {
     if (!currentRoomId) return;
