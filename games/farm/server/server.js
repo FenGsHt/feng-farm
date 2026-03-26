@@ -40,7 +40,7 @@ io.on('connection', (socket) => {
       roomManager.removePlayer(currentRoomId, socket.id);
       socket.leave(currentRoomId);
     }
-    
+
     // Create or get room
     const room = roomManager.createRoom(roomId, width, height);
     currentRoomId = roomId;
@@ -50,18 +50,12 @@ io.on('connection', (socket) => {
       room.game._io = io;
     }
 
-    // 检查同名玩家（同一房间内不允许重名）
-    const name = playerName || '匿名农夫';
-    const duplicate = Array.from(room.players.values()).find(p => p.name === name);
-    if (duplicate) {
-      socket.emit('join-error', { message: `房间内已有玩家名为"${name}"，请换个名字` });
-      currentRoomId = null;
-      return;
-    }
+    // 生成名字（不检查重名）
+    const name = playerName || '访客' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
     // Add player
     const player = roomManager.addPlayer(roomId, socket.id, name);
-    
+
     socket.join(roomId);
     socket.emit('player-info', player);
 

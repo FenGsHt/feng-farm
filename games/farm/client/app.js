@@ -1,7 +1,6 @@
 // 多人种田游戏前端 - 简化版（单农场模式）
 const SERVER_URL = window.location.origin;
 const DEFAULT_ROOM = 'Feng Farm';
-const PLAYER_NAME_KEY = 'fengfarm_player_name';
 
 // 游戏配置
 const CONFIG = {
@@ -568,12 +567,9 @@ function showSuccessAnimation(action, position) {
 }
 
 // DOM 元素
-const nameModal = document.getElementById('name-modal');
 const createModal = document.getElementById('create-modal');
 const mainScreen = document.getElementById('main-screen');
 const gameScreen = document.getElementById('game-screen');
-const playerNameInput = document.getElementById('player-name-input');
-const startBtn = document.getElementById('start-btn');
 const roomNameInput = document.getElementById('room-name-input');
 const widthInput = document.getElementById('width-input');
 const heightInput = document.getElementById('height-input');
@@ -631,10 +627,9 @@ function initSocket() {
 
   socket.on('join-error', ({ message }) => {
     showNotification(`❌ ${message}`, 'error');
-    // 回到名字输入框让玩家改名重试
-    nameModal.classList.remove('hidden');
-    playerNameInput.value = currentPlayerName;
-    playerNameInput.focus();
+    // 生成新名字重试
+    currentPlayerName = '访客' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    setTimeout(() => joinDefaultRoom(), 1000);
   });
 
   socket.on('room-list', (rooms) => {
@@ -1893,7 +1888,6 @@ function showNotification(message, type = 'info') {
 function switchToGame() {
   mainScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
-  nameModal.classList.add('hidden');
   createModal.classList.add('hidden');
 }
 
@@ -1905,30 +1899,14 @@ function leaveRoom() {
   currentRoom = null;
   currentPlayer = null;
   gameState = null;
-  
+
   gameScreen.classList.add('hidden');
   mainScreen.classList.remove('hidden');
-  
-  // 显示名字输入
-  nameModal.classList.remove('hidden');
-  playerNameInput.value = '';
-  setTimeout(() => playerNameInput.focus(), 100);
-}
 
-// 事件绑定
-startBtn?.addEventListener('click', () => {
-  const name = playerNameInput?.value?.trim();
-  if (!name) {
-    playerNameInput.focus();
-    return;
-  }
-  currentPlayerName = name.slice(0, 12);
-  localStorage.setItem(PLAYER_NAME_KEY, currentPlayerName);
-  nameModal.classList.add('hidden');
-  
-  // 使用 waitForSocketConnection 确保无论连接状态如何都能加入房间
-  waitForSocketConnection();
-});
+  // 重新生成名字并加入
+  currentPlayerName = '访客' + Math.random().toString(36).substring(2, 6).toUpperCase();
+  setTimeout(() => waitForSocketConnection(), 500);
+}
 
 // 确保 socket 连接成功时自动加入房间
 function waitForSocketConnection() {
@@ -1942,10 +1920,6 @@ function waitForSocketConnection() {
     });
   }
 }
-
-playerNameInput?.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') startBtn.click();
-});
 
 document.getElementById('create-room-btn')?.addEventListener('click', () => {
   createModal.classList.remove('hidden');
@@ -2929,32 +2903,25 @@ function startAnimalMovement() {
 
 // 初始化 - 简化版：自动进入农场
 function init() {
-  const savedName = localStorage.getItem(PLAYER_NAME_KEY);
-  
-  // 自动恢复名字或显示输入框
-  if (savedName) {
-    currentPlayerName = savedName;
-    nameModal.classList.add('hidden');
-    initSocket();
-    // 连接成功后自动加入（使用 waitForSocketConnection 确保处理连接中状态）
-    setTimeout(() => {
-      waitForSocketConnection();
-    }, 300);
-  } else {
-    nameModal.classList.remove('hidden');
-    setTimeout(() => playerNameInput?.focus(), 100);
-    initSocket();
-  }
-  
+  // 生成匿名访客名字
+  currentPlayerName = '访客' + Math.random().toString(36).substring(2, 6).toUpperCase();
+
+  initSocket();
+
+  // 连接成功后自动加入
+  setTimeout(() => {
+    waitForSocketConnection();
+  }, 300);
+
   // 初始化商店事件
   initShopEvents();
-  
+
   // 初始化好友系统事件
   initFriendsEvents();
-  
+
   // 初始化害虫防治事件
   initPestControlEvents();
-  
+
   // 监听游戏状态，自动切换到游戏界面
   socket?.on('game-state', (state) => {
     updateGameState(state);
@@ -2962,10 +2929,10 @@ function init() {
       switchToGame();
     }
   });
-  
+
   // 地图拖拽功能
   initDragScroll();
-  
+
   // 重置缩放
   resetZoom();
 }
