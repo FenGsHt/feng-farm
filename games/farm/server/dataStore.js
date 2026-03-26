@@ -6,12 +6,17 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
 const PLAYER_STATS_FILE = path.join(DATA_DIR, 'player_stats.json');
 const LOGS_DIR = path.join(DATA_DIR, 'logs');
+const ROOMS_DIR = path.join(DATA_DIR, 'rooms'); // 房间游戏状态目录
 
 // 内存缓存（避免每次操作都读写磁盘）
 let playersCache = null;
 let playerStatsCache = null;
 let cachesDirty = false;
 let statsCacheDirty = false;
+
+// 房间游戏状态缓存
+const roomStateCache = new Map();  // roomId -> state object
+const roomStateDirty = new Set();  // 需要写盘的 roomId
 
 // 操作日志内存上限
 const MAX_ACTION_LOGS = 500;
@@ -24,6 +29,41 @@ function ensureDataDir() {
   if (!fs.existsSync(LOGS_DIR)) {
     fs.mkdirSync(LOGS_DIR, { recursive: true });
   }
+  if (!fs.existsSync(ROOMS_DIR)) {
+    fs.mkdirSync(ROOMS_DIR, { recursive: true });
+  }
+}
+
+// 将 roomId 转为安全的文件名（支持中文）
+function sanitizeRoomId(roomId) {
+  // 只保留字母/数字/下划线/中文/连字符，截断到50字符
+  return String(roomId).replace(/[^\w\u4e00-\u9fa5-]/g, '_').slice(0, 50);
+}
+
+// ========== 房间游戏状态持久化 ==========
+
+// 读取房间状态（优先内存缓存，次则磁盘）
+function getRoomState(roomId) {
+  if (roomStateCache.has(roomId)) return roomStateCache.get(roomId);
+  ensureDataDir();
+  const file = path.join(ROOMS_DIR, `${sanitizeRoomId(roomId)}.json`);
+  try {
+    if (fs.existsSync(file)) {
+      const state = JSON.parse(fs.readFileSync(file, 'utf-8'));
+      roomStateCache.set(roomId, state);
+      console.log(`[DataStore] Loaded room state: ${roomId}`);
+      return state;
+    }
+  } catch (err) {
+    console.error(`[DataStore] Failed to load room state "${roomId}":`, err.message);
+  }
+  return null;
+}
+
+// 保存房间状态到缓存并标记为脏
+function saveRoomState(roomId, state) {
+  roomStateCache.set(roomId, state);
+  roomStateDirty.add(roomId);
 }
 
 // 从磁盘加载玩家缓存（仅在启动时调用一次）
@@ -139,6 +179,21 @@ function flushToDisk() {
       console.error('[DataStore] Failed to save player stats:', err.message);
     }
   }
+  // 刷新所有脏房间状态
+  if (roomStateDirty.size > 0) {
+    ensureDataDir();
+    for (const roomId of roomStateDirty) {
+      const state = roomStateCache.get(roomId);
+      if (!state) continue;
+      const file = path.join(ROOMS_DIR, `${sanitizeRoomId(roomId)}.json`);
+      try {
+        fs.writeFileSync(file, JSON.stringify(state), 'utf-8');
+      } catch (err) {
+        console.error(`[DataStore] Failed to save room state "${roomId}":`, err.message);
+      }
+    }
+    roomStateDirty.clear();
+  }
 }
 
 // 玩家操作日志（内存有上限）
@@ -227,5 +282,8 @@ module.exports = {
   savePlayerStats,
   flushToDisk,
   logAction,
-  getPlayerLogs
+  getPlayerLogs,
+  // 房间状态持久化
+  getRoomState,
+  saveRoomState
 };

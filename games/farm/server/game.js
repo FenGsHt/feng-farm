@@ -444,7 +444,8 @@ class AnimalPen {
 
 // 农场游戏类
 class FarmGame {
-  constructor(width = 10, height = 10) {
+  constructor(width = 10, height = 10, roomId = 'default') {
+    this.roomId = roomId;
     this.width = width;
     this.height = height;
     this.plots = []; // 二维数组
@@ -511,6 +512,98 @@ class FarmGame {
     this.farmer = new Farmer(this, (message, emoji, type) => {
       this.addFarmLog(message, emoji, type);
     });
+
+    // ========== 加载已保存的状态 ==========
+    this._loadState();
+
+    // 每 15 秒定期保存一次游戏状态
+    this._intervals.push(setInterval(() => this._saveState(), 15000));
+  }
+
+  // ========== 状态持久化 ==========
+
+  // 从 dataStore 加载已保存的房间状态（启动时调用）
+  _loadState() {
+    const saved = dataStore.getRoomState(this.roomId);
+    if (!saved) return;
+
+    // 共用金库
+    if (typeof saved.sharedMoney === 'number' && saved.sharedMoney >= 0) {
+      this.sharedMoney = saved.sharedMoney;
+    }
+
+    // 天气
+    if (saved.weather && WEATHER_TYPES[saved.weather]) {
+      this.weather = saved.weather;
+      this.weatherChangeTimer = saved.weatherChangeTimer || 0;
+    }
+
+    // 地块
+    if (Array.isArray(saved.plots)) {
+      for (let y = 0; y < Math.min(saved.plots.length, this.height); y++) {
+        const row = saved.plots[y];
+        if (!Array.isArray(row)) continue;
+        for (let x = 0; x < Math.min(row.length, this.width); x++) {
+          const d = row[x];
+          if (!d) continue;
+          const plot = this.plots[y][x];
+          plot.crop         = d.crop         || null;
+          plot.plantedAt    = d.plantedAt    || null;
+          plot.growthStage  = d.growthStage  || 0;
+          plot.isWatered    = d.isWatered    || false;
+          plot.owner        = d.owner        || null;
+          plot.soilMoisture = typeof d.soilMoisture === 'number' ? d.soilMoisture : 50;
+        }
+      }
+    }
+
+    // 动物栏
+    if (Array.isArray(saved.animalPens)) {
+      for (let i = 0; i < Math.min(saved.animalPens.length, this.animalPens.length); i++) {
+        const d = saved.animalPens[i];
+        if (!d || !d.animal) continue;
+        const pen = this.animalPens[i];
+        pen.animal  = d.animal;
+        pen.ownedAt = d.ownedAt || Date.now();
+        pen.isReady = d.isReady || false;
+        pen.owner   = d.owner   || null;
+      }
+    }
+
+    // 害虫
+    if (Array.isArray(saved.pests)) {
+      this.pests = saved.pests.filter(
+        p => p && p.type && typeof p.x === 'number' && typeof p.y === 'number'
+      );
+    }
+
+    console.log(`[FarmGame] State restored for room "${this.roomId}" — 金库: ${this.sharedMoney}`);
+  }
+
+  // 将当前游戏状态序列化并存入 dataStore（定期 + 关闭时调用）
+  _saveState() {
+    const state = {
+      savedAt:            Date.now(),
+      sharedMoney:        this.sharedMoney,
+      weather:            this.weather,
+      weatherChangeTimer: this.weatherChangeTimer,
+      plots: this.plots.map(row => row.map(plot => ({
+        crop:         plot.crop,
+        plantedAt:    plot.plantedAt,
+        growthStage:  plot.growthStage,
+        isWatered:    plot.isWatered,
+        owner:        plot.owner,
+        soilMoisture: plot.soilMoisture
+      }))),
+      animalPens: this.animalPens.map(pen => ({
+        animal:  pen.animal,
+        ownedAt: pen.ownedAt,
+        isReady: pen.isReady,
+        owner:   pen.owner
+      })),
+      pests: this.pests
+    };
+    dataStore.saveRoomState(this.roomId, state);
   }
 
   // 添加农场日志（最多保留 40 条）
@@ -1799,6 +1892,7 @@ class FarmGame {
 
   // 销毁游戏实例，清理所有定时器
   destroy() {
+    this._saveState(); // 关闭前强制保存
     for (const id of this._intervals) {
       clearInterval(id);
     }
@@ -1821,14 +1915,14 @@ class RoomManager {
       const room = this.rooms.get(roomId);
       // 如果房间存在但没有游戏实例，创建它
       if (!room.game) {
-        room.game = new FarmGame(width, height);
+        room.game = new FarmGame(width, height, roomId);
       }
       return room;
     }
-    
+
     const room = {
       id: roomId,
-      game: new FarmGame(width, height),
+      game: new FarmGame(width, height, roomId),
       players: new Map(), // socketId -> player
       persist: true // 房间永久存在，不因为玩家数量为0而删除
     };
