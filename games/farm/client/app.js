@@ -843,6 +843,7 @@ function updateGameState(state) {
   updateMoneyDisplay();
   updateGameTimeDisplay();
   renderWeather();
+  renderDiversity();
   renderPests();
   renderAnimalsOnMap();
   renderFarmer();
@@ -907,6 +908,38 @@ function renderWeather() {
   
   // 触发天气粒子效果
   renderWeatherParticles(weather.type);
+}
+
+// ========== 多样性系统渲染 ==========
+function renderDiversity() {
+  const diversityDisplay = document.getElementById('diversity-display');
+  if (!diversityDisplay || !gameState || !gameState.diversity) return;
+
+  const diversity = gameState.diversity;
+  const cropPercent = diversity.cropDiversity || 100;
+  const animalPercent = diversity.animalDiversity || 100;
+  const animalCount = Object.keys(diversity.animalCounts || {}).length;
+
+  // 计算平均多样性
+  const avgPercent = animalCount > 0
+    ? Math.round((cropPercent + animalPercent) / 2)
+    : cropPercent;
+
+  // 根据多样性系数显示不同样式
+  diversityDisplay.classList.remove('warning', 'danger');
+  if (avgPercent < 70) {
+    diversityDisplay.classList.add('danger');
+  } else if (avgPercent < 90) {
+    diversityDisplay.classList.add('warning');
+  }
+
+  // 构建显示文本
+  let detailText = `作物多样性: ${cropPercent}%`;
+  if (animalCount > 0) {
+    detailText += `\n动物多样性: ${animalPercent}%`;
+  }
+  diversityDisplay.textContent = `🌱 ${avgPercent}%`;
+  diversityDisplay.title = `多样性系数影响收益\n${detailText}\n种植/饲养更多种类可提高收益`;
 }
 
 // ========== 害虫系统渲染 ==========

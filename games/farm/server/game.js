@@ -809,7 +809,97 @@ class FarmGame {
   getCropConfig(cropType) {
     return CROPS[cropType] || { name: cropType, emoji: '🌱' };
   }
-  
+
+  // ========== 多样性系统 ==========
+
+  // 计算作物多样性系数（0.5-1.0）
+  // 种植单一作物会降低收益
+  calculateCropDiversity() {
+    const cropCounts = {};
+
+    // 统计所有作物
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const plot = this.plots[y][x];
+        if (plot.crop) {
+          cropCounts[plot.crop] = (cropCounts[plot.crop] || 0) + 1;
+        }
+      }
+    }
+
+    const totalPlots = Object.values(cropCounts).reduce((a, b) => a + b, 0);
+    if (totalPlots === 0) return 1.0;
+
+    const uniqueCrops = Object.keys(cropCounts).length;
+    const maxSingleCrop = Math.max(...Object.values(cropCounts));
+
+    // 多样性计算：
+    // - 唯一作物种类越多，系数越高
+    // - 单一作物占比越高，系数越低
+    const diversityBonus = Math.min(0.3, uniqueCrops * 0.05); // 每种作物+5%，最高+30%
+    const concentrationPenalty = (maxSingleCrop / totalPlots - 0.3) * 0.5; // 单一作物超过30%开始惩罚
+
+    const coefficient = 1.0 + diversityBonus - Math.max(0, concentrationPenalty);
+    return Math.max(0.5, Math.min(1.3, coefficient)); // 限制在0.5-1.3之间
+  }
+
+  // 计算动物多样性系数
+  calculateAnimalDiversity() {
+    const animalCounts = {};
+
+    for (const pen of this.animalPens) {
+      if (pen.animal) {
+        animalCounts[pen.animal] = (animalCounts[pen.animal] || 0) + 1;
+      }
+    }
+
+    const totalAnimals = Object.values(animalCounts).reduce((a, b) => a + b, 0);
+    if (totalAnimals === 0) return 1.0;
+
+    const uniqueAnimals = Object.keys(animalCounts).length;
+    const maxSingleAnimal = Math.max(...Object.values(animalCounts));
+
+    const diversityBonus = Math.min(0.25, uniqueAnimals * 0.08);
+    const concentrationPenalty = (maxSingleAnimal / totalAnimals - 0.4) * 0.4;
+
+    const coefficient = 1.0 + diversityBonus - Math.max(0, concentrationPenalty);
+    return Math.max(0.6, Math.min(1.25, coefficient));
+  }
+
+  // 获取多样性信息（用于UI显示）
+  getDiversityInfo() {
+    const cropDiversity = this.calculateCropDiversity();
+    const animalDiversity = this.calculateAnimalDiversity();
+
+    // 统计作物
+    const cropCounts = {};
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const plot = this.plots[y][x];
+        if (plot.crop) {
+          cropCounts[plot.crop] = (cropCounts[plot.crop] || 0) + 1;
+        }
+      }
+    }
+
+    // 统计动物
+    const animalCounts = {};
+    for (const pen of this.animalPens) {
+      if (pen.animal) {
+        animalCounts[pen.animal] = (animalCounts[pen.animal] || 0) + 1;
+      }
+    }
+
+    return {
+      cropDiversity: Math.round(cropDiversity * 100),
+      animalDiversity: Math.round(animalDiversity * 100),
+      cropCounts,
+      animalCounts,
+      cropCount: Object.keys(cropCounts).length,
+      animalCount: Object.keys(animalCounts).length
+    };
+  }
+
   // ========== 天气系统方法 ==========
   
   // 启动天气循环
@@ -1724,9 +1814,10 @@ class FarmGame {
       player.coinBonus = getCoinBonusMultiplier(player.level);
       const coinBonusPercent = Math.round((player.coinBonus - 1) * 100);
       
-      // 应用金币加成
-      const finalReward = Math.floor(result.reward * player.coinBonus);
-      
+      // 应用金币加成和多样性系数
+      const diversityCoef = this.calculateCropDiversity();
+      const finalReward = Math.floor(result.reward * player.coinBonus * diversityCoef);
+
       // 添加到背包
       this.addToInventory(socketId, result.cropType, 1);
       
@@ -1755,19 +1846,20 @@ class FarmGame {
       });
       
       // 记录操作日志
-      dataStore.logAction(socketId, player.name, 'harvest', { 
-        x, y, 
-        reward: finalReward, 
+      dataStore.logAction(socketId, player.name, 'harvest', {
+        x, y,
+        reward: finalReward,
         cropType: result.cropType,
         xpGained,
         level: player.level,
-        coinBonus: coinBonusPercent
+        coinBonus: coinBonusPercent,
+        diversityCoef
       });
-      
+
       // 返回包含等级信息的result
-      return { 
-        success: true, 
-        reward: finalReward, 
+      return {
+        success: true,
+        reward: finalReward,
         cropType: result.cropType,
         xpGained,
         level: player.level,
@@ -1775,7 +1867,8 @@ class FarmGame {
         currentXp: player.currentXp,
         xpToNextLevel: player.xpToNextLevel,
         coinBonus: coinBonusPercent,
-        oldLevel
+        oldLevel,
+        diversityCoef
       };
     }
     
@@ -2136,12 +2229,16 @@ class FarmGame {
     
     const result = pen.harvest();
     if (result.success) {
+      // 应用多样性系数
+      const diversityCoef = this.calculateAnimalDiversity();
+      const adjustedReward = Math.floor(result.reward * diversityCoef);
+
       // 添加产品到背包
       const productKey = `animal-${result.animalType}-product`;
       this.addToInventory(socketId, productKey, 1);
-      
+
       // 加金币
-      this.sharedMoney += result.reward;
+      this.sharedMoney += adjustedReward;
       
       // 保存玩家数据
       dataStore.savePlayer(socketId, { 
@@ -2154,18 +2251,19 @@ class FarmGame {
       });
       
       // 记录操作日志
-      dataStore.logAction(socketId, player.name, 'harvest-animal', { 
-        penIndex, 
-        animalType: result.animalType, 
-        product: result.product, 
-        reward: result.reward 
+      dataStore.logAction(socketId, player.name, 'harvest-animal', {
+        penIndex,
+        animalType: result.animalType,
+        product: result.product,
+        reward: adjustedReward,
+        diversityCoef
       });
     }
-    
-    return { 
-      success: true, 
-      message: `收获 ${result.product} +${result.reward}金币`,
-      reward: result.reward,
+
+    return {
+      success: true,
+      message: `收获 ${result.product} +${adjustedReward}金币`,
+      reward: adjustedReward,
       product: result.product
     };
   }
@@ -2371,6 +2469,8 @@ class FarmGame {
       farmerFoods:  FARMER_FOODS,
       // 黄金交易系统
       gold: this.getGoldInfo(),
+      // 多样性系数
+      diversity: this.getDiversityInfo(),
       // 农夫AI思考记录
       farmerThoughts: this.farmerThoughts,
       // 农场日志（最新 40 条）

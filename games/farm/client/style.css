@@ -1437,6 +1437,26 @@ button:active {
   margin-top: 2px;
 }
 
+/* 多样性系数显示 */
+.diversity-badge {
+  background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+  color: #2E7D32;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.diversity-badge.warning {
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+  color: #E65100;
+}
+
+.diversity-badge.danger {
+  background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+  color: #C62828;
+}
+
 /* 害虫数量 */
 .pest-count {
   background: #ef5350;
