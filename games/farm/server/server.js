@@ -440,6 +440,16 @@ io.on('connection', (socket) => {
   });
 });
 
+// 定时向所有有玩家在线的房间广播游戏状态
+// 频率与农夫移动间隔对齐（1.6s/格），确保农夫动作/日志实时可见
+setInterval(() => {
+  for (const [roomId, room] of roomManager.rooms) {
+    if (room.players.size > 0) {
+      io.to(roomId).emit('game-state', room.game.getState());
+    }
+  }
+}, 2000);
+
 // API Routes for compatibility
 app.get('/api/crops', (req, res) => {
   res.json(CROPS);
