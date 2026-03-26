@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <title>多人种田 | Feng Farm</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -469,7 +469,92 @@
           if (icon) icon.textContent = '▶';
         }
       });
+
+      // 移动端操作面板抽屉交互
+      initMobileActionPanel();
+
+      // 头部信息优化
+      initHeaderOptimization();
     });
+
+    // 移动端操作面板抽屉功能
+    function initMobileActionPanel() {
+      const panel = document.getElementById('action-panel');
+      const header = panel ? panel.querySelector('.action-panel-header') : null;
+
+      if (!panel || !header) return;
+
+      // 检测是否为移动端
+      const isMobile = window.matchMedia('(max-width: 479px)').matches;
+
+      if (isMobile) {
+        // 移动端：点击头部展开/收起抽屉
+        header.addEventListener('click', function(e) {
+          // 如果点击的是折叠按钮，不处理
+          if (e.target.closest('.panel-toggle-btn')) return;
+
+          const isExpanded = panel.classList.contains('expanded');
+          if (isExpanded) {
+            panel.classList.remove('expanded');
+            panel.classList.add('collapsed');
+          } else {
+            panel.classList.remove('collapsed');
+            panel.classList.add('expanded');
+          }
+        });
+      }
+
+      // 响应窗口大小变化
+      window.addEventListener('resize', function() {
+        const nowMobile = window.matchMedia('(max-width: 479px)').matches;
+        if (!nowMobile) {
+          // 桌面端：移除移动端特有的类
+          panel.classList.remove('expanded');
+        }
+      });
+    }
+
+    // 头部信息优化
+    function initHeaderOptimization() {
+      const gameInfo = document.querySelector('.game-info');
+      if (!gameInfo) return;
+
+      // 检测是否需要收起次要信息
+      const checkOverflow = function() {
+        const isSmallScreen = window.matchMedia('(max-width: 768px)').matches;
+        if (isSmallScreen) {
+          // 小屏幕自动收起次要信息
+          gameInfo.classList.add('collapsed');
+        } else {
+          gameInfo.classList.remove('collapsed');
+        }
+      };
+
+      // 初始检查
+      checkOverflow();
+
+      // 响应窗口大小变化
+      window.addEventListener('resize', checkOverflow);
+    }
+
+    // 切换头部次要信息显示
+    function toggleHeaderInfo() {
+      const gameInfo = document.querySelector('.game-info');
+      if (gameInfo) {
+        gameInfo.classList.toggle('collapsed');
+      }
+    }
+
+    // 触摸反馈效果
+    document.addEventListener('click', function(e) {
+      const target = e.target.closest('button, .crop-btn, .action-btn, .shop-item');
+      if (target && 'ontouchstart' in window) {
+        target.classList.add('touch-feedback');
+        setTimeout(function() {
+          target.classList.remove('touch-feedback');
+        }, 150);
+      }
+    }, true);
   </script>
   <script src="app.js"></script>
 </body>

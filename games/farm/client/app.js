@@ -550,19 +550,410 @@ function showShopFlyAnimation(shopItem, itemId) {
 function showSuccessAnimation(action, position) {
   // 播放对应音效
   playSound(action);
-  
+
   // 获取当前位置的格子元素
   if (currentPlayer && gameState) {
     const cellSize = Math.min(CONFIG.cellSize, Math.min(CONFIG.maxGridWidth / gameState.width, CONFIG.maxGridWidth / gameState.height));
     const x = position.x * cellSize + cellSize / 2;
     const y = position.y * cellSize + cellSize / 2 + farmGrid.getBoundingClientRect().top;
-    
+
     // 获取 farmGrid 在页面中的偏移
     const gridRect = farmGrid.getBoundingClientRect();
     const particleX = gridRect.left + position.x * cellSize + cellSize / 2;
     const particleY = gridRect.top + position.y * cellSize + cellSize / 2;
-    
+
     createParticles(particleX, particleY, action);
+  }
+}
+
+// =====================================================
+// 动画优化系统 - P0/P1/P2 优先级
+// =====================================================
+
+// ========== P0: 作物生长动画 ==========
+
+// 显示生长进度条
+function showGrowthProgressBar(cell, progress) {
+  if (!cell) return;
+
+  // 移除旧的进度条
+  const oldBar = cell.querySelector('.growth-progress-bar');
+  if (oldBar) oldBar.remove();
+
+  // 创建进度条容器
+  const barContainer = document.createElement('div');
+  barContainer.className = 'growth-progress-bar';
+
+  // 创建进度条填充
+  const barFill = document.createElement('div');
+  barFill.className = 'growth-progress-fill';
+  barFill.style.width = `${Math.min(100, Math.max(0, progress * 100))}%`;
+
+  barContainer.appendChild(barFill);
+  cell.appendChild(barContainer);
+}
+
+// 触发作物阶段变化动画
+function triggerCropStageAnimation(cell) {
+  if (!cell) return;
+
+  const cropEmoji = cell.querySelector('.crop-emoji');
+  if (cropEmoji) {
+    cropEmoji.classList.add('stage-change');
+    setTimeout(() => cropEmoji.classList.remove('stage-change'), 400);
+  }
+}
+
+// 触发渐进生长动画
+function triggerCropGrowAnimation(cell) {
+  if (!cell) return;
+
+  const cropEmoji = cell.querySelector('.crop-emoji');
+  if (cropEmoji) {
+    cropEmoji.classList.add('growing');
+    setTimeout(() => cropEmoji.classList.remove('growing'), 600);
+  }
+}
+
+// ========== P0: 收获动画增强 ==========
+
+// 触发收获飞出动画
+function triggerHarvestFlyAnimation(cell) {
+  if (!cell) return;
+
+  const cropEmoji = cell.querySelector('.crop-emoji');
+  if (cropEmoji) {
+    // 克隆作物emoji用于动画
+    const flyingCrop = cropEmoji.cloneNode(true);
+    flyingCrop.classList.add('harvesting');
+    flyingCrop.style.position = 'absolute';
+    flyingCrop.style.left = '50%';
+    flyingCrop.style.top = '50%';
+    flyingCrop.style.transform = 'translate(-50%, -50%)';
+    flyingCrop.style.fontSize = '28px';
+    flyingCrop.style.zIndex = '100';
+    cell.appendChild(flyingCrop);
+
+    // 动画结束后移除
+    setTimeout(() => flyingCrop.remove(), 600);
+  }
+
+  // 格子闪光效果
+  cell.classList.add('harvest-flash');
+  setTimeout(() => cell.classList.remove('harvest-flash'), 500);
+
+  // 收获成功环
+  const ring = document.createElement('div');
+  ring.className = 'harvest-ring';
+  cell.appendChild(ring);
+  setTimeout(() => ring.remove(), 500);
+}
+
+// ========== P1: 金币获取动画 ==========
+
+// 触发金币飞入动画
+function triggerCoinFlyAnimation(startX, startY, amount) {
+  const moneyDisplay = document.getElementById('money-display');
+  if (!moneyDisplay) return;
+
+  const moneyRect = moneyDisplay.getBoundingClientRect();
+  const targetX = moneyRect.left + moneyRect.width / 2;
+  const targetY = moneyRect.top + moneyRect.height / 2;
+
+  // 计算方向
+  const dx = targetX - startX;
+  const dy = targetY - startY;
+
+  // 创建金币元素
+  const coin = document.createElement('span');
+  coin.className = 'coin-fly';
+  coin.textContent = '💰';
+  coin.style.left = `${startX}px`;
+  coin.style.top = `${startY}px`;
+  coin.style.setProperty('--coin-dx', `${dx * 0.5}px`);
+  coin.style.setProperty('--coin-dy', `${dy * 0.5}px`);
+  coin.style.setProperty('--coin-target-x', `${dx}px`);
+  coin.style.setProperty('--coin-target-y', `${dy}px`);
+
+  document.body.appendChild(coin);
+
+  // 金库发光
+  moneyDisplay.classList.add('coin-received');
+  setTimeout(() => moneyDisplay.classList.remove('coin-received'), 500);
+
+  // 动画结束后移除
+  setTimeout(() => coin.remove(), 600);
+
+  // 显示金币数量弹出
+  showCoinPopup(startX, startY, amount);
+}
+
+// 触发多金币连续飞入动画
+function triggerMultiCoinFlyAnimation(startX, startY, count) {
+  const moneyDisplay = document.getElementById('money-display');
+  if (!moneyDisplay) return;
+
+  const moneyRect = moneyDisplay.getBoundingClientRect();
+  const targetX = moneyRect.left + moneyRect.width / 2;
+  const targetY = moneyRect.top + moneyRect.height / 2;
+
+  for (let i = 0; i < Math.min(count, 10); i++) {
+    setTimeout(() => {
+      const offsetX = (Math.random() - 0.5) * 40;
+      const offsetY = (Math.random() - 0.5) * 40;
+
+      const coin = document.createElement('span');
+      coin.className = 'coin-multi-fly';
+      coin.textContent = '💰';
+      coin.style.left = `${startX + offsetX}px`;
+      coin.style.top = `${startY + offsetY}px`;
+      coin.style.setProperty('--target-x', `${targetX - startX - offsetX}px`);
+      coin.style.setProperty('--target-y', `${targetY - startY - offsetY}px`);
+
+      document.body.appendChild(coin);
+      setTimeout(() => coin.remove(), 800);
+    }, i * 80);
+  }
+
+  // 金库发光
+  moneyDisplay.classList.add('coin-received');
+  setTimeout(() => moneyDisplay.classList.remove('coin-received'), 500);
+}
+
+// 显示金币数量弹出
+function showCoinPopup(x, y, amount) {
+  if (!amount || amount <= 0) return;
+
+  const popup = document.createElement('div');
+  popup.className = 'coin-popup';
+  popup.textContent = `+${amount}`;
+  popup.style.left = `${x}px`;
+  popup.style.top = `${y}px`;
+
+  document.body.appendChild(popup);
+  setTimeout(() => popup.remove(), 800);
+}
+
+// ========== P1: 动物行为动画 ==========
+
+// 触发动物进食动画
+function triggerAnimalEatAnimation(penIndex) {
+  const animalOverlay = document.querySelector(`.animal-in-cell[data-pen-index="${penIndex}"]`);
+  if (animalOverlay) {
+    const emoji = animalOverlay.querySelector('.animal-cell-emoji');
+    if (emoji) {
+      emoji.classList.add('eating');
+      setTimeout(() => emoji.classList.remove('eating'), 500);
+    }
+    animalOverlay.classList.add('eating');
+    setTimeout(() => animalOverlay.classList.remove('eating'), 500);
+  }
+}
+
+// 触发动物产出动画
+function triggerAnimalProduceAnimation(penIndex, productEmoji) {
+  const animalOverlay = document.querySelector(`.animal-in-cell[data-pen-index="${penIndex}"]`);
+  if (animalOverlay) {
+    // 动物产出动画
+    animalOverlay.classList.add('producing');
+    setTimeout(() => animalOverlay.classList.remove('producing'), 600);
+
+    // 显示产出物弹出
+    const rect = animalOverlay.getBoundingClientRect();
+    const popup = document.createElement('div');
+    popup.className = 'product-popup';
+    popup.textContent = productEmoji || '🥚';
+    popup.style.left = `${rect.left + rect.width / 2}px`;
+    popup.style.top = `${rect.top}px`;
+
+    document.body.appendChild(popup);
+    setTimeout(() => popup.remove(), 800);
+  }
+}
+
+// 触发动物开心跳跃动画
+function triggerAnimalHappyAnimation(penIndex) {
+  const animalOverlay = document.querySelector(`.animal-in-cell[data-pen-index="${penIndex}"]`);
+  if (animalOverlay) {
+    const emoji = animalOverlay.querySelector('.animal-cell-emoji');
+    if (emoji) {
+      emoji.classList.add('happy');
+      setTimeout(() => emoji.classList.remove('happy'), 800);
+    }
+    animalOverlay.classList.add('happy');
+    setTimeout(() => animalOverlay.classList.remove('happy'), 800);
+  }
+}
+
+// 触发动物饥饿提醒动画
+function triggerAnimalHungryAnimation(penIndex) {
+  const animalOverlay = document.querySelector(`.animal-in-cell[data-pen-index="${penIndex}"]`);
+  if (animalOverlay) {
+    animalOverlay.classList.add('hungry-alert');
+    setTimeout(() => animalOverlay.classList.remove('hungry-alert'), 2000);
+  }
+}
+
+// ========== P2: 农夫动画增强 ==========
+
+// 触发农夫惊讶动画（发现害虫）
+function triggerFarmerSurprisedAnimation(farmerName) {
+  const farmers = gameState?.farmers || (gameState?.farmer ? [gameState.farmer] : []);
+  const farmer = farmers.find(f => f.name === farmerName || f.fullName === farmerName);
+  if (!farmer) return;
+
+  const cell = document.getElementById(`plot-${farmer.x}-${farmer.y}`);
+  if (!cell) return;
+
+  const farmerEl = cell.querySelector('.farmer-in-cell');
+  if (farmerEl) {
+    farmerEl.classList.add('surprised');
+    setTimeout(() => farmerEl.classList.remove('surprised'), 500);
+  }
+
+  // 显示惊讶气泡
+  const bubble = document.createElement('div');
+  bubble.className = 'surprised-bubble';
+  bubble.textContent = '😱';
+  cell.appendChild(bubble);
+  setTimeout(() => bubble.remove(), 800);
+}
+
+// 触发农夫庆祝动画
+function triggerFarmerCelebrateAnimation(farmerName) {
+  const farmers = gameState?.farmers || (gameState?.farmer ? [gameState.farmer] : []);
+  const farmer = farmers.find(f => f.name === farmerName || f.fullName === farmerName);
+  if (!farmer) return;
+
+  const cell = document.getElementById(`plot-${farmer.x}-${farmer.y}`);
+  if (!cell) return;
+
+  const farmerEl = cell.querySelector('.farmer-in-cell');
+  if (farmerEl) {
+    farmerEl.classList.add('celebrating');
+    setTimeout(() => farmerEl.classList.remove('celebrating'), 800);
+  }
+
+  // 显示庆祝星星
+  const stars = ['⭐', '✨', '🌟'];
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      const star = document.createElement('div');
+      star.className = 'celebrate-star';
+      star.textContent = stars[Math.floor(Math.random() * stars.length)];
+      star.style.left = `${20 + Math.random() * 60}%`;
+      star.style.top = `${-10 + Math.random() * 30}%`;
+      cell.appendChild(star);
+      setTimeout(() => star.remove(), 600);
+    }, i * 100);
+  }
+}
+
+// ========== P2: 天气过渡效果 ==========
+
+// 触发天气切换渐变
+function triggerWeatherTransition(fromType, toType) {
+  // 移除旧的过渡层
+  document.querySelector('.weather-transition-overlay')?.remove();
+
+  // 创建过渡层
+  const overlay = document.createElement('div');
+  overlay.className = 'weather-transition-overlay';
+
+  // 根据天气类型调整颜色
+  if (toType === 'sunny') {
+    overlay.style.background = 'linear-gradient(180deg, rgba(135, 206, 235, 0.4), transparent)';
+  } else if (toType === 'rainy' || toType === 'stormy') {
+    overlay.style.background = 'linear-gradient(180deg, rgba(100, 100, 120, 0.4), transparent)';
+  } else if (toType === 'snowy') {
+    overlay.style.background = 'linear-gradient(180deg, rgba(220, 230, 240, 0.4), transparent)';
+  } else if (toType === 'foggy') {
+    overlay.style.background = 'linear-gradient(180deg, rgba(200, 210, 220, 0.5), transparent)';
+  }
+
+  document.body.appendChild(overlay);
+
+  // 动画结束后移除
+  setTimeout(() => overlay.remove(), 1000);
+
+  // 天气徽章闪烁
+  const weatherBadge = document.getElementById('weather-display');
+  if (weatherBadge) {
+    weatherBadge.classList.add('weather-changed');
+    setTimeout(() => weatherBadge.classList.remove('weather-changed'), 500);
+  }
+}
+
+// 显示/隐藏晴天阳光光晕
+function updateSunHalo(show) {
+  const existingHalo = document.querySelector('.sun-halo');
+  const existingRays = document.querySelector('.sun-rays');
+
+  if (show) {
+    if (!existingHalo) {
+      const halo = document.createElement('div');
+      halo.className = 'sun-halo';
+      document.body.appendChild(halo);
+    }
+    if (!existingRays) {
+      const rays = document.createElement('div');
+      rays.className = 'sun-rays';
+      document.body.appendChild(rays);
+    }
+  } else {
+    existingHalo?.remove();
+    existingRays?.remove();
+  }
+}
+
+// 综合动画触发函数 - 根据操作类型自动触发相应动画
+function triggerAnimationByType(type, data = {}) {
+  // 检查是否偏好减少动画
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) return;
+
+  switch (type) {
+    case 'crop-stage-change':
+      triggerCropStageAnimation(data.cell);
+      break;
+    case 'crop-grow':
+      triggerCropGrowAnimation(data.cell);
+      break;
+    case 'harvest':
+      if (data.cell) {
+        triggerHarvestFlyAnimation(data.cell);
+      }
+      break;
+    case 'coin-fly':
+      triggerCoinFlyAnimation(data.x, data.y, data.amount);
+      break;
+    case 'coin-multi':
+      triggerMultiCoinFlyAnimation(data.x, data.y, data.count);
+      break;
+    case 'animal-eat':
+      triggerAnimalEatAnimation(data.penIndex);
+      break;
+    case 'animal-produce':
+      triggerAnimalProduceAnimation(data.penIndex, data.productEmoji);
+      break;
+    case 'animal-happy':
+      triggerAnimalHappyAnimation(data.penIndex);
+      break;
+    case 'animal-hungry':
+      triggerAnimalHungryAnimation(data.penIndex);
+      break;
+    case 'farmer-surprised':
+      triggerFarmerSurprisedAnimation(data.farmerName);
+      break;
+    case 'farmer-celebrate':
+      triggerFarmerCelebrateAnimation(data.farmerName);
+      break;
+    case 'weather-transition':
+      triggerWeatherTransition(data.from, data.to);
+      break;
+    case 'sun-halo':
+      updateSunHalo(data.show);
+      break;
   }
 }
 
@@ -693,13 +1084,15 @@ function initSocket() {
       // 根据消息类型播放音效和粒子
       const msg = result.message.toLowerCase();
       const currentPlot = currentPlayer ? document.getElementById(`plot-${currentPlayer.position.x}-${currentPlayer.position.y}`) : null;
-      
+
       if (msg.includes('种植') || msg.includes('plant')) {
         playSound('plant');
         if (currentPlot) {
           createParticlesAtElement(currentPlot, 'plant');
           // 种子发芽动画
           showSeedSproutAnimation(currentPlot);
+          // 渐进生长动画
+          triggerAnimationByType('crop-grow', { cell: currentPlot });
         }
       } else if (msg.includes('浇水') || msg.includes('water')) {
         playSound('water');
@@ -710,16 +1103,32 @@ function initSocket() {
         }
       } else if (msg.includes('收获') || msg.includes('harvest')) {
         playSound('harvest');
-        if (currentPlot) createParticlesAtElement(currentPlot, 'harvest');
-        
+        if (currentPlot) {
+          // 收获飞出动画
+          triggerAnimationByType('harvest', { cell: currentPlot });
+          createParticlesAtElement(currentPlot, 'harvest');
+        }
+
         // 显示经验值获得
         if (result.xpGained) {
           showXpGain(result.xpGained);
         }
-        
+
         // 检查是否升级
         if (result.leveledUp) {
           showLevelUpAnimation(result.level);
+        }
+
+        // 金币飞入动画
+        if (result.coinsEarned && result.coinsEarned > 0) {
+          const rect = currentPlot?.getBoundingClientRect();
+          if (rect) {
+            triggerAnimationByType('coin-fly', {
+              x: rect.left + rect.width / 2,
+              y: rect.top + rect.height / 2,
+              amount: result.coinsEarned
+            });
+          }
         }
       } else if (msg.includes('金币') || msg.includes('money') || msg.includes('coin')) {
         playSound('coin');
@@ -741,6 +1150,16 @@ function initSocket() {
     if (result.success) {
       showNotification(`✅ ${result.message}`, 'success');
       playSound('coin');
+      // 获取金库位置用于金币动画
+      const moneyDisplay = document.getElementById('money-display');
+      if (moneyDisplay) {
+        const rect = moneyDisplay.getBoundingClientRect();
+        triggerAnimationByType('coin-fly', {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+          amount: result.cost || 0
+        });
+      }
     } else {
       showNotification(`❌ ${result.message}`, 'error');
       playSound('error');
@@ -755,6 +1174,16 @@ function initSocket() {
   socket.on('gold-trade-result', (result) => {
     if (result.success) {
       showNotification(`💰 ${result.message}`, 'success');
+      // 金币动画
+      const moneyDisplay = document.getElementById('money-display');
+      if (moneyDisplay && result.amount) {
+        const rect = moneyDisplay.getBoundingClientRect();
+        triggerAnimationByType('coin-multi', {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+          count: Math.min(5, Math.ceil(result.amount / 100))
+        });
+      }
     } else {
       showNotification(`❌ ${result.message}`, 'error');
     }
@@ -925,18 +1354,31 @@ function updateGameTimeDisplay() {
 }
 
 // ========== 天气系统渲染 ==========
+let previousWeatherType = null;
+
 function renderWeather() {
   const weatherDisplay = document.getElementById('weather-display');
   if (!weatherDisplay || !gameState || !gameState.weather) return;
-  
+
   const weather = gameState.weather;
+
+  // 检测天气变化，触发过渡动画
+  if (previousWeatherType && previousWeatherType !== weather.type) {
+    triggerAnimationByType('weather-transition', {
+      from: previousWeatherType,
+      to: weather.type
+    });
+  }
+  previousWeatherType = weather.type;
+
+  // 更新天气显示
   weatherDisplay.textContent = `${weather.emoji} ${weather.name}`;
   weatherDisplay.title = weather.description || '';
-  
+
   // 移除旧的天气样式类
   weatherDisplay.classList.remove('sunny', 'rainy', 'stormy', 'foggy', 'snowy');
   weatherDisplay.classList.add(weather.type || 'sunny');
-  
+
   // 添加描述作为子元素
   let descEl = weatherDisplay.querySelector('.weather-desc');
   if (!descEl && weather.description) {
@@ -947,9 +1389,12 @@ function renderWeather() {
   if (descEl) {
     descEl.textContent = weather.description;
   }
-  
+
   // 触发天气粒子效果
   renderWeatherParticles(weather.type);
+
+  // 晴天阳光光晕效果
+  triggerAnimationByType('sun-halo', { show: weather.type === 'sunny' });
 }
 
 // ========== 多样性系统渲染 ==========
@@ -1303,23 +1748,34 @@ function renderFarm() {
       // 更新作物显示
       const oldCrop = cell.dataset.crop;
       const newCrop = plot.crop || '';
-      
-      if (oldCrop !== newCrop || cell.dataset.growthStage !== String(plot.growthStage)) {
+      const oldGrowthStage = parseInt(cell.dataset.growthStage) || -1;
+      const newGrowthStage = plot.growthStage || 0;
+
+      if (oldCrop !== newCrop || oldGrowthStage !== newGrowthStage) {
         cell.dataset.crop = newCrop;
-        cell.dataset.growthStage = plot.growthStage;
+        cell.dataset.growthStage = newGrowthStage;
         cell.innerHTML = ''; // 清除旧内容
-        
+
         if (plot.crop) {
           cell.classList.add('has-crop');
-          
+
           // 生长阶段图标
           const stageEmojis = ['🌱', '🌿', '🌾', cropConfig[plot.crop]?.emoji || '🌾'];
           const emoji = stageEmojis[plot.growthStage] || stageEmojis[3];
-          
+
           const cropSpan = document.createElement('span');
           cropSpan.className = 'crop-emoji';
           cropSpan.textContent = emoji;
           cell.appendChild(cropSpan);
+
+          // 阶段变化时触发弹跳动画
+          if (oldGrowthStage !== -1 && oldGrowthStage !== newGrowthStage && newGrowthStage < 4) {
+            triggerAnimationByType('crop-stage-change', { cell });
+          }
+          // 新种植时触发生长动画
+          if (oldCrop !== newCrop && newCrop) {
+            triggerAnimationByType('crop-grow', { cell });
+          }
 
           // 浇水标记
           if (plot.isWatered) {
@@ -1338,6 +1794,14 @@ function renderFarm() {
           } else {
             cell.classList.remove('ready');
           }
+
+          // 显示生长进度条（非成熟状态）
+          if (plot.growthStage < 3 && plot.plantedAt && cropConfig[plot.crop]) {
+            const growthTime = cropConfig[plot.crop].growthTime || 60;
+            const elapsed = (Date.now() - new Date(plot.plantedAt).getTime()) / 1000;
+            const progress = Math.min(1, elapsed / growthTime);
+            showGrowthProgressBar(cell, progress);
+          }
         } else {
           cell.classList.remove('has-crop', 'watered', 'ready');
         }
@@ -1354,6 +1818,9 @@ function renderFarm() {
 // ========== 农夫 NPC 渲染 ==========
 // 农夫帽子颜色（区分多农夫）
 const FARMER_HAT_COLORS = ['#c8920a', '#e53935', '#1565c0', '#6a1b9a', '#00695c', '#37474f'];
+
+// 农夫上次状态（用于检测状态变化触发动画）
+const farmerPreviousState = new Map();
 
 function renderFarmer() {
   if (!gameState) return;
@@ -1407,6 +1874,29 @@ function renderFarmer() {
       </div>
       ${hungerBarHtml}`;
     cell.appendChild(el);
+
+    // 检测状态变化触发动画
+    const farmerKey = farmer.name;
+    const prevInfo = farmerPreviousState.get(farmerKey) || {};
+    const currentAction = farmer.currentAction || '';
+
+    // 发现害虫时触发惊讶动画
+    if (currentAction.includes('害虫') || currentAction.includes('pest') || currentAction.includes('发现')) {
+      if (prevInfo.action !== currentAction) {
+        triggerAnimationByType('farmer-surprised', { farmerName: farmer.name });
+      }
+    }
+
+    // 工作完成时触发庆祝动画
+    if (prevInfo.state === 'working' && farmer.state !== 'working' && !farmer.isSleeping) {
+      triggerAnimationByType('farmer-celebrate', { farmerName: farmer.name });
+    }
+
+    // 更新状态记录
+    farmerPreviousState.set(farmerKey, {
+      action: currentAction,
+      state: farmer.state
+    });
 
     // 动作完成气泡
     const key = farmer.name;
@@ -2037,7 +2527,15 @@ function renderInventory() {
       e.stopPropagation();
       const cropType = btn.dataset.crop;
       playSound('sell');
+      // 获取按钮位置用于金币动画
+      const rect = btn.getBoundingClientRect();
       socket.emit('sell-item', { cropType, quantity: 1 });
+      // 触发金币飞入动画
+      triggerAnimationByType('coin-fly', {
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+        amount: gameState.crops?.[cropType]?.sellPrice || 5
+      });
     });
   });
 }
@@ -2283,7 +2781,17 @@ function renderSellTab(container) {
     btn.addEventListener('click', (e) => {
       const cropType = btn.dataset.crop;
       playSound('sell');
+      // 获取按钮位置用于金币动画
+      const rect = btn.getBoundingClientRect();
       socket.emit('sell-item', { cropType, quantity: 1 });
+      // 触发金币飞入动画
+      const crop = crops[cropType];
+      const marketCrop = market.crops?.[cropType] || { currentPrice: crop.sellPrice };
+      triggerAnimationByType('coin-fly', {
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+        amount: marketCrop.currentPrice || crop.sellPrice || 5
+      });
     });
   });
 }
@@ -2717,12 +3225,17 @@ function renderAnimalPen() {
       e.stopPropagation();
       if (!pen.isReady) return;
       if (!isNearAnimalPen(pen.penIndex)) { showNotification('⚠️ 请先走到动物旁边再收获', 'error'); return; }
-      playSound('harvest'); socket.emit('harvest-animal', { penIndex: pen.penIndex, animalPos: animalPositions[pen.penIndex] });
+      playSound('harvest');
+      // 触发动物产出动画
+      triggerAnimationByType('animal-produce', { penIndex: pen.penIndex, productEmoji: pen.productEmoji || pen.emoji });
+      socket.emit('harvest-animal', { penIndex: pen.penIndex, animalPos: animalPositions[pen.penIndex] });
     });
     card.querySelector('.animal-sell-btn').addEventListener('click', e => {
       e.stopPropagation();
       if (!isNearAnimalPen(pen.penIndex)) { showNotification('⚠️ 请先走到动物旁边再出售', 'error'); return; }
       playSound('coin');
+      // 触发动物开心动画（告别）
+      triggerAnimationByType('animal-happy', { penIndex: pen.penIndex });
       socket.emit('sell-animal', { penIndex: pen.penIndex, animalPos: animalPositions[pen.penIndex] });
     });
     container.appendChild(card);
@@ -2769,7 +3282,7 @@ function renderAnimalsOnMap() {
     if (!cell) return;
 
     const overlay = document.createElement('div');
-    overlay.className = `animal-in-cell${pen.isReady ? ' is-ready' : ''}`;
+    overlay.className = `animal-in-cell${pen.isReady ? ' is-ready' : ''}${(pen.hunger || 0) >= 80 ? ' hungry-alert' : ''}`;
     overlay.dataset.penIndex = index;
     overlay.innerHTML = `<span class="animal-cell-emoji">${pen.emoji}</span>${pen.isReady ? '<span class="animal-ready-dot">!</span>' : ''}`;
     overlay.addEventListener('click', e => {
@@ -2831,6 +3344,10 @@ function showFeedAnimalModal(penIndex, pen) {
       }
       socket.emit('feed-animal', { penIndex, feedId, animalPos: animalPositions[penIndex] });
       playSound('buy');
+      // 触发动物进食动画
+      triggerAnimationByType('animal-eat', { penIndex });
+      // 触发动物开心动画
+      setTimeout(() => triggerAnimationByType('animal-happy', { penIndex }), 500);
       modal.remove();
     };
   });
@@ -2892,6 +3409,8 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
       }
     }
     playSound('harvest');
+    // 触发动物产出动画
+    triggerAnimationByType('animal-produce', { penIndex, productEmoji: pen.productEmoji || pen.emoji });
     socket.emit('harvest-animal', { penIndex, animalPos: animalPositions[penIndex] });
     popup.remove();
   };
@@ -2902,6 +3421,8 @@ function showAnimalCellPopup(penIndex, pen, anchorCell) {
       return;
     }
     playSound('coin');
+    // 触发动物开心动画（告别）
+    triggerAnimationByType('animal-happy', { penIndex });
     socket.emit('sell-animal', { penIndex, animalPos: animalPositions[penIndex] });
     popup.remove();
   };

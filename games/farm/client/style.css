@@ -3884,3 +3884,1342 @@ button:active {
   background: linear-gradient(135deg, #1a237e 0%, #4a148c 100%);
   border-left: 4px solid #7c4dff;
 }
+
+/* =====================================================
+   动画优化系统 - P0/P1/P2 优先级
+   ===================================================== */
+
+/* ========== P0: 作物生长动画 ========== */
+
+/* 生长进度条指示器 */
+.growth-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0 0 4px 4px;
+  overflow: hidden;
+}
+
+.growth-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #8bc34a, #cddc39);
+  transition: width 0.5s ease-out;
+  border-radius: 0 0 4px 4px;
+}
+
+/* 作物阶段变化弹跳效果 */
+@keyframes crop-bounce {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.3); }
+  50% { transform: scale(0.9); }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.crop-emoji.stage-change {
+  animation: crop-bounce 0.4s ease-out;
+}
+
+/* 渐进生长过渡 */
+@keyframes crop-grow {
+  0% { transform: scale(0.5) translateY(10px); opacity: 0.5; }
+  50% { transform: scale(1.1) translateY(-2px); opacity: 0.8; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.crop-emoji.growing {
+  animation: crop-grow 0.6s ease-out;
+}
+
+/* ========== P0: 收获动画增强 ========== */
+
+/* 作物飞出效果 */
+@keyframes harvest-fly-out {
+  0% {
+    transform: translateY(0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-60px) scale(1.2) rotate(15deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-120px) scale(0.5) rotate(30deg);
+    opacity: 0;
+  }
+}
+
+.crop-emoji.harvesting {
+  animation: harvest-fly-out 0.6s ease-out forwards;
+  pointer-events: none;
+}
+
+/* 格子闪光效果 */
+@keyframes cell-flash {
+  0% { box-shadow: inset 0 0 0 0 rgba(255, 215, 0, 0); }
+  30% { box-shadow: inset 0 0 20px 5px rgba(255, 215, 0, 0.8); }
+  60% { box-shadow: inset 0 0 10px 2px rgba(255, 215, 0, 0.4); }
+  100% { box-shadow: inset 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+
+.plot-cell.harvest-flash {
+  animation: cell-flash 0.5s ease-out;
+}
+
+/* 收获成功标记 */
+@keyframes harvest-success-ring {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.harvest-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  border: 3px solid #4caf50;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: harvest-success-ring 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+/* ========== P1: 金币获取动画 ========== */
+
+/* 金币飞入金库效果 */
+@keyframes coin-fly-to-vault {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(var(--coin-dx, -100px), var(--coin-dy, -50px)) scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--coin-target-x, 0), var(--coin-target-y, -80px)) scale(0.3);
+    opacity: 0;
+  }
+}
+
+.coin-fly {
+  position: fixed;
+  font-size: 24px;
+  z-index: 1000;
+  pointer-events: none;
+  animation: coin-fly-to-vault 0.6s ease-in-out forwards;
+}
+
+/* 金币连续飞入 */
+@keyframes coin-multi-fly {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--target-x), var(--target-y)) scale(0.3) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.coin-multi-fly {
+  position: fixed;
+  font-size: 20px;
+  z-index: 1000;
+  pointer-events: none;
+  animation: coin-multi-fly 0.8s ease-in-out forwards;
+}
+
+/* 金库发光效果 */
+@keyframes vault-glow {
+  0%, 100% { text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+  50% { text-shadow: 0 0 20px rgba(255, 215, 0, 1), 0 0 30px rgba(255, 215, 0, 0.8); }
+}
+
+.money-badge.coin-received {
+  animation: vault-glow 0.5s ease-out;
+}
+
+/* 金币弹出数字 */
+@keyframes coin-number-pop {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-40px) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.coin-popup {
+  position: absolute;
+  color: #ffd700;
+  font-weight: bold;
+  font-size: 18px;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+  animation: coin-number-pop 0.8s ease-out forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ========== P1: 动物行为动画 ========== */
+
+/* 动物进食动画 */
+@keyframes animal-eat {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.1) rotate(-5deg); }
+  50% { transform: scale(1.15) rotate(5deg); }
+  75% { transform: scale(1.1) rotate(-3deg); }
+}
+
+.animal-in-cell.eating {
+  animation: animal-eat 0.5s ease-in-out;
+}
+
+.animal-cell-emoji.eating {
+  animation: animal-eat 0.5s ease-in-out;
+}
+
+/* 动物产出动画 */
+@keyframes animal-produce {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  30% {
+    transform: scale(1.2);
+    filter: brightness(1.3);
+  }
+  60% {
+    transform: scale(0.95);
+    filter: brightness(1.1);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+.animal-in-cell.producing {
+  animation: animal-produce 0.6s ease-out;
+}
+
+/* 产出物弹出 */
+@keyframes product-pop {
+  0% {
+    transform: scale(0) translateY(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) translateY(-10px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(-20px);
+    opacity: 0;
+  }
+}
+
+.product-popup {
+  position: absolute;
+  font-size: 24px;
+  animation: product-pop 0.8s ease-out forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* 动物开心跳跃 */
+@keyframes animal-hop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+.animal-in-cell.happy {
+  animation: animal-hop 0.4s ease-in-out 2;
+}
+
+.animal-cell-emoji.happy {
+  animation: animal-hop 0.4s ease-in-out 2;
+}
+
+/* 动物饥饿摇晃 */
+@keyframes animal-hungry-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+.animal-in-cell.hungry-alert {
+  animation: animal-hungry-shake 0.3s ease-in-out infinite;
+}
+
+/* ========== P2: 农夫动画增强 ========== */
+
+/* 农夫惊讶动画（发现害虫） */
+@keyframes farmer-surprised {
+  0% { transform: scale(1) rotate(0deg); }
+  20% { transform: scale(1.1) rotate(-5deg); }
+  40% { transform: scale(1.15) rotate(5deg); }
+  60% { transform: scale(1.1) rotate(-3deg); }
+  80% { transform: scale(1.05) rotate(2deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.farmer-in-cell.surprised {
+  animation: farmer-surprised 0.5s ease-out;
+}
+
+/* 惊讶气泡 */
+@keyframes surprised-bubble {
+  0% {
+    transform: scale(0) translateY(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) translateY(-10px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(-20px);
+    opacity: 0;
+  }
+}
+
+.surprised-bubble {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  animation: surprised-bubble 0.8s ease-out forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* 农夫庆祝动画 */
+@keyframes farmer-celebrate {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  20% { transform: translateY(-10px) rotate(-5deg); }
+  40% { transform: translateY(-5px) rotate(5deg); }
+  60% { transform: translateY(-15px) rotate(-3deg); }
+  80% { transform: translateY(-8px) rotate(3deg); }
+}
+
+.farmer-in-cell.celebrating {
+  animation: farmer-celebrate 0.8s ease-in-out;
+}
+
+/* 庆祝星星效果 */
+@keyframes celebrate-stars {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1) rotate(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.celebrate-star {
+  position: absolute;
+  font-size: 16px;
+  animation: celebrate-stars 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ========== P2: 天气过渡效果 ========== */
+
+/* 天气切换渐变 */
+@keyframes weather-transition {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  50% {
+    opacity: 0.3;
+    backdrop-filter: blur(2px);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+.weather-transition-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(135, 206, 235, 0.3), transparent);
+  pointer-events: none;
+  z-index: 50;
+  animation: weather-transition 1s ease-in-out;
+}
+
+/* 晴天阳光光晕 */
+@keyframes sun-glow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+}
+
+.sun-halo {
+  position: fixed;
+  top: -100px;
+  right: -100px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255, 236, 179, 0.6) 0%, rgba(255, 236, 179, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  animation: sun-glow 3s ease-in-out infinite;
+}
+
+/* 阳光射线 */
+@keyframes sun-rays {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.sun-rays {
+  position: fixed;
+  top: -150px;
+  right: -150px;
+  width: 400px;
+  height: 400px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(255, 236, 179, 0.15) 10deg,
+    transparent 20deg,
+    transparent 30deg,
+    rgba(255, 236, 179, 0.15) 40deg,
+    transparent 50deg
+  );
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  animation: sun-rays 30s linear infinite;
+}
+
+/* 天气徽章闪烁 */
+@keyframes weather-badge-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 10px 3px rgba(255, 193, 7, 0.6);
+  }
+}
+
+.weather-badge.weather-changed {
+  animation: weather-badge-pulse 0.5s ease-out;
+}
+
+/* ========== 动画通用样式 ========== */
+
+/* 动画容器 */
+.animation-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* 粒子飞散效果 */
+@keyframes particle-scatter {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0);
+    opacity: 0;
+  }
+}
+
+.particle {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1000;
+  animation: particle-scatter 0.6s ease-out forwards;
+}
+
+/* ========== prefers-reduced-motion 支持 ========== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .crop-emoji.stage-change,
+  .crop-emoji.growing,
+  .crop-emoji.harvesting,
+  .plot-cell.harvest-flash,
+  .coin-fly,
+  .coin-multi-fly,
+  .money-badge.coin-received,
+  .animal-in-cell.eating,
+  .animal-in-cell.producing,
+  .animal-in-cell.happy,
+  .animal-in-cell.hungry-alert,
+  .farmer-in-cell.surprised,
+  .farmer-in-cell.celebrating,
+  .sun-halo,
+  .sun-rays,
+  .weather-transition-overlay {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   UI 优化样式 - P0/P1/P2 优先级实现
+   ============================================================ */
+
+/* ========== P2: 配色方案扩展 ========== */
+:root {
+  /* 背景色系 */
+  --bg-dark: #1a1f16;
+  --bg-light: #2d3a24;
+  --bg-card: rgba(45, 58, 36, 0.9);
+  --bg-overlay: rgba(26, 31, 22, 0.95);
+
+  /* 阴影系统 */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(124, 179, 66, 0.3);
+
+  /* 状态色 */
+  --success: #66bb6a;
+  --warning: #ffa726;
+  --error: #ef5350;
+  --info: #42a5f5;
+
+  /* 边框色 */
+  --border-light: rgba(124, 179, 66, 0.3);
+  --border-active: var(--accent-green);
+
+  /* 文字大小 */
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+}
+
+/* ========== P2: 按钮/徽章美化 ========== */
+
+/* 按钮渐变背景增强 */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-green) 0%, #558b2f 100%);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), 0 0 15px rgba(124, 179, 66, 0.4);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, var(--accent-brown) 0%, #5d4037 100%);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* 徽章阴影美化 */
+.room-badge, .money-badge, .game-time-badge, .weather-badge,
+.diversity-badge, .salary-badge, .tax-badge, .online-badge {
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.money-badge {
+  background: linear-gradient(135deg, var(--accent-green) 0%, #558b2f 100%);
+  font-size: var(--text-base);
+  padding: 4px 12px;
+  position: relative;
+}
+
+.money-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* ========== P2: 进度条美化 ========== */
+
+/* XP条渐变动画 */
+.xp-bar {
+  background: linear-gradient(90deg, #4CAF50, #8BC34A, #CDDC39, #8BC34A, #4CAF50);
+  background-size: 200% 100%;
+  animation: xpGradient 3s linear infinite;
+  position: relative;
+}
+
+.xp-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 50%);
+  border-radius: inherit;
+}
+
+@keyframes xpGradient {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* 进度条发光效果 */
+.xp-bar-container {
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.xp-bar-container::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, transparent, rgba(124, 179, 66, 0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.level-panel:hover .xp-bar-container::before {
+  opacity: 1;
+  animation: progressGlow 2s ease-in-out infinite;
+}
+
+@keyframes progressGlow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+/* 动物进度条美化 */
+.animal-pen-progress-bar {
+  background: linear-gradient(90deg, #81c784, #4caf50, #81c784);
+  background-size: 200% 100%;
+  animation: animalProgressPulse 2s ease-in-out infinite;
+}
+
+@keyframes animalProgressPulse {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 0%; }
+}
+
+/* ========== P1: 安全区域适配 ========== */
+
+/* 刘海屏适配 */
+@supports (padding: max(0px)) {
+  body {
+    padding-top: max(0px, env(safe-area-inset-top));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+
+  .game-header {
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+
+  .modal {
+    padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  }
+
+  .notification {
+    bottom: max(20px, env(safe-area-inset-bottom));
+  }
+
+  .farm-log-panel {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* 横屏优化 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .game-header {
+    padding: 4px 14px;
+  }
+
+  .level-panel {
+    padding: 4px 10px;
+  }
+
+  .game-container {
+    gap: 6px;
+  }
+
+  .action-panel {
+    max-height: calc(100vh - 70px);
+  }
+
+  .farm-log-panel {
+    max-height: 150px;
+  }
+
+  .farm-log-panel:not(.log-collapsed) {
+    max-height: 150px;
+  }
+
+  .farm-log-body {
+    height: 116px;
+  }
+}
+
+/* ========== P1: 触摸优化 ========== */
+
+/* 增大点击区域 */
+.crop-btn,
+.action-btn,
+.pest-btn,
+.animal-buy-btn,
+.shop-item,
+.btn-small,
+.pest-buy-btn,
+.feed-btn,
+.fire-farmer-btn,
+.hire-farmer-btn,
+.animal-pen-cell,
+.shop-tab,
+.tasks-tab,
+.leaderboard-tab {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* 小型按钮保持紧凑但触摸友好 */
+.btn-icon {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 优化 active 效果 */
+.crop-btn:active,
+.action-btn:active,
+.pest-btn:active,
+.animal-buy-btn:active,
+.shop-item:active,
+.btn-primary:active,
+.btn-secondary:active,
+.btn-small:active {
+  transform: scale(0.95);
+  filter: brightness(0.9);
+}
+
+/* 触摸反馈动画 */
+@keyframes touchFeedback {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+.touch-feedback {
+  animation: touchFeedback 0.15s ease-out;
+}
+
+/* 滑动手势提示 */
+.swipe-hint {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  animation: fadeOutUp 2s ease-out forwards;
+  z-index: 100;
+}
+
+@keyframes fadeOutUp {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 0.5; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+}
+
+/* ========== P0: 头部信息优化 ========== */
+
+/* 信息分组容器 */
+.game-header {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.game-info {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.player-info {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+/* 信息分组显示 */
+.info-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+}
+
+.info-group-primary {
+  background: rgba(124, 179, 66, 0.2);
+  border: 1px solid rgba(124, 179, 66, 0.4);
+}
+
+/* 关键信息突出（金币） */
+.money-badge {
+  font-size: 16px;
+  padding: 4px 14px;
+  animation: subtlePulse 3s ease-in-out infinite;
+}
+
+@keyframes subtlePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* 次要信息收起按钮 */
+.header-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.header-toggle-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-light);
+}
+
+/* 次要信息收起状态 */
+.game-info.collapsed .weather-badge,
+.game-info.collapsed .diversity-badge,
+.game-info.collapsed .salary-badge,
+.game-info.collapsed .tax-badge,
+.game-info.collapsed .farm-size-badge {
+  display: none;
+}
+
+/* 任务按钮突出 */
+.btn-tasks {
+  min-height: 36px;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
+}
+
+.btn-tasks:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ========== P0: 移动端响应式布局 ========== */
+
+/* 超小屏幕（< 480px）- 小手机 */
+@media (max-width: 479px) {
+  :root {
+    --text-xs: 9px;
+    --text-sm: 11px;
+    --text-base: 13px;
+  }
+
+  body {
+    font-size: var(--text-base);
+  }
+
+  .game-header {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .game-info {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .game-info::-webkit-scrollbar {
+    display: none;
+  }
+
+  .player-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* 操作面板改为底部抽屉 */
+  .game-container {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+  }
+
+  .farm-wrapper {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .action-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    max-height: 60vh;
+    border-radius: 16px 16px 0 0;
+    z-index: 50;
+    transform: translateY(calc(100% - 56px));
+    transition: transform 0.3s ease;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .action-panel.expanded {
+    transform: translateY(0);
+  }
+
+  .action-panel.collapsed {
+    transform: translateY(calc(100% - 56px));
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .action-panel-header {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .action-panel-header::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: rgba(255,255,255,0.3);
+    border-radius: 2px;
+  }
+
+  .action-panel.collapsed .action-panel-body {
+    display: none;
+  }
+
+  .action-panel.expanded .action-panel-body {
+    display: block;
+  }
+
+  /* 弹窗适配小屏幕 */
+  .modal-content {
+    min-width: auto;
+    width: 95%;
+    max-width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+
+  .shop-modal-content,
+  .tasks-modal-content,
+  .friends-modal-content,
+  .leaderboard-modal-content {
+    min-width: auto;
+    width: 95%;
+    max-width: 95%;
+  }
+
+  .shop-items {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .shop-tabs {
+    flex-wrap: wrap;
+  }
+
+  .shop-tab {
+    min-width: calc(33% - 6px);
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  /* 作物按钮适配 */
+  .action-category .crop-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .crop-btn {
+    min-height: 52px;
+  }
+
+  .btn-emoji {
+    font-size: 1.5em;
+  }
+
+  /* 等级面板精简 */
+  .level-panel {
+    min-width: 80px;
+    padding: 4px 8px;
+  }
+
+  .level-text {
+    font-size: 14px;
+  }
+
+  .bonus-text {
+    font-size: 10px;
+  }
+
+  .xp-text {
+    font-size: 9px;
+  }
+
+  /* 头部徽章精简 */
+  .room-badge, .game-time-badge, .weather-badge,
+  .diversity-badge, .salary-badge, .tax-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .money-badge {
+    font-size: 14px;
+    padding: 3px 10px;
+  }
+
+  /* 农场网格优化 */
+  .plot-cell {
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 16px;
+  }
+
+  /* 日志面板精简 */
+  .farm-log-panel {
+    max-height: 120px;
+  }
+
+  .farm-log-panel:not(.log-collapsed) {
+    max-height: 120px;
+  }
+
+  .farm-log-body {
+    height: 86px;
+  }
+
+  /* 隐藏非必要元素 */
+  .farmer-thoughts-panel,
+  .farmer-chat-panel {
+    display: none;
+  }
+}
+
+/* 平板尺寸（480px - 768px） */
+@media (min-width: 480px) and (max-width: 768px) {
+  .game-container {
+    grid-template-columns: 1fr 280px;
+  }
+
+  .action-panel {
+    min-width: 280px;
+  }
+
+  .game-header {
+    padding: 6px 12px;
+  }
+
+  /* 头部信息可滚动 */
+  .game-info {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .game-info::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 弹窗中等宽度 */
+  .modal-content {
+    min-width: 400px;
+    max-width: 85%;
+  }
+
+  .shop-items {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* 作物按钮优化 */
+  .action-category .crop-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 大屏幕（1400px+） */
+@media (min-width: 1400px) {
+  .game-container {
+    grid-template-columns: 1fr 380px;
+    max-width: 1600px;
+  }
+
+  .action-panel {
+    min-width: 380px;
+    max-width: 400px;
+  }
+
+  .game-header {
+    padding: 8px 20px;
+    border-radius: 12px;
+  }
+
+  /* 更大的地块 */
+  .plot-cell {
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 24px;
+  }
+
+  /* 作物按钮更大 */
+  .crop-btn {
+    min-height: 56px;
+    padding: 8px 6px;
+  }
+
+  .btn-emoji {
+    font-size: 1.6em;
+  }
+
+  .btn-name {
+    font-size: 13px;
+  }
+
+  .btn-cost {
+    font-size: 12px;
+  }
+
+  /* 等级面板更宽 */
+  .level-panel {
+    min-width: 120px;
+    padding: 8px 16px;
+  }
+
+  /* 商店更宽 */
+  .shop-modal-content {
+    min-width: 650px;
+    max-width: 700px;
+  }
+
+  .shop-items {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* 头部信息更宽敞 */
+  .game-info {
+    gap: 12px;
+  }
+
+  .room-badge, .money-badge, .game-time-badge, .weather-badge,
+  .diversity-badge, .salary-badge, .tax-badge {
+    padding: 4px 12px;
+    font-size: 13px;
+  }
+
+  .money-badge {
+    font-size: 16px;
+    padding: 5px 16px;
+  }
+}
+
+/* 超宽屏幕（1600px+） */
+@media (min-width: 1600px) {
+  .game-container {
+    max-width: 1800px;
+  }
+
+  .plot-cell {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 26px;
+  }
+}
+
+/* ========== 弹窗小屏幕优化 ========== */
+
+@media (max-width: 600px) {
+  .modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-content {
+    border-radius: 16px 16px 0 0;
+    max-height: 85vh;
+    margin-bottom: 0;
+  }
+
+  .modal-content h2 {
+    font-size: 1.3em;
+  }
+
+  /* 表单优化 */
+  .form-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .btn-row {
+    flex-direction: column-reverse;
+  }
+
+  .btn-row button {
+    width: 100%;
+  }
+
+  /* 标签页优化 */
+  .tasks-tabs,
+  .leaderboard-tabs {
+    flex-wrap: wrap;
+  }
+
+  .tasks-tab,
+  .leaderboard-tab {
+    flex: 1 1 calc(50% - 4px);
+    min-width: calc(50% - 4px);
+  }
+}
+
+/* ========== 深色模式/高对比度增强 ========== */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-dark: #12160f;
+    --bg-light: #1e2818;
+  }
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .crop-btn,
+  .action-btn,
+  .btn-primary,
+  .btn-secondary {
+    border-width: 2px;
+  }
+
+  .money-badge {
+    border: 2px solid #fff;
+  }
+}
+
+/* 减少动画模式（覆盖之前的prefers-reduced-motion） */
+@media (prefers-reduced-motion: reduce) {
+  .xp-bar,
+  .animal-pen-progress-bar {
+    animation: none;
+  }
+
+  .xp-bar {
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  }
+}
+
+/* ========== 打印样式 ========== */
+@media print {
+  .action-panel,
+  .farm-log-panel,
+  .farmer-thoughts-panel,
+  .farmer-chat-panel,
+  .notification,
+  .modal {
+    display: none !important;
+  }
+
+  .game-container {
+    display: block;
+  }
+
+  .farm-grid {
+    break-inside: avoid;
+  }
+}
