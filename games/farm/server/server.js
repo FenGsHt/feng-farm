@@ -488,12 +488,14 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 获取金价信息
-  socket.on('get-gold-info', () => {
+  // 获取金价信息（每次都刷新）
+  socket.on('get-gold-info', async () => {
     if (!currentRoomId) return;
     const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
 
+    // 先刷新金价
+    await room.game.fetchGoldPrice();
     socket.emit('gold-info', room.game.getGoldInfo());
   });
 

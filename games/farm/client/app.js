@@ -1805,6 +1805,8 @@ function renderShopItems(shopItems) {
     renderFarmerTab(shopItemsContainer);
     return;
   } else if (currentShopTab === 'gold') {
+    // 先刷新金价再渲染
+    socket.emit('get-gold-info');
     renderGoldTab(shopItemsContainer);
     return;
   } else if (currentShopTab === 'sell') {
