@@ -413,7 +413,7 @@ io.on('connection', (socket) => {
     const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
 
-    const result = room.game.feedFarmer(socket.id, farmerName, foodId);
+    const result = room.game.feedFarmer(farmerName, foodId);
     socket.emit('action-result', result);
     if (result.success) {
       io.to(currentRoomId).emit('game-state', room.game.getState());

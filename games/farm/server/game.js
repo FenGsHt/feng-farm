@@ -718,9 +718,6 @@ class FarmGame {
   }
 
   feedFarmer(socketId, farmerName, foodId) {
-    const player = this.players.get(socketId);
-    if (!player) return { success: false, message: '玩家不存在' };
-
     const food = SHOP_ITEMS[foodId];
     if (!food || food.type !== 'farmer-food') return { success: false, message: '无效的食物' };
 
@@ -728,14 +725,6 @@ class FarmGame {
     if (!farmer)                          return { success: false, message: `找不到农夫 ${farmerName}` };
     if (farmer.isDead)                    return { success: false, message: `${farmerName} 已经去世了` };
     if (this.sharedMoney < food.price)    return { success: false, message: `公库金币不足（需 ${food.price}💰）` };
-
-    // 距离验证（曼哈顿距离 <= 2）
-    if (player.position && farmer.x !== undefined && farmer.y !== undefined) {
-      const dist = Math.abs(player.position.x - farmer.x) + Math.abs(player.position.y - farmer.y);
-      if (dist > 2) {
-        return { success: false, message: '距离太远，请靠近农夫' };
-      }
-    }
 
     this.sharedMoney -= food.price;
     farmer.hunger = Math.max(0, farmer.hunger - food.satiety);
