@@ -159,24 +159,24 @@ function getCoinBonusMultiplier(level) {
 
 // 作物配置
 const CROPS = {
-  // 谷物
-  wheat: { name: '小麦', growthTime: 30, sellPrice: 10, seedPrice: 2, emoji: '🌾', category: 'grain' },
-  corn: { name: '玉米', growthTime: 120, sellPrice: 60, seedPrice: 12, emoji: '🌽', category: 'grain' },
-  rice: { name: '水稻', growthTime: 90, sellPrice: 45, seedPrice: 8, emoji: '🍚', category: 'grain' },
+  // 谷物（growthTime 单位：秒，浇水后速度 ×1.5）
+  wheat:      { name: '小麦',   growthTime: 180,  sellPrice: 10,  seedPrice: 2,  emoji: '🌾', category: 'grain' },      // 3 min
+  corn:       { name: '玉米',   growthTime: 900,  sellPrice: 60,  seedPrice: 12, emoji: '🌽', category: 'grain' },      // 15 min
+  rice:       { name: '水稻',   growthTime: 600,  sellPrice: 45,  seedPrice: 8,  emoji: '🍚', category: 'grain' },      // 10 min
   // 蔬菜
-  tomato: { name: '番茄', growthTime: 60, sellPrice: 25, seedPrice: 5, emoji: '🍅', category: 'vegetable' },
-  carrot: { name: '胡萝卜', growthTime: 20, sellPrice: 15, seedPrice: 3, emoji: '🥕', category: 'vegetable' },
-  eggplant: { name: '茄子', growthTime: 45, sellPrice: 30, seedPrice: 6, emoji: '🍆', category: 'vegetable' },
-  cucumber: { name: '黄瓜', growthTime: 40, sellPrice: 20, seedPrice: 4, emoji: '🥒', category: 'vegetable' },
-  pumpkin: { name: '南瓜', growthTime: 150, sellPrice: 80, seedPrice: 15, emoji: '🎃', category: 'vegetable' },
+  tomato:     { name: '番茄',   growthTime: 420,  sellPrice: 25,  seedPrice: 5,  emoji: '🍅', category: 'vegetable' },  // 7 min
+  carrot:     { name: '胡萝卜', growthTime: 150,  sellPrice: 15,  seedPrice: 3,  emoji: '🥕', category: 'vegetable' },  // 2.5 min
+  eggplant:   { name: '茄子',   growthTime: 480,  sellPrice: 30,  seedPrice: 6,  emoji: '🍆', category: 'vegetable' },  // 8 min
+  cucumber:   { name: '黄瓜',   growthTime: 300,  sellPrice: 20,  seedPrice: 4,  emoji: '🥒', category: 'vegetable' },  // 5 min
+  pumpkin:    { name: '南瓜',   growthTime: 1200, sellPrice: 80,  seedPrice: 15, emoji: '🎃', category: 'vegetable' },  // 20 min
   // 水果
-  strawberry: { name: '草莓', growthTime: 35, sellPrice: 20, seedPrice: 4, emoji: '🍓', category: 'fruit' },
-  watermelon: { name: '西瓜', growthTime: 100, sellPrice: 50, seedPrice: 10, emoji: '🍉', category: 'fruit' },
-  grape: { name: '葡萄', growthTime: 180, sellPrice: 100, seedPrice: 20, emoji: '🍇', category: 'fruit' },
-  apple: { name: '苹果', growthTime: 300, sellPrice: 150, seedPrice: 30, emoji: '🍎', category: 'fruit' },
+  strawberry: { name: '草莓',   growthTime: 240,  sellPrice: 20,  seedPrice: 4,  emoji: '🍓', category: 'fruit' },     // 4 min
+  watermelon: { name: '西瓜',   growthTime: 900,  sellPrice: 50,  seedPrice: 10, emoji: '🍉', category: 'fruit' },     // 15 min
+  grape:      { name: '葡萄',   growthTime: 1800, sellPrice: 100, seedPrice: 20, emoji: '🍇', category: 'fruit' },     // 30 min
+  apple:      { name: '苹果',   growthTime: 3600, sellPrice: 150, seedPrice: 30, emoji: '🍎', category: 'fruit' },     // 60 min
   // 经济作物
-  cotton: { name: '棉花', growthTime: 200, sellPrice: 70, seedPrice: 14, emoji: '☁️', category: 'cash' },
-  tea: { name: '茶叶', growthTime: 250, sellPrice: 90, seedPrice: 18, emoji: '🍵', category: 'cash' }
+  cotton:     { name: '棉花',   growthTime: 1500, sellPrice: 70,  seedPrice: 14, emoji: '☁️', category: 'cash' },     // 25 min
+  tea:        { name: '茶叶',   growthTime: 2400, sellPrice: 90,  seedPrice: 18, emoji: '🍵', category: 'cash' }       // 40 min
 };
 
 // 动物配置
