@@ -511,6 +511,44 @@ io.on('connection', (socket) => {
     socket.emit('gold-info', room.game.getGoldInfo());
   });
 
+  // ====== 玩家指令系统 ======
+
+  // 给农夫下达指令
+  socket.on('give-farmer-command', ({ farmerName, command, params }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.giveCommandToFarmer(farmerName, command, params);
+    socket.emit('farmer-command-result', result);
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 取消农夫指令
+  socket.on('cancel-farmer-command', ({ farmerName }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.cancelFarmerCommand(farmerName);
+    socket.emit('farmer-command-result', result);
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 获取农夫指令状态
+  socket.on('get-farmer-commands', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const commands = room.game.getFarmerCommands();
+    socket.emit('farmer-commands-list', commands);
+  });
+
   // New farm (reset)
   socket.on('new-farm', () => {
     if (!currentRoomId) return;

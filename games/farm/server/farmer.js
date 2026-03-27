@@ -1190,30 +1190,31 @@ class BuyWeaponBehavior extends FarmerBehavior {
 
   canExecute(farmer, game) {
     // 武器库存不足且有钱，或者有野生动物威胁时优先进货
-    const hasWeapon = (farmer.items.weapon || 0) > 0;
+    const weaponUses = (farmer.items.weapon || 0);
     const wildAnimals = game.wildAnimals || [];
     const hasThreat = wildAnimals.length > 0;
 
     // 有威胁但没武器 -> 紧急购买
-    if (hasThreat && !hasWeapon && game.sharedMoney >= 60) return true;
-    // 常规补货
-    if (!hasWeapon && game.sharedMoney >= 100) return true;
+    if (hasThreat && weaponUses === 0 && game.sharedMoney >= 60) return true;
+    // 常规补货（保持至少3次使用机会）
+    if (weaponUses < 3 && game.sharedMoney >= 100) return true;
     return false;
   }
 
   getTarget() { return null; }
 
   execute(farmer, game) {
-    const cost = 50;
+    const cost = 50;  // 武器价格
+    const uses = 5;   // 每把武器可使用5次
     if (game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
 
-    farmer.items.weapon = (farmer.items.weapon || 0) + 1;
+    farmer.items.weapon = (farmer.items.weapon || 0) + uses;
     game.sharedMoney -= cost;
 
     farmer.state = 'idle';
     farmer.currentAction = '买了武器';
     return {
-      log: `${farmer.fullName} 购买了猎枪🔫（-50💰），可以对付野生动物了`,
+      log: `${farmer.fullName} 购买了猎枪🔫（-50💰），可使用${uses}次，可以对付野生动物了`,
       acted: true,
       earned: 0
     };
@@ -1948,7 +1949,109 @@ ${chatContext || '暂无聊天记录'}
   // ---------- 决策逻辑 ----------
 
   _pickBehavior() {
+    // 优先检查玩家指令
+    if (this.playerCommand && Date.now() < this.playerCommand.expiresAt) {
+      const cmdBehavior = this._createCommandBehavior(this.playerCommand);
+      if (cmdBehavior && cmdBehavior.canExecute(this, this.game)) {
+        return cmdBehavior;
+      }
+    } else if (this.playerCommand) {
+      // 指令过期，清除
+      this.playerCommand = null;
+    }
+
     return this.decisionEngine.selectBehavior();
+  }
+
+  // 根据玩家指令创建行为
+  _createCommandBehavior(cmd) {
+    const FarmGame = require('./game').FarmGame || {};
+
+    switch (cmd.type) {
+      case 'plant_crop':
+        // 找到对应种植行为并设置目标作物
+        const plantBehavior = this.behaviors.find(b => b.name === '种植');
+        if (plantBehavior && cmd.params.cropType) {
+          plantBehavior._forceCrop = cmd.params.cropType;
+          const origExecute = plantBehavior.execute.bind(plantBehavior);
+          plantBehavior.execute = (farmer, game) => {
+            const result = origExecute(farmer, game);
+            if (result.acted) {
+              farmer.playerCommand = null; // 执行完毕清除
+            }
+            delete plantBehavior._forceCrop;
+            return result;
+          };
+          return plantBehavior;
+        }
+        break;
+
+      case 'focus_harvest':
+        const harvestBehavior = this.behaviors.find(b => b.name === '收获作物');
+        if (harvestBehavior) {
+          const origExecute = harvestBehavior.execute.bind(harvestBehavior);
+          harvestBehavior.execute = (farmer, game) => {
+            const result = origExecute(farmer, game);
+            if (result.acted) {
+              // 收获成功后清除指令
+              farmer.playerCommand = null;
+            }
+            return result;
+          };
+          return harvestBehavior;
+        }
+        break;
+
+      case 'buy_animal':
+        const buyAnimalBehavior = this.behaviors.find(b => b.name === '购买动物');
+        if (buyAnimalBehavior && cmd.params.animalType) {
+          buyAnimalBehavior._forceAnimal = cmd.params.animalType;
+          const origExecute = buyAnimalBehavior.execute.bind(buyAnimalBehavior);
+          buyAnimalBehavior.execute = (farmer, game) => {
+            const result = origExecute(farmer, game);
+            if (result.acted) {
+              farmer.playerCommand = null;
+            }
+            delete buyAnimalBehavior._forceAnimal;
+            return result;
+          };
+          return buyAnimalBehavior;
+        }
+        break;
+
+      case 'sell_crop':
+        // 优先出售指定作物
+        const sellBehavior = this.behaviors.find(b => b.name === '出售作物');
+        if (sellBehavior) {
+          const origExecute = sellBehavior.execute.bind(sellBehavior);
+          sellBehavior.execute = (farmer, game) => {
+            const result = origExecute(farmer, game);
+            if (result.acted) {
+              farmer.playerCommand = null;
+            }
+            return result;
+          };
+          return sellBehavior;
+        }
+        break;
+
+      case 'invest_gold':
+        const investBehavior = this.behaviors.find(b => b.name === '投资黄金');
+        if (investBehavior) {
+          const origExecute = investBehavior.execute.bind(investBehavior);
+          investBehavior.execute = (farmer, game) => {
+            const result = origExecute(farmer, game);
+            if (result.acted) {
+              farmer.playerCommand = null;
+            }
+            return result;
+          };
+          return investBehavior;
+        }
+        break;
+    }
+
+    return null;
   }
 
   /** 获取决策调试信息 */

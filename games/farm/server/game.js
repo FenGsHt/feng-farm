@@ -55,6 +55,72 @@ const WEATHER_TYPES = {
   }
 };
 
+// ========== 季节系统 ==========
+const SEASONS = {
+  spring: {
+    name: '春天',
+    emoji: '🌸',
+    description: '万物复苏，适合种植大部分作物',
+    growthMultiplier: 1.2,    // 生长速度+20%
+    cropBonuses: {           // 特定作物加成
+      strawberry: 1.5,       // 草莓+50%收益
+      tomato: 1.3,           // 番茄+30%
+      carrot: 1.2
+    },
+    duration: 1800,          // 30分钟
+    color: '#FFB7C5'
+  },
+  summer: {
+    name: '夏天',
+    emoji: '☀️',
+    description: '阳光充足，水果生长旺盛',
+    growthMultiplier: 1.3,    // 生长速度+30%
+    cropBonuses: {
+      watermelon: 1.5,       // 西瓜+50%
+      grape: 1.4,            // 葡萄+40%
+      corn: 1.3,
+      cucumber: 1.2
+    },
+    duration: 1800,
+    color: '#FFD700'
+  },
+  autumn: {
+    name: '秋天',
+    emoji: '🍂',
+    description: '丰收的季节，作物产量提升',
+    growthMultiplier: 1.1,    // 生长速度+10%
+    yieldMultiplier: 1.3,    // 产量+30%（全作物）
+    cropBonuses: {
+      pumpkin: 1.6,          // 南瓜+60%
+      apple: 1.4,            // 苹果+40%
+      wheat: 1.3,
+      cotton: 1.3
+    },
+    duration: 1800,
+    color: '#D2691E'
+  },
+  winter: {
+    name: '冬天',
+    emoji: '❄️',
+    description: '寒冷季节，只有耐寒作物能生长',
+    growthMultiplier: 0.6,    // 生长速度-40%
+    cropBonuses: {
+      tea: 1.3,              // 茶叶+30%
+      rice: 1.2              // 水稻（冬季特殊）
+    },
+    cropPenalties: {         // 受限作物（生长极慢）
+      watermelon: 0.3,       // 西瓜只能长30%
+      strawberry: 0.4,
+      tomato: 0.5
+    },
+    duration: 1800,
+    color: '#ADD8E6'
+  }
+};
+
+// 季节顺序
+const SEASON_ORDER = ['spring', 'summer', 'autumn', 'winter'];
+
 // ========== 害虫系统 ==========
 const PEST_TYPES = {
   aphid: {
@@ -482,7 +548,7 @@ class Plot {
   }
 
   // 收获
-  harvest() {
+  harvest(game = null) {
     if (!this.crop) return { success: false, message: '没有作物可收获' };
     if (this.growthStage < 3) return { success: false, message: '作物还未成熟' };
 
@@ -492,7 +558,15 @@ class Plot {
     // 根据肥力计算产量
     const fertilityEffect = this.getFertilityEffect();
     const baseReward = crop.sellPrice;
-    const reward = Math.floor(baseReward * fertilityEffect.yieldMultiplier);
+    let yieldMultiplier = fertilityEffect.yieldMultiplier;
+
+    // 季节影响产量
+    if (game && typeof game.getCropSeasonEffect === 'function') {
+      const seasonEffect = game.getCropSeasonEffect(this.crop);
+      yieldMultiplier *= seasonEffect.yieldMultiplier;
+    }
+
+    const reward = Math.floor(baseReward * yieldMultiplier);
 
     // 消耗肥力
     const fertilityCost = crop.fertilityCost || 10; // 默认消耗10点肥力
@@ -525,7 +599,7 @@ class Plot {
   }
 
   // 更新生长阶段
-  updateGrowth() {
+  updateGrowth(game = null) {
     if (!this.crop || this.growthStage >= 3) return;
 
     const crop = CROPS[this.crop];
@@ -540,6 +614,12 @@ class Plot {
     // 肥力影响生长速度
     const fertilityEffect = this.getFertilityEffect();
     effectiveTime *= fertilityEffect.growthMultiplier;
+
+    // 季节影响生长速度
+    if (game && typeof game.getCropSeasonEffect === 'function') {
+      const seasonEffect = game.getCropSeasonEffect(this.crop);
+      effectiveTime *= seasonEffect.growthMultiplier;
+    }
 
     // 计算生长阶段
     const progress = effectiveTime / crop.growthTime;
@@ -807,7 +887,12 @@ class FarmGame {
     this.weather = 'sunny'; // 当前天气
     this.weatherChangeTimer = 0; // 天气变化计时器
     this.weatherDuration = 300; // 天气持续时间（秒）
-    
+
+    // ========== 季节系统 ==========
+    this.season = 'spring'; // 当前季节
+    this.seasonTimer = 0;   // 季节计时器
+    this.seasonDuration = SEASONS.spring.duration; // 当前季节持续时间
+
     // ========== 害虫系统 ==========
     this.pests = []; // 活跃的害虫 [{type, x, y, turnsRemaining}]
     this.pestSpawnTimer = 0; // 害虫生成计时器
@@ -1676,7 +1761,77 @@ class FarmGame {
       color: w.color
     };
   }
-  
+
+  // ========== 季节系统方法 ==========
+
+  // 更新季节（在生长循环中调用）
+  updateSeason() {
+    this.seasonTimer++;
+
+    if (this.seasonTimer >= this.seasonDuration / 1) { // 每秒调用，duration是秒数
+      this.changeSeason();
+      this.seasonTimer = 0;
+    }
+  }
+
+  // 切换季节
+  changeSeason() {
+    const currentIndex = SEASON_ORDER.indexOf(this.season);
+    const nextIndex = (currentIndex + 1) % SEASON_ORDER.length;
+    const newSeason = SEASON_ORDER[nextIndex];
+    const seasonData = SEASONS[newSeason];
+
+    this.season = newSeason;
+    this.seasonDuration = seasonData.duration;
+
+    console.log(`[Season] Season changed to: ${seasonData.emoji} ${seasonData.name}`);
+    this.addFarmLog(
+      `季节变为 ${seasonData.emoji} ${seasonData.name}：${seasonData.description}`,
+      seasonData.emoji,
+      'season'
+    );
+  }
+
+  // 获取季节信息
+  getSeasonInfo() {
+    const s = SEASONS[this.season];
+    return {
+      type: this.season,
+      name: s.name,
+      emoji: s.emoji,
+      description: s.description,
+      growthMultiplier: s.growthMultiplier,
+      yieldMultiplier: s.yieldMultiplier || 1.0,
+      cropBonuses: s.cropBonuses || {},
+      cropPenalties: s.cropPenalties || {},
+      color: s.color,
+      remainingTime: this.seasonDuration - this.seasonTimer
+    };
+  }
+
+  // 计算作物在当前季节的生长加成
+  getCropSeasonEffect(cropType) {
+    const seasonInfo = this.getSeasonInfo();
+    const crop = CROPS[cropType];
+    if (!crop) return { growthMultiplier: 1.0, yieldMultiplier: 1.0 };
+
+    // 基础季节效果
+    let growthMultiplier = seasonInfo.growthMultiplier;
+    let yieldMultiplier = seasonInfo.yieldMultiplier;
+
+    // 特定作物加成
+    if (seasonInfo.cropBonuses[cropType]) {
+      yieldMultiplier *= seasonInfo.cropBonuses[cropType];
+    }
+
+    // 特定作物惩罚
+    if (seasonInfo.cropPenalties[cropType]) {
+      growthMultiplier *= seasonInfo.cropPenalties[cropType];
+    }
+
+    return { growthMultiplier, yieldMultiplier };
+  }
+
   // ========== 害虫系统方法 ==========
 
   // 启动害虫循环
@@ -2284,25 +2439,26 @@ class FarmGame {
 
   // 买入黄金
   buyGold(socketId, amount) {
+    const GOLD_TRADE_FEE = 6;  // 固定手续费
     const player = this.players.get(socketId);
     if (!player) return { success: false, message: '玩家不存在' };
 
     if (amount <= 0) return { success: false, message: '购买数量必须大于0' };
 
-    const cost = Math.ceil(amount * this.goldPrice);
+    const cost = Math.ceil(amount * this.goldPrice) + GOLD_TRADE_FEE;
     if (this.sharedMoney < cost) {
-      return { success: false, message: `金币不足，需要 ${cost}💰 购买 ${amount}g 黄金` };
+      return { success: false, message: `金币不足，需要 ${cost}💰（含手续费${GOLD_TRADE_FEE}💰）购买 ${amount}g 黄金` };
     }
 
     this.sharedMoney -= cost;
     this.goldAmount += amount;
 
-    this.addFarmLog(`💰 买入 ${amount.toFixed(2)}g 黄金，花费 ${cost}💰`, '💰', 'gold');
+    this.addFarmLog(`💰 买入 ${amount.toFixed(2)}g 黄金，花费 ${cost}💰（含手续费）`, '💰', 'gold');
     this._saveState();
 
     return {
       success: true,
-      message: `成功买入 ${amount.toFixed(2)}g 黄金，花费 ${cost}💰`,
+      message: `成功买入 ${amount.toFixed(2)}g 黄金，花费 ${cost}💰（含手续费${GOLD_TRADE_FEE}💰）`,
       goldAmount: this.goldAmount,
       sharedMoney: this.sharedMoney
     };
@@ -2310,6 +2466,7 @@ class FarmGame {
 
   // 卖出黄金
   sellGold(socketId, amount) {
+    const GOLD_TRADE_FEE = 6;  // 固定手续费
     const player = this.players.get(socketId);
     if (!player) return { success: false, message: '玩家不存在' };
 
@@ -2319,16 +2476,16 @@ class FarmGame {
       return { success: false, message: `黄金不足，当前持有 ${this.goldAmount.toFixed(2)}g` };
     }
 
-    const revenue = Math.floor(amount * this.goldPrice);
+    const revenue = Math.floor(amount * this.goldPrice) - GOLD_TRADE_FEE;
     this.goldAmount -= amount;
     this.sharedMoney += revenue;
 
-    this.addFarmLog(`💰 卖出 ${amount.toFixed(2)}g 黄金，获得 ${revenue}💰`, '💰', 'gold');
+    this.addFarmLog(`💰 卖出 ${amount.toFixed(2)}g 黄金，获得 ${revenue}💰（扣手续费）`, '💰', 'gold');
     this._saveState();
 
     return {
       success: true,
-      message: `成功卖出 ${amount.toFixed(2)}g 黄金，获得 ${revenue}💰`,
+      message: `成功卖出 ${amount.toFixed(2)}g 黄金，获得 ${revenue}💰（扣手续费${GOLD_TRADE_FEE}💰）`,
       goldAmount: this.goldAmount,
       sharedMoney: this.sharedMoney
     };
@@ -2343,6 +2500,89 @@ class FarmGame {
       priceHistory: this.goldPriceHistory,
       lastUpdate: this.lastGoldPriceUpdate
     };
+  }
+
+  // ========== 玩家指令系统 ==========
+
+  // 玩家可下达的指令类型
+  static PLAYER_COMMANDS = {
+    PLANT_CROP: 'plant_crop',      // 指定种植作物
+    FOCUS_HARVEST: 'focus_harvest', // 优先收获
+    BUY_ANIMAL: 'buy_animal',       // 购买动物
+    SELL_CROP: 'sell_crop',         // 出售作物
+    INVEST_GOLD: 'invest_gold'      // 投资黄金
+  };
+
+  // 下达指令给农夫
+  giveCommandToFarmer(farmerName, command, params = {}) {
+    const farmer = this.farmers.find(f => f.name === farmerName || f.fullName === farmerName);
+    if (!farmer) {
+      return { success: false, message: `找不到农夫: ${farmerName}` };
+    }
+    if (farmer.isDead) {
+      return { success: false, message: '该农夫已死亡' };
+    }
+
+    // 验证指令
+    if (!Object.values(FarmGame.PLAYER_COMMANDS).includes(command)) {
+      return { success: false, message: '无效的指令类型' };
+    }
+
+    // 设置农夫的玩家指令
+    farmer.playerCommand = {
+      type: command,
+      params,
+      givenAt: Date.now(),
+      expiresAt: Date.now() + 300000, // 5分钟后过期
+      executed: false
+    };
+
+    const commandNames = {
+      [FarmGame.PLAYER_COMMANDS.PLANT_CROP]: `种植${params.cropType || '作物'}`,
+      [FarmGame.PLAYER_COMMANDS.FOCUS_HARVEST]: '优先收获',
+      [FarmGame.PLAYER_COMMANDS.BUY_ANIMAL]: `购买${params.animalType || '动物'}`,
+      [FarmGame.PLAYER_COMMANDS.SELL_CROP]: `出售${params.cropType || '作物'}`,
+      [FarmGame.PLAYER_COMMANDS.INVEST_GOLD]: '投资黄金'
+    };
+
+    this.addFarmLog(`📋 玩家给 ${farmer.fullName} 下达指令: ${commandNames[command]}`, '📋', 'command');
+
+    return {
+      success: true,
+      message: `已给 ${farmer.fullName} 下达指令: ${commandNames[command]}`,
+      farmer: farmer.fullName,
+      command: commandNames[command]
+    };
+  }
+
+  // 取消农夫指令
+  cancelFarmerCommand(farmerName) {
+    const farmer = this.farmers.find(f => f.name === farmerName || f.fullName === farmerName);
+    if (!farmer) {
+      return { success: false, message: `找不到农夫: ${farmerName}` };
+    }
+
+    if (!farmer.playerCommand) {
+      return { success: false, message: '该农夫当前没有待执行的指令' };
+    }
+
+    farmer.playerCommand = null;
+    this.addFarmLog(`❌ 取消了 ${farmer.fullName} 的指令`, '❌', 'command');
+
+    return { success: true, message: `已取消 ${farmer.fullName} 的指令` };
+  }
+
+  // 获取所有农夫的指令状态
+  getFarmerCommands() {
+    return this.farmers
+      .filter(f => !f.isDead && f.playerCommand)
+      .map(f => ({
+        farmerName: f.fullName,
+        command: f.playerCommand.type,
+        params: f.playerCommand.params,
+        executed: f.playerCommand.executed,
+        remainingTime: Math.max(0, f.playerCommand.expiresAt - Date.now())
+      }));
   }
 
   // 更新动物位置（随机移动）
@@ -2774,10 +3014,13 @@ class FarmGame {
 
   startGrowthLoop() {
     this._intervals.push(setInterval(() => {
+      // 更新季节
+      this.updateSeason();
+
       // 更新作物生长和肥力恢复
       for (let y = 0; y < this.height; y++) {
         for (let x = 0; x < this.width; x++) {
-          this.plots[y][x].updateGrowth();
+          this.plots[y][x].updateGrowth(this);
           // 闲置地块恢复肥力
           this.plots[y][x].recoverFertility();
         }
@@ -2965,7 +3208,7 @@ class FarmGame {
       return { success: false, message: validation.message };
     }
     
-    const result = plot.harvest();
+    const result = plot.harvest(this);
 
     if (result.success) {
       // 防作弊：验证奖励（用 cropType 验证，此时 plot.crop 已被清空）
@@ -3726,6 +3969,8 @@ class FarmGame {
       gameTime: elapsedSeconds,
       // 天气系统
       weather: this.getWeatherInfo(),
+      // 季节系统
+      season: this.getSeasonInfo(),
       // 害虫系统
       pests: this.getPestsInfo(),
       // 野生动物系统
