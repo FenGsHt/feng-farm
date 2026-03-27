@@ -1989,23 +1989,27 @@ class Farmer {
       // 获取之前的策略历史（用于连续性）
       const previousStrategy = this.game.sharedStrategy;
       const strategyContext = previousStrategy
-        ? `\n\n上次策略（${Math.round((Date.now() - previousStrategy.timestamp) / 60000)}分钟前）：
-${previousStrategy.thinking}
-权重: ${JSON.stringify(previousStrategy.weights)}`
+        ? `\n\n上次想法（${Math.round((Date.now() - previousStrategy.timestamp) / 60000)}分钟前）：
+"${previousStrategy.thinking}"
+重点: ${previousStrategy.focus || '无'}`
         : '';
 
-      const prompt = `你是农场游戏的AI团队领袖，负责为整个农夫团队制定策略。
+      const prompt = `你是一名真实的农夫，性格${this.personality.description}。请以农夫的口吻进行内心独白，思考接下来该做什么。
 
 当前农场状态：
 ${farmState}
 ${strategyContext}
 
-农夫团队可执行的行为：
-${this.behaviors.map(b => `- ${b.name}: 基础权重 ${b.baseWeight}`).join('\n')}
+要求：
+1. 用第一人称，像自言自语一样自然
+2. 不要暴露技术细节（权重、JSON、系统等）
+3. 关注实际农场事务：作物、动物、天气、金币
+4. 表达对未来的期望和对过去的反思
+5. 语气要符合农夫身份，可以有点唠叨
 
-请分析当前局势，为整个团队制定策略。返回JSON：
+返回JSON：
 {
-  "thinking": "策略分析（简短，说明重点任务和优先级）",
+  "thinking": "农夫的内心独白（50-100字，自然口语）",
   "weights": {
     "收获作物": 数字(1-100),
     "浇水": 数字(1-100),
@@ -2016,13 +2020,8 @@ ${this.behaviors.map(b => `- ${b.name}: 基础权重 ${b.baseWeight}`).join('\n'
     "购买动物": 数字(1-100),
     "投资黄金": 数字(1-100)
   },
-  "focus": "当前重点任务（一句话）"
+  "focus": "当前最想做的一件事"
 }
-
-注意：
-1. 根据当前农场状态调整优先级
-2. 保持策略的连续性，避免频繁大幅调整
-3. 考虑经济效益和资源约束
 
 只返回JSON，不要其他文字。`;
 
@@ -2527,17 +2526,26 @@ ${chatContext || '暂无聊天记录'}
     const planResult = this.goalPlanner.makePlan(this.game);
 
     if (planResult) {
-      // 记录思考到农场日志
-      const thinking = `💭 ${this.fullName} 深度思考:\n${planResult.thinking}\n📋 策略: ${this.goalPlanner.getPlanDescription()}`;
+      // 构建自然的思考内容
+      const money = this.game.sharedMoney || 0;
+      const target = this.goalPlanner.weeklyTarget;
+      const earned = Math.floor(this.goalPlanner.earnedThisWeek);
 
-      // 如果有教训，也加入思考
-      const recentLessons = this.lessonLearner.getRecentLessons(3);
-      if (recentLessons.length > 0) {
-        const lessonStr = recentLessons.join(', ');
-        this._log(`${thinking}\n📚 吸取教训: ${lessonStr}`, '🧠', 'farmer');
-      } else {
-        this._log(thinking, '🧠', 'farmer');
+      let thinking = `💭 嗯...让我想想...`;
+      thinking += `\n现在公库有 ${money} 金币，这周我赚了 ${earned}，目标是 ${target}。`;
+
+      // 策略计划
+      if (this.goalPlanner.strategyPlan.length > 0) {
+        thinking += `\n得赶紧${this.goalPlanner.strategyPlan[0].reason}！`;
       }
+
+      // 教训反思
+      const recentLessons = this.lessonLearner.getRecentLessons(2);
+      if (recentLessons.length > 0) {
+        thinking += `\n上次${recentLessons[0]}，可不能再犯了。`;
+      }
+
+      this._log(thinking, '🧠', 'farmer');
     }
   }
 
