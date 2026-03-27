@@ -248,6 +248,26 @@ class UrgencyEvaluator {
         return DECISION_CONFIG.priorityLevels.HIGH;
       }
       return DECISION_CONFIG.priorityLevels.NORMAL;
+    },
+
+    '出售老化动物': () => {
+      // 检查老化动物数量
+      const oldAnimals = this.game.animalPens?.filter(p => p.animal && p.currentStage === 'old') || [];
+      if (oldAnimals.length === 0) return 0;
+
+      // 老化动物越多越紧急（占用栏位且产量低）
+      if (oldAnimals.length >= 3) {
+        return DECISION_CONFIG.priorityLevels.HIGH;
+      }
+      if (oldAnimals.length >= 1) {
+        // 有空栏位时不那么紧急，没有空栏位时较紧急
+        const emptyPens = this.game.animalPens?.filter(p => !p.animal).length || 0;
+        if (emptyPens === 0) {
+          return DECISION_CONFIG.priorityLevels.HIGH; // 没有空位，需要腾空间
+        }
+        return DECISION_CONFIG.priorityLevels.NORMAL;
+      }
+      return 0;
     }
   };
 }
@@ -998,6 +1018,67 @@ class BuyAnimalBehavior extends FarmerBehavior {
   }
 }
 
+/** 🔄 出售老化动物行为 */
+class SellOldAnimalBehavior extends FarmerBehavior {
+  constructor() { super('出售老化动物', '🔄', 6, 'HIGH', ['动物', '资源管理']); }
+
+  canExecute(farmer, game) {
+    // 检查是否有老化动物
+    return game.animalPens.some(p => p.animal && p.currentStage === 'old');
+  }
+
+  getTarget(farmer, game) {
+    // 找最近的老化动物位置
+    let nearest = null, minDist = Infinity;
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (pen.animal && pen.currentStage === 'old') {
+        const pos = game.animalPositions?.[i];
+        if (pos) {
+          const d = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+          if (d < minDist) { minDist = d; nearest = pos; }
+        }
+      }
+    }
+    return nearest || { x: 0, y: game.height - 1 };
+  }
+
+  execute(farmer, game) {
+    // 找一个老化的动物出售
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (!pen.animal || pen.currentStage !== 'old') continue;
+
+      // 检查动物位置
+      const pos = game.animalPositions?.[i];
+      if (pos) {
+        const dist = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+        if (dist > 2) continue; // 跳过太远的动物
+      }
+
+      // 出售这只老化动物
+      const animal = game.ANIMALS?.[pen.animal];
+      const result = pen.sell();
+
+      if (result.success) {
+        const oldReward = result.reward;
+        game.sharedMoney += oldReward;
+
+        farmer.state = 'working';
+        farmer.currentAction = '卖掉了老化动物';
+
+        return {
+          log: `${farmer.fullName} 卖掉了老化的 ${animal.emoji}${animal.name}（老化后售价${oldReward}💰），为农场腾出空间 🔄`,
+          acted: true,
+          earned: oldReward
+        };
+      }
+    }
+
+    return { log: '', acted: false, earned: 0 };
+  }
+}
+
 /** 👥 头号农夫管理人手（雇佣/解雇） */
 class HireFireFarmerBehavior extends FarmerBehavior {
   constructor() { super('管理人手', '👥', 2, 'NORMAL', ['管理', '人力资源']); }
@@ -1358,6 +1439,7 @@ FarmerBehavior.register(HuntWildAnimalBehavior);
 FarmerBehavior.register(HarvestCropBehavior);
 FarmerBehavior.register(HarvestAnimalBehavior);
 FarmerBehavior.register(WaterCropBehavior);
+FarmerBehavior.register(SellOldAnimalBehavior);
 // NORMAL
 FarmerBehavior.register(PlantCropBehavior);
 FarmerBehavior.register(BuyAnimalBehavior);
@@ -2213,6 +2295,7 @@ module.exports = {
   FeedAnimalBehavior,
   HuntWildAnimalBehavior,
   BuyAnimalBehavior,
+  SellOldAnimalBehavior,
   HireFireFarmerBehavior,
   FertilizeBehavior,
   BuySeedsBehavior,
