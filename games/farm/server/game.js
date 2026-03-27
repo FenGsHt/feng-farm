@@ -808,7 +808,17 @@ class FarmGame {
     // ========== 害虫系统 ==========
     this.pests = []; // 活跃的害虫 [{type, x, y, turnsRemaining}]
     this.pestSpawnTimer = 0; // 害虫生成计时器
-    
+
+    // ========== 野生动物威胁系统 ==========
+    this.wildAnimals = []; // 活跃的野生动物 [{id, type, x, y, hp, nearPen, targetPen}]
+    this.wildAnimalSpawnTimer = 0; // 野生动物生成计时器
+    this.WILD_ANIMAL_TYPES = {
+      wolf: { name: '狼', emoji: '🐺', hp: 3, damage: 1, speed: 1, bounty: 30 },
+      fox: { name: '狐狸', emoji: '🦊', hp: 2, damage: 1, speed: 2, bounty: 20 },
+      eagle: { name: '老鹰', emoji: '🦅', hp: 2, damage: 1, speed: 3, bounty: 25 },
+      snake: { name: '蛇', emoji: '🐍', hp: 1, damage: 1, speed: 1, bounty: 15 }
+    };
+
     // 玩家统计数据（用于排行榜）
     this.playerStats = new Map(); // socketId -> { harvests: 0, level: 1, cropsPlanted: 0 }
     
@@ -994,6 +1004,13 @@ class FarmGame {
       );
     }
 
+    // 野生动物
+    if (Array.isArray(saved.wildAnimals)) {
+      this.wildAnimals = saved.wildAnimals.filter(
+        w => w && w.type && typeof w.x === 'number' && typeof w.y === 'number'
+      );
+    }
+
     //农夫数据（姓名 + 饥饿度）
     if (Array.isArray(saved.farmers) && saved.farmers.length > 0) {
       this._savedFarmerData = saved.farmers;
@@ -1088,6 +1105,7 @@ class FarmGame {
         isReady: pen.currentStage === 'adult' && pen.productReady
       })),
       pests:   this.pests,
+      wildAnimals: this.wildAnimals,
       farmers: this.farmers.map(f => ({ name: f.name, hunger: f.hunger })),
       goldAmount: this.goldAmount,
       goldPrice: this.goldPrice,
@@ -1653,14 +1671,26 @@ class FarmGame {
   }
   
   // ========== 害虫系统方法 ==========
-  
+
   // 启动害虫循环
   startPestLoop() {
     this._intervals.push(setInterval(() => {
       this.updatePests();
     }, 10000)); // 每10秒更新一次害虫
+
+    // 启动野生动物循环
+    this._intervals.push(setInterval(() => {
+      this.updateWildAnimals();
+    }, 15000)); // 每15秒更新一次野生动物
+
+    // 定期生成野生动物
+    this._intervals.push(setInterval(() => {
+      if (this.wildAnimals.length < 3 && Math.random() < 0.3) {
+        this.spawnWildAnimal();
+      }
+    }, 60000)); // 每分钟检查是否生成新野兽
   }
-  
+
   // 更新害虫
   updatePests() {
     const weatherData = WEATHER_TYPES[this.weather];
@@ -2043,6 +2073,131 @@ class FarmGame {
   // 检查某地块是否有害虫
   hasPest(x, y) {
     return this.pests.some(p => p.x === x && p.y === y);
+  }
+
+  // ========== 野生动物威胁系统 ==========
+
+  // 生成野生动物
+  spawnWildAnimal() {
+    // 检查是否有动物可以捕食
+    const hasAnimals = this.animalPens.some(p => p.animal);
+    if (!hasAnimals) return null;
+
+    // 随机选择野生动物类型
+    const types = Object.keys(this.WILD_ANIMAL_TYPES);
+    const type = types[Math.floor(Math.random() * types.length)];
+    const config = this.WILD_ANIMAL_TYPES[type];
+
+    // 在地图边缘生成
+    const edge = Math.floor(Math.random() * 4);
+    let x, y;
+    switch (edge) {
+      case 0: x = 0; y = Math.floor(Math.random() * this.height); break;
+      case 1: x = this.width - 1; y = Math.floor(Math.random() * this.height); break;
+      case 2: x = Math.floor(Math.random() * this.width); y = 0; break;
+      case 3: x = Math.floor(Math.random() * this.width); y = this.height - 1; break;
+    }
+
+    const wildAnimal = {
+      id: Date.now() + Math.random(),
+      type,
+      x,
+      y,
+      hp: config.hp,
+      nearPen: false,
+      targetPen: null
+    };
+
+    this.wildAnimals.push(wildAnimal);
+    this.addFarmLog(`⚠️ 发现野生动物 ${config.emoji}${config.name} 出现在农场边缘！`, config.emoji, 'danger');
+
+    return wildAnimal;
+  }
+
+  // 更新野生动物（移动和攻击）
+  updateWildAnimals() {
+    const toRemove = [];
+
+    for (const wild of this.wildAnimals) {
+      const config = this.WILD_ANIMAL_TYPES[wild.type];
+
+      // 找最近的动物栏
+      let nearestPen = null;
+      let minDist = Infinity;
+
+      for (let i = 0; i < this.animalPens.length; i++) {
+        const pen = this.animalPens[i];
+        if (!pen.animal) continue;
+
+        const pos = this.animalPositions[i];
+        if (!pos) continue;
+
+        const dist = Math.abs(wild.x - pos.x) + Math.abs(wild.y - pos.y);
+        if (dist < minDist) {
+          minDist = dist;
+          nearestPen = { index: i, pos, pen };
+        }
+      }
+
+      if (!nearestPen) {
+        // 没有目标动物，随机移动
+        wild.x = Math.max(0, Math.min(this.width - 1, wild.x + Math.floor(Math.random() * 3) - 1));
+        wild.y = Math.max(0, Math.min(this.height - 1, wild.y + Math.floor(Math.random() * 3) - 1));
+        continue;
+      }
+
+      wild.targetPen = nearestPen.index;
+      wild.nearPen = minDist <= 2;
+
+      // 移动向目标
+      if (minDist > 1) {
+        const dx = nearestPen.pos.x - wild.x;
+        const dy = nearestPen.pos.y - wild.y;
+
+        for (let step = 0; step < config.speed; step++) {
+          if (Math.abs(dx) > Math.abs(dy)) {
+            wild.x += dx > 0 ? 1 : -1;
+          } else if (dy !== 0) {
+            wild.y += dy > 0 ? 1 : -1;
+          }
+        }
+      }
+
+      // 攻击动物
+      if (wild.nearPen && nearestPen.pen.animal) {
+        // 有概率吃掉动物
+        if (Math.random() < 0.3) {
+          const animalConfig = this.ANIMALS[nearestPen.pen.animal];
+          nearestPen.pen.animal = null;
+          nearestPen.pen.hunger = 0;
+          nearestPen.pen.productReady = false;
+
+          this.addFarmLog(
+            `🚨 ${config.emoji}${config.name} 吃掉了 ${animalConfig.emoji}${animalConfig.name}！`,
+            config.emoji,
+            'danger'
+          );
+
+          // 吃掉动物后，野兽可能离开
+          if (Math.random() < 0.5) {
+            toRemove.push(wild.id);
+          }
+        }
+      }
+    }
+
+    // 移除离开的野兽
+    this.wildAnimals = this.wildAnimals.filter(w => !toRemove.includes(w.id));
+
+    return this.wildAnimals;
+  }
+
+  // 获取野生动物信息
+  getWildAnimalsInfo() {
+    return this.wildAnimals.map(w => ({
+      ...w,
+      ...this.WILD_ANIMAL_TYPES[w.type]
+    }));
   }
 
   // ========== 黄金交易系统 ==========
@@ -3540,6 +3695,8 @@ class FarmGame {
       weather: this.getWeatherInfo(),
       // 害虫系统
       pests: this.getPestsInfo(),
+      // 野生动物系统
+      wildAnimals: this.getWildAnimalsInfo(),
       // 任务配置
       taskConfig: {
         dailyTasks: DAILY_TASKS,

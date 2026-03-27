@@ -1,6 +1,258 @@
 'use strict';
 
 // ============================================================
+//  决策层配置 - 统一管理行为优先级、紧急度阈值等
+// ============================================================
+const DECISION_CONFIG = {
+  // 行为层次优先级（数值越大越优先处理）
+  priorityLevels: {
+    CRITICAL: 100,   // 危急：死亡风险、严重损失
+    URGENT:    80,   // 紧急：即将发生的损失
+    HIGH:      60,   // 高优：收益机会、资源管理
+    NORMAL:    40,   // 常规：日常任务
+    LOW:       20,   // 低优：闲逛、休息
+    IDLE:      10    // 空闲：兜底行为
+  },
+
+  // 紧急度阈值配置
+  thresholds: {
+    hunger: {
+      critical: 90,  // 极度饥饿，必须立即进食
+      urgent:   75,  // 非常饿，优先进食
+      high:     50,  // 比较饿，考虑进食
+    },
+    animal: {
+      hungerCritical: 85,  // 动物极度饥饿
+      hungerUrgent:   70,   // 动物很饿
+      hungerHigh:     50,   // 动物有点饿
+    },
+    crop: {
+      ripeUrgent: 5,    // 成熟作物超过5株需尽快收获
+      pestUrgent: 3,    // 害虫超过3只需立即处理
+      dryUrgent:  10,   // 干旱地块超过10块
+    },
+    money: {
+      low:      100,   // 资金紧张
+      critical: 50     // 资金危急
+    }
+  },
+
+  // 性格对行为权重的影响系数
+  personalityModifiers: {
+    '勤劳': {
+      '收获作物': 1.5, '浇水': 1.3, '种植作物': 1.4,
+      '喂养动物': 1.3, '巡视': 0.5
+    },
+    '节俭': {
+      '吃东西': 0.6, '购买动物': 0.7, '购物': 0.6,
+      '管理人手': 0.7, '投资黄金': 0.8 // 节俭的人更保守
+    },
+    '乐观': {
+      '种植作物': 1.2, '购买动物': 1.3, '巡视': 1.3,
+      '投资黄金': 1.3 // 乐观的人更愿意投资
+    },
+    '谨慎': {
+      '消灭害虫': 1.5, '施肥': 1.4, '喂养动物': 1.3,
+      '吃东西': 1.2, '投资黄金': 0.7 // 谨慎的人更保守
+    },
+    '健谈': {
+      // 健谈主要影响聊天，不影响行为权重
+    }
+  },
+
+  // 收益驱动的权重调整参数
+  profitAdjustment: {
+    learningRate: 0.6,    // 学习率
+    maxMultiplier: 8,     // 最大倍数
+    decayRate: 0.99       // 权重衰减（防止历史数据过度影响）
+  }
+};
+
+// ============================================================
+//  紧急度评估器 - 计算各行为的紧急程度
+// ============================================================
+class UrgencyEvaluator {
+  constructor(game, farmer) {
+    this.game = game;
+    this.farmer = farmer;
+  }
+
+  /** 计算指定行为的紧急度分数 (0-100) */
+  evaluate(behaviorName) {
+    const evaluator = this._evaluators[behaviorName];
+    if (!evaluator) return 0;
+    return evaluator.call(this);
+  }
+
+  _evaluators = {
+    '睡觉': () => {
+      if (!this.farmer.isNightTime()) return 0;
+      return DECISION_CONFIG.priorityLevels.CRITICAL;
+    },
+
+    '吃东西': () => {
+      const hunger = this.farmer.hunger;
+      const th = DECISION_CONFIG.thresholds.hunger;
+      if (hunger >= th.critical) return DECISION_CONFIG.priorityLevels.CRITICAL;
+      if (hunger >= th.urgent) return DECISION_CONFIG.priorityLevels.URGENT;
+      if (hunger >= th.high) return DECISION_CONFIG.priorityLevels.HIGH;
+      return 0;
+    },
+
+    '收获作物': () => {
+      let ripeCount = 0;
+      for (let y = 0; y < this.game.height; y++) {
+        for (let x = 0; x < this.game.width; x++) {
+          if (this.game.plots[y][x].growthStage >= 3) ripeCount++;
+        }
+      }
+      if (ripeCount >= DECISION_CONFIG.thresholds.crop.ripeUrgent) {
+        return DECISION_CONFIG.priorityLevels.URGENT;
+      }
+      if (ripeCount > 0) return DECISION_CONFIG.priorityLevels.HIGH;
+      return 0;
+    },
+
+    '消灭害虫': () => {
+      const pestCount = this.game.pests?.length || 0;
+      if (pestCount >= DECISION_CONFIG.thresholds.crop.pestUrgent) {
+        return DECISION_CONFIG.priorityLevels.URGENT;
+      }
+      if (pestCount > 0) return DECISION_CONFIG.priorityLevels.HIGH;
+      return 0;
+    },
+
+    '浇水': () => {
+      let dryCount = 0;
+      for (let y = 0; y < this.game.height; y++) {
+        for (let x = 0; x < this.game.width; x++) {
+          const plot = this.game.plots[y][x];
+          if (plot.crop && !plot.isWatered && plot.growthStage < 3) dryCount++;
+        }
+      }
+      if (dryCount >= DECISION_CONFIG.thresholds.crop.dryUrgent) {
+        return DECISION_CONFIG.priorityLevels.HIGH;
+      }
+      if (dryCount > 0) return DECISION_CONFIG.priorityLevels.NORMAL;
+      return 0;
+    },
+
+    '喂养动物': () => {
+      let hungryCount = 0, criticalCount = 0;
+      const th = DECISION_CONFIG.thresholds.animal;
+      for (const pen of this.game.animalPens || []) {
+        if (!pen.animal) continue;
+        const hunger = pen.hunger || 0;
+        if (hunger >= th.hungerCritical) criticalCount++;
+        else if (hunger >= th.hungerUrgent) hungryCount++;
+      }
+      if (criticalCount > 0) return DECISION_CONFIG.priorityLevels.URGENT;
+      if (hungryCount > 0) return DECISION_CONFIG.priorityLevels.HIGH;
+      return 0;
+    },
+
+    '收获动物产品': () => {
+      const readyCount = this.game.animalPens?.filter(p => p.isReady).length || 0;
+      if (readyCount > 0) return DECISION_CONFIG.priorityLevels.HIGH;
+      return 0;
+    },
+
+    '施肥': () => {
+      // 检查低肥力地块和有机肥库存
+      let lowFertCount = 0;
+      for (let y = 0; y < this.game.height; y++) {
+        for (let x = 0; x < this.game.width; x++) {
+          if (this.game.plots[y][x].fertility <= 30) lowFertCount++;
+        }
+      }
+      if (lowFertCount > 5) return DECISION_CONFIG.priorityLevels.HIGH;
+      if (lowFertCount > 0) return DECISION_CONFIG.priorityLevels.NORMAL;
+      return 0;
+    },
+
+    '管理人手': () => {
+      // 只有头号农夫负责管理
+      if (this.game.farmers?.[0] !== this.farmer) return 0;
+      const money = this.game.sharedMoney;
+      const farmerCount = this.game.farmers?.length || 0;
+      const th = DECISION_CONFIG.thresholds.money;
+
+      if (money < th.critical && farmerCount > 1) {
+        return DECISION_CONFIG.priorityLevels.URGENT; // 需解雇
+      }
+      if (money > 500 && farmerCount < 6) {
+        return DECISION_CONFIG.priorityLevels.NORMAL; // 可雇人
+      }
+      return 0;
+    },
+
+    '投资黄金': () => {
+      // 黄金投资机会评估
+      const history = this.game.goldPriceHistory || [];
+      if (history.length < 3) return 0;
+
+      const avgPrice = history.reduce((sum, h) => sum + h.price, 0) / history.length;
+      const currentPrice = this.game.goldPrice;
+      const priceRatio = currentPrice / avgPrice;
+
+      // 金价大幅下跌 -> 高优先级买入机会
+      if (priceRatio < 0.90 && this.game.sharedMoney > 500) {
+        return DECISION_CONFIG.priorityLevels.HIGH;
+      }
+      // 金价大幅上涨 -> 高优先级卖出机会
+      if (priceRatio > 1.10 && this.game.goldAmount > 1) {
+        return DECISION_CONFIG.priorityLevels.HIGH;
+      }
+      // 普通波动
+      if ((priceRatio < 0.95 && this.game.sharedMoney > 300) ||
+          (priceRatio > 1.05 && this.game.goldAmount > 0.5)) {
+        return DECISION_CONFIG.priorityLevels.NORMAL;
+      }
+      return 0;
+    },
+
+    '紧急变现': () => {
+      const money = this.game.sharedMoney;
+      const hunger = this.farmer.hunger;
+
+      // 资金极低且饥饿 -> CRITICAL
+      if (money < 20 && hunger >= 50) {
+        return DECISION_CONFIG.priorityLevels.CRITICAL;
+      }
+      // 资金紧张且饥饿 -> URGENT
+      if (money < 50 && hunger >= 60) {
+        return DECISION_CONFIG.priorityLevels.URGENT;
+      }
+      // 金价高位获利 -> HIGH
+      const history = this.game.goldPriceHistory || [];
+      if (history.length >= 3 && this.game.goldAmount > 0.5) {
+        const avgPrice = history.reduce((sum, h) => sum + h.price, 0) / history.length;
+        if (this.game.goldPrice > avgPrice * 1.08) {
+          return DECISION_CONFIG.priorityLevels.HIGH;
+        }
+      }
+      return 0;
+    },
+
+    '消灭野兽': () => {
+      const wildAnimals = this.game.wildAnimals || [];
+      if (wildAnimals.length === 0) return 0;
+
+      // 有野兽靠近动物栏 -> URGENT
+      const nearPens = wildAnimals.filter(w => w.nearPen);
+      if (nearPens.length > 0) {
+        return DECISION_CONFIG.priorityLevels.URGENT;
+      }
+      // 有野兽出现 -> HIGH
+      if (wildAnimals.length >= 2) {
+        return DECISION_CONFIG.priorityLevels.HIGH;
+      }
+      return DECISION_CONFIG.priorityLevels.NORMAL;
+    }
+  };
+}
+
+// ============================================================
 //  农夫行为基类
 //  扩展方式：继承 FarmerBehavior，调用 FarmerBehavior.register()
 // ============================================================
@@ -8,17 +260,23 @@ class FarmerBehavior {
   /**
    * @param {string} name       唯一名称
    * @param {string} emoji      日志 emoji
-   * @param {number} baseWeight 基础权重（加权随机选择的底数）
+   * @param {number} baseWeight 基础权重
+   * @param {string} priority   优先级层次 (CRITICAL/URGENT/HIGH/NORMAL/LOW/IDLE)
+   * @param {string[]} tags     行为标签（用于分类）
    */
-  constructor(name, emoji, baseWeight) {
+  constructor(name, emoji, baseWeight, priority = 'NORMAL', tags = []) {
     this.name       = name;
     this.emoji      = emoji;
     this.baseWeight = baseWeight;
-    this.weight     = baseWeight; // 动态权重，由收益数据驱动
+    this.priority   = priority;
+    this.priorityValue = DECISION_CONFIG.priorityLevels[priority] || DECISION_CONFIG.priorityLevels.NORMAL;
+    this.tags       = tags;
+    this.weight     = baseWeight;
 
     // 收益追踪（用于动态调权）
     this._earnedTotal = 0;
     this._callCount   = 0;
+    this._lastExecuteTime = 0;
   }
 
   /** 执行后记录收益，重新计算动态权重 */
@@ -26,11 +284,40 @@ class FarmerBehavior {
     if (earned <= 0) return;
     this._earnedTotal += earned;
     this._callCount   += 1;
+    const cfg = DECISION_CONFIG.profitAdjustment;
     const avgEarned = this._earnedTotal / this._callCount;
     this.weight = Math.min(
-      this.baseWeight + avgEarned * 0.6,
-      this.baseWeight * 8
+      this.baseWeight + avgEarned * cfg.learningRate,
+      this.baseWeight * cfg.maxMultiplier
     );
+    this._lastExecuteTime = Date.now();
+  }
+
+  /** 权重衰减（定期调用） */
+  decayWeight() {
+    const cfg = DECISION_CONFIG.profitAdjustment;
+    this.weight = Math.max(
+      this.baseWeight,
+      this.weight * cfg.decayRate
+    );
+  }
+
+  /** 获取考虑性格的调整后权重 */
+  getAdjustedWeight(personality) {
+    let adjustedWeight = this.weight;
+
+    // 应用性格修正
+    for (const [trait, modifiers] of Object.entries(DECISION_CONFIG.personalityModifiers)) {
+      const traitValue = personality[trait] || 0.5;
+      const modifier = modifiers[this.name];
+      if (modifier) {
+        // 性格值越高，修正效果越强
+        const traitEffect = (traitValue - 0.5) * 2; // -1 到 1
+        adjustedWeight *= (1 + (modifier - 1) * Math.abs(traitEffect));
+      }
+    }
+
+    return adjustedWeight;
   }
 
   // ---------- 子类实现 ----------
@@ -42,20 +329,27 @@ class FarmerBehavior {
   // ---------- 静态注册表 ----------
 
   static registry = new Map();
+  static registryOrder = []; // 保持注册顺序
 
   static register(BehaviorClass) {
     const instance = new BehaviorClass();
     FarmerBehavior.registry.set(instance.name, BehaviorClass);
+    FarmerBehavior.registryOrder.push(instance.name);
+  }
+
+  /** 获取按优先级排序的行为列表 */
+  static getSortedBehaviors() {
+    return FarmerBehavior.registryOrder.map(name => FarmerBehavior.registry.get(name));
   }
 }
 
 // ============================================================
-//  内置行为
+//  内置行为 - 危急层 (CRITICAL)
 // ============================================================
 
 /** 夜间睡觉（UTC+8 22:00–06:00） */
 class SleepBehavior extends FarmerBehavior {
-  constructor() { super('睡觉', '💤', 1); }
+  constructor() { super('睡觉', '💤', 1, 'CRITICAL', ['生存', '夜间']); }
   canExecute(farmer) { return farmer.isNightTime(); }
   getTarget()        { return { x: 0, y: 0 }; }
 
@@ -71,7 +365,7 @@ class SleepBehavior extends FarmerBehavior {
 
 /** 🍽️ 吃东西（饥饿时自动花公库金币买食物） */
 class EatBehavior extends FarmerBehavior {
-  constructor() { super('吃东西', '🍽️', 20); }
+  constructor() { super('吃东西', '🍽️', 20, 'CRITICAL', ['生存', '消费']); }
 
   canExecute(farmer, game) {
     // 饿了就想吃，没钱就凑合扛着
@@ -107,9 +401,285 @@ class EatBehavior extends FarmerBehavior {
   }
 }
 
+/** 💰 紧急变现（没钱时卖黄金/动物换现金） */
+class EmergencyLiquidateBehavior extends FarmerBehavior {
+  constructor() { super('紧急变现', '💰', 25, 'CRITICAL', ['生存', '金融']); }
+
+  canExecute(farmer, game) {
+    // 条件1：资金紧张且饥饿
+    if (game.sharedMoney < 30 && farmer.hunger >= 50) {
+      // 检查是否有可变现资产
+      if (game.goldAmount > 0.1) return true; // 有黄金
+      const hasSellableAnimal = game.animalPens.some(p => p.animal);
+      if (hasSellableAnimal) return true;
+    }
+    // 条件2：资金极低需要运营
+    if (game.sharedMoney < 20) {
+      if (game.goldAmount > 0.1) return true;
+      const hasSellableAnimal = game.animalPens.some(p => p.animal);
+      if (hasSellableAnimal) return true;
+    }
+    // 条件3：金价高位时获利了结（灵活策略）
+    const history = game.goldPriceHistory || [];
+    if (history.length >= 3 && game.goldAmount > 0.5) {
+      const avgPrice = history.reduce((sum, h) => sum + h.price, 0) / history.length;
+      if (game.goldPrice > avgPrice * 1.08) return true; // 金价高于均价8%
+    }
+    return false;
+  }
+
+  getTarget() { return null; }
+
+  execute(farmer, game) {
+    // 优先卖黄金（流动性好）
+    if (game.goldAmount > 0.1) {
+      const history = game.goldPriceHistory || [];
+      const avgPrice = history.length >= 3
+        ? history.reduce((sum, h) => sum + h.price, 0) / history.length
+        : game.goldPrice;
+
+      // 根据紧急程度决定卖出量
+      let sellRatio = 0.3;
+      if (game.sharedMoney < 20) sellRatio = 0.5;
+      if (farmer.hunger >= 70) sellRatio = 0.7;
+
+      // 金价高位时多卖
+      if (game.goldPrice > avgPrice * 1.08) sellRatio = Math.max(sellRatio, 0.4);
+
+      const sellAmount = Math.min(game.goldAmount * sellRatio, game.goldAmount);
+      if (sellAmount >= 0.1) {
+        const result = game.sellGold(sellAmount);
+        if (result.success) {
+          farmer.state = 'idle';
+          farmer.currentAction = '卖出了黄金救急';
+          return {
+            log: `${farmer.fullName} 紧急卖出 ${sellAmount.toFixed(2)}g 黄金 🥇 换取 ${result.revenue}💰`,
+            acted: true,
+            earned: result.revenue
+          };
+        }
+      }
+    }
+
+    // 卖动物作为最后手段
+    const sellablePen = game.animalPens.find(p => p.animal);
+    if (sellablePen) {
+      const animal = game.ANIMALS?.[sellablePen.animal];
+      if (animal) {
+        const sellPrice = Math.floor(animal.buyPrice * 0.6); // 6折出售
+        const animalName = animal.name;
+        const animalEmoji = animal.emoji;
+
+        // 清空动物栏
+        sellablePen.animal = null;
+        sellablePen.hunger = 0;
+        sellablePen.productReady = false;
+        sellablePen.currentStage = 'adult';
+        game.sharedMoney += sellPrice;
+
+        farmer.state = 'idle';
+        farmer.currentAction = '卖掉了动物';
+        return {
+          log: `${farmer.fullName} 忍痛卖掉了 ${animalEmoji}${animalName}，获得 ${sellPrice}💰`,
+          acted: true,
+          earned: sellPrice
+        };
+      }
+    }
+
+    return { log: '', acted: false, earned: 0 };
+  }
+}
+
+// ============================================================
+//  内置行为 - 紧急层 (URGENT)
+// ============================================================
+
+/** 消灭害虫 */
+class KillPestBehavior extends FarmerBehavior {
+  constructor() { super('消灭害虫', '🧴', 15, 'URGENT', ['作物保护', '战斗']); }
+
+  canExecute(farmer, game) {
+    return (farmer.items.pesticide || 0) > 0 && game.pests.length > 0;
+  }
+
+  getTarget(farmer, game) { return this._nearest(farmer, game.pests); }
+
+  execute(farmer, game) {
+    const pest = game.pests.find(p => p.x === farmer.x && p.y === farmer.y)
+      || this._nearest(farmer, game.pests);
+    if (!pest) return { log: '', acted: false, earned: 0 };
+
+    const result = game.usePesticide(pest.x, pest.y);
+    if (!result.success) return { log: '', acted: false, earned: 0 };
+
+    farmer.items.pesticide--;
+    if (farmer.items.pesticide <= 0) delete farmer.items.pesticide;
+
+    const NAMES = { aphid: '🐛蚜虫', locust: '🦗蝗虫', rat: '🐀老鼠' };
+    const label  = NAMES[pest.type] || '害虫';
+    farmer.state         = 'working';
+    farmer.emoji         = '🧑‍🌾';
+    farmer.currentAction = `消灭了 ${label}`;
+    return { log: `${farmer.fullName} 喷洒杀虫剂消灭了 ${label}！`, acted: true, earned: 5 };
+  }
+
+  _nearest(farmer, pests) {
+    let best = null, minDist = Infinity;
+    for (const p of pests) {
+      const d = Math.abs(p.x - farmer.x) + Math.abs(p.y - farmer.y);
+      if (d < minDist) { minDist = d; best = p; }
+    }
+    return best ? { x: best.x, y: best.y } : null;
+  }
+}
+
+/** 🌽 喂养饥饿的动物 */
+class FeedAnimalBehavior extends FarmerBehavior {
+  constructor() { super('喂养动物', '🌽', 9, 'URGENT', ['动物', '消费']); }
+
+  canExecute(farmer, game) {
+    // 检查是否有饥饿动物
+    const hasHungryAnimal = game.animalPens.some(p => p.animal && (p.hunger || 0) >= 60);
+    return hasHungryAnimal && game.sharedMoney >= 10;
+  }
+
+  getTarget(farmer, game) {
+    // 找最近的饥饿动物位置
+    let nearest = null, minDist = Infinity;
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (pen.animal && (pen.hunger || 0) >= 60) {
+        const pos = game.animalPositions?.[i];
+        if (pos) {
+          const d = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+          if (d < minDist) { minDist = d; nearest = pos; }
+        }
+      }
+    }
+    return nearest || { x: 0, y: game.height - 1 };
+  }
+
+  execute(farmer, game) {
+    let fed = 0, cost = 0;
+
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (!pen.animal || (pen.hunger || 0) < 60) continue;
+
+      // 检查动物位置
+      const pos = game.animalPositions?.[i];
+      if (pos) {
+        const dist = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+        if (dist > 2) continue; // 跳过太远的动物
+      }
+
+      // 喂养这只动物
+      pen.hunger = Math.max(0, (pen.hunger || 0) - 65);
+      cost += 5;
+      fed++;
+    }
+
+    if (!fed || game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
+
+    game.sharedMoney -= cost;
+    farmer.state         = 'working';
+    farmer.emoji         = '🧑‍🌾';
+    farmer.currentAction = `喂养了 ${fed} 只动物`;
+    return {
+      log:    `${farmer.fullName} 喂养了 ${fed} 只附近的动物 🌽，花费 ${cost} 💰`,
+      acted:  true,
+      earned: 0
+    };
+  }
+}
+
+/** 🔫 消灭野生动物（保护农场动物） */
+class HuntWildAnimalBehavior extends FarmerBehavior {
+  constructor() { super('消灭野兽', '🔫', 18, 'URGENT', ['动物保护', '战斗']); }
+
+  canExecute(farmer, game) {
+    const wildAnimals = game.wildAnimals || [];
+    return wildAnimals.length > 0 && (farmer.items.weapon || 0) > 0;
+  }
+
+  getTarget(farmer, game) {
+    const wildAnimals = game.wildAnimals || [];
+    if (wildAnimals.length === 0) return null;
+
+    // 优先找靠近动物栏的野兽
+    let best = null, minDist = Infinity;
+    for (const w of wildAnimals) {
+      const d = Math.abs(w.x - farmer.x) + Math.abs(w.y - farmer.y);
+      if (d < minDist) {
+        minDist = d;
+        best = w;
+      }
+    }
+    return best ? { x: best.x, y: best.y } : null;
+  }
+
+  execute(farmer, game) {
+    const wildAnimals = game.wildAnimals || [];
+    if (wildAnimals.length === 0 || (farmer.items.weapon || 0) <= 0) {
+      return { log: '', acted: false, earned: 0 };
+    }
+
+    // 找当前位置或最近的野兽
+    let target = wildAnimals.find(w => w.x === farmer.x && w.y === farmer.y);
+    if (!target) {
+      target = wildAnimals.reduce((nearest, w) => {
+        const d = Math.abs(w.x - farmer.x) + Math.abs(w.y - farmer.y);
+        if (!nearest || d < nearest.dist) {
+          return { ...w, dist: d };
+        }
+        return nearest;
+      }, null);
+    }
+
+    if (!target) return { log: '', acted: false, earned: 0 };
+
+    // 使用武器攻击
+    farmer.items.weapon--;
+    if (farmer.items.weapon <= 0) delete farmer.items.weapon;
+
+    // 从游戏中移除野兽
+    const idx = game.wildAnimals.findIndex(w => w.id === target.id);
+    if (idx >= 0) {
+      game.wildAnimals.splice(idx, 1);
+    }
+
+    const WILD_NAMES = {
+      wolf: '🐺狼',
+      fox: '🦊狐狸',
+      eagle: '🦅老鹰',
+      snake: '🐍蛇'
+    };
+    const label = WILD_NAMES[target.type] || '野兽';
+
+    farmer.state = 'working';
+    farmer.emoji = '🧑‍🌾';
+    farmer.currentAction = `消灭了 ${label}`;
+
+    // 击败野兽有奖励
+    const bounty = { wolf: 30, fox: 20, eagle: 25, snake: 15 }[target.type] || 10;
+    game.sharedMoney += bounty;
+
+    return {
+      log: `${farmer.fullName} 用武器消灭了 ${label}！获得赏金 ${bounty}💰`,
+      acted: true,
+      earned: bounty
+    };
+  }
+}
+
+// ============================================================
+//  内置行为 - 高优层 (HIGH)
+// ============================================================
+
 /** 收获成熟作物 */
 class HarvestCropBehavior extends FarmerBehavior {
-  constructor() { super('收获作物', '🧺', 12); }
+  constructor() { super('收获作物', '🧺', 12, 'HIGH', ['作物', '收益']); }
 
   canExecute(farmer, game) { return this._findRipe(farmer, game) !== null; }
   getTarget(farmer, game)  { return this._findRipe(farmer, game); }
@@ -148,9 +718,73 @@ class HarvestCropBehavior extends FarmerBehavior {
   }
 }
 
+/** 收获动物产品 */
+class HarvestAnimalBehavior extends FarmerBehavior {
+  constructor() { super('收获动物产品', '🐾', 12, 'HIGH', ['动物', '收益']); }
+
+  canExecute(farmer, game) {
+    return game.animalPens.some(pen => pen.animal && pen.isReady);
+  }
+
+  getTarget(farmer, game) {
+    // 找最近的可收获动物位置
+    let nearest = null, minDist = Infinity;
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (pen.animal && pen.isReady) {
+        const pos = game.animalPositions?.[i];
+        if (pos) {
+          const d = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+          if (d < minDist) { minDist = d; nearest = pos; }
+        }
+      }
+    }
+    return nearest || { x: 0, y: game.height - 1 };
+  }
+
+  execute(farmer, game) {
+    let totalEarned = 0;
+    const harvested = [];
+
+    for (let i = 0; i < game.animalPens.length; i++) {
+      const pen = game.animalPens[i];
+      if (!pen.animal || !pen.isReady) continue;
+
+      // 检查动物位置
+      const pos = game.animalPositions?.[i];
+      if (pos) {
+        const dist = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
+        if (dist > 2) continue; // 跳过太远的动物
+      }
+
+      // 应用动物多样性系数
+      const diversityCoef = game.calculateAnimalDiversity ? game.calculateAnimalDiversity() : 1;
+      const result = pen.harvest();
+      if (result.success) {
+        const adjustedReward = Math.floor(result.reward * diversityCoef);
+        game.sharedMoney += adjustedReward;
+        totalEarned      += adjustedReward;
+        const ANIMAL_EMOJI = { chicken:'🐔', duck:'🦆', sheep:'🐑', cow:'🐄', pig:'🐖', horse:'🐴', rabbit:'🐰', bee:'🐝' };
+        harvested.push(`${ANIMAL_EMOJI[result.animalType] || '🐾'}${result.product}`);
+      }
+    }
+
+    if (!harvested.length) return { log: '', acted: false, earned: 0 };
+
+    farmer.state         = 'working';
+    farmer.emoji         = '🧑‍🌾';
+    farmer.currentAction = '收获了动物产品';
+    return {
+      log:    `${farmer.fullName} 收获了附近的 ${harvested.join('、')}，公库 +${totalEarned} 💰`,
+      acted:  true,
+      earned: totalEarned
+    };
+  }
+}
+
 /** 给未浇水作物浇水 */
 class WaterCropBehavior extends FarmerBehavior {
-  constructor() { super('浇水', '💧', 8); }
+  constructor() { super('浇水', '💧', 8, 'HIGH', ['作物']); }
 
   canExecute(farmer, game) { return this._findDry(farmer, game) !== null; }
   getTarget(farmer, game)  { return this._findDry(farmer, game); }
@@ -188,9 +822,13 @@ class WaterCropBehavior extends FarmerBehavior {
   }
 }
 
+// ============================================================
+//  内置行为 - 常规层 (NORMAL)
+// ============================================================
+
 /** 在空地上种植种子 */
 class PlantCropBehavior extends FarmerBehavior {
-  constructor() { super('种植作物', '🌱', 6); }
+  constructor() { super('种植作物', '🌱', 6, 'NORMAL', ['作物']); }
 
   canExecute(farmer, game) {
     if (!Object.values(farmer.seeds).some(v => v > 0)) return false;
@@ -282,173 +920,10 @@ class PlantCropBehavior extends FarmerBehavior {
   }
 }
 
-/** 消灭害虫 */
-class KillPestBehavior extends FarmerBehavior {
-  constructor() { super('消灭害虫', '🧴', 15); }
-
-  canExecute(farmer, game) {
-    return (farmer.items.pesticide || 0) > 0 && game.pests.length > 0;
-  }
-
-  getTarget(farmer, game) { return this._nearest(farmer, game.pests); }
-
-  execute(farmer, game) {
-    const pest = game.pests.find(p => p.x === farmer.x && p.y === farmer.y)
-      || this._nearest(farmer, game.pests);
-    if (!pest) return { log: '', acted: false, earned: 0 };
-
-    const result = game.usePesticide(pest.x, pest.y);
-    if (!result.success) return { log: '', acted: false, earned: 0 };
-
-    farmer.items.pesticide--;
-    if (farmer.items.pesticide <= 0) delete farmer.items.pesticide;
-
-    const NAMES = { aphid: '🐛蚜虫', locust: '🦗蝗虫', rat: '🐀老鼠' };
-    const label  = NAMES[pest.type] || '害虫';
-    farmer.state         = 'working';
-    farmer.emoji         = '🧑‍🌾';
-    farmer.currentAction = `消灭了 ${label}`;
-    return { log: `${farmer.fullName} 喷洒杀虫剂消灭了 ${label}！`, acted: true, earned: 5 };
-  }
-
-  _nearest(farmer, pests) {
-    let best = null, minDist = Infinity;
-    for (const p of pests) {
-      const d = Math.abs(p.x - farmer.x) + Math.abs(p.y - farmer.y);
-      if (d < minDist) { minDist = d; best = p; }
-    }
-    return best ? { x: best.x, y: best.y } : null;
-  }
-}
-
-/** 收获动物产品 */
-class HarvestAnimalBehavior extends FarmerBehavior {
-  constructor() { super('收获动物产品', '🐾', 12); }
-
-  canExecute(farmer, game) {
-    return game.animalPens.some(pen => pen.animal && pen.isReady);
-  }
-
-  getTarget(farmer, game) {
-    // 找最近的可收获动物位置
-    let nearest = null, minDist = Infinity;
-    for (let i = 0; i < game.animalPens.length; i++) {
-      const pen = game.animalPens[i];
-      if (pen.animal && pen.isReady) {
-        const pos = game.animalPositions?.[i];
-        if (pos) {
-          const d = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
-          if (d < minDist) { minDist = d; nearest = pos; }
-        }
-      }
-    }
-    return nearest || { x: 0, y: game.height - 1 };
-  }
-
-  execute(farmer, game) {
-    let totalEarned = 0;
-    const harvested = [];
-
-    for (let i = 0; i < game.animalPens.length; i++) {
-      const pen = game.animalPens[i];
-      if (!pen.animal || !pen.isReady) continue;
-
-      // 检查动物位置
-      const pos = game.animalPositions?.[i];
-      if (pos) {
-        const dist = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
-        if (dist > 2) continue; // 跳过太远的动物
-      }
-
-      // 应用动物多样性系数
-      const diversityCoef = game.calculateAnimalDiversity ? game.calculateAnimalDiversity() : 1;
-      const result = pen.harvest();
-      if (result.success) {
-        const adjustedReward = Math.floor(result.reward * diversityCoef);
-        game.sharedMoney += adjustedReward;
-        totalEarned      += adjustedReward;
-        const ANIMAL_EMOJI = { chicken:'🐔', duck:'🦆', sheep:'🐑', cow:'🐄', pig:'🐖', horse:'🐴', rabbit:'🐰', bee:'🐝' };
-        harvested.push(`${ANIMAL_EMOJI[result.animalType] || '🐾'}${result.product}`);
-      }
-    }
-
-    if (!harvested.length) return { log: '', acted: false, earned: 0 };
-
-    farmer.state         = 'working';
-    farmer.emoji         = '🧑‍🌾';
-    farmer.currentAction = '收获了动物产品';
-    return {
-      log:    `${farmer.fullName} 收获了附近的 ${harvested.join('、')}，公库 +${totalEarned} 💰`,
-      acted:  true,
-      earned: totalEarned
-    };
-  }
-}
-
-/** 🌽 喂养饥饿的动物 */
-class FeedAnimalBehavior extends FarmerBehavior {
-  constructor() { super('喂养动物', '🌽', 9); }
-
-  canExecute(farmer, game) {
-    // 检查是否有饥饿动物
-    const hasHungryAnimal = game.animalPens.some(p => p.animal && (p.hunger || 0) >= 60);
-    return hasHungryAnimal && game.sharedMoney >= 10;
-  }
-
-  getTarget(farmer, game) {
-    // 找最近的饥饿动物位置
-    let nearest = null, minDist = Infinity;
-    for (let i = 0; i < game.animalPens.length; i++) {
-      const pen = game.animalPens[i];
-      if (pen.animal && (pen.hunger || 0) >= 60) {
-        const pos = game.animalPositions?.[i];
-        if (pos) {
-          const d = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
-          if (d < minDist) { minDist = d; nearest = pos; }
-        }
-      }
-    }
-    return nearest || { x: 0, y: game.height - 1 };
-  }
-
-  execute(farmer, game) {
-    let fed = 0, cost = 0;
-
-    for (let i = 0; i < game.animalPens.length; i++) {
-      const pen = game.animalPens[i];
-      if (!pen.animal || (pen.hunger || 0) < 60) continue;
-
-      // 检查动物位置
-      const pos = game.animalPositions?.[i];
-      if (pos) {
-        const dist = Math.abs(farmer.x - pos.x) + Math.abs(farmer.y - pos.y);
-        if (dist > 2) continue; // 跳过太远的动物
-      }
-
-      // 喂养这只动物
-      pen.hunger = Math.max(0, (pen.hunger || 0) - 65);
-      cost += 5;
-      fed++;
-    }
-
-    if (!fed || game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
-
-    game.sharedMoney -= cost;
-    farmer.state         = 'working';
-    farmer.emoji         = '🧑‍🌾';
-    farmer.currentAction = `喂养了 ${fed} 只动物`;
-    return {
-      log:    `${farmer.fullName} 喂养了 ${fed} 只附近的动物 🌽，花费 ${cost} 💰`,
-      acted:  true,
-      earned: 0
-    };
-  }
-}
-
 /** 购买动物 */
 class BuyAnimalBehavior extends FarmerBehavior {
   constructor() {
-    super('购买动物', '🛒', 4);
+    super('购买动物', '🛒', 4, 'NORMAL', ['动物', '消费', '投资']);
     this._cooldown = 0;
   }
 
@@ -525,7 +1000,7 @@ class BuyAnimalBehavior extends FarmerBehavior {
 
 /** 👥 头号农夫管理人手（雇佣/解雇） */
 class HireFireFarmerBehavior extends FarmerBehavior {
-  constructor() { super('管理人手', '👥', 2); }
+  constructor() { super('管理人手', '👥', 2, 'NORMAL', ['管理', '人力资源']); }
 
   // 只有第一个农夫（位置 0）负责管理招聘
   canExecute(farmer, game) {
@@ -565,9 +1040,292 @@ class HireFireFarmerBehavior extends FarmerBehavior {
   }
 }
 
+/** 🧪 施肥行为 - 对低肥力地块使用有机肥 */
+class FertilizeBehavior extends FarmerBehavior {
+  constructor() { super('施肥', '🧪', 7, 'NORMAL', ['作物', '资源管理']); }
+
+  canExecute(farmer, game) {
+    // 检查是否有有机肥和低肥力地块
+    if ((game.organicFertilizer || 0) <= 0) return false;
+
+    for (let y = 0; y < game.height; y++) {
+      for (let x = 0; x < game.width; x++) {
+        if (game.plots[y][x].fertility <= 30) return true;
+      }
+    }
+    return false;
+  }
+
+  getTarget(farmer, game) {
+    // 找最近的低肥力地块
+    let best = null, minDist = Infinity;
+    for (let y = 0; y < game.height; y++) {
+      for (let x = 0; x < game.width; x++) {
+        const plot = game.plots[y][x];
+        if (plot.fertility <= 30) {
+          const d = Math.abs(x - farmer.x) + Math.abs(y - farmer.y);
+          if (d < minDist) { minDist = d; best = { x, y }; }
+        }
+      }
+    }
+    return best;
+  }
+
+  execute(farmer, game) {
+    const t = this.getTarget(farmer, game);
+    if (!t || (game.organicFertilizer || 0) <= 0) {
+      return { log: '', acted: false, earned: 0 };
+    }
+
+    const plot = game.plots[t.y]?.[t.x];
+    if (!plot || plot.fertility > 30) {
+      return { log: '', acted: false, earned: 0 };
+    }
+
+    // 使用有机肥
+    const oldFert = plot.fertility;
+    plot.fertility = Math.min(100, plot.fertility + 50);
+    game.organicFertilizer--;
+
+    farmer.state = 'working';
+    farmer.emoji = '🧑‍🌾';
+    farmer.currentAction = '施了有机肥';
+
+    return {
+      log: `${farmer.fullName} 在 (${t.x},${t.y}) 施用了有机肥，肥力 ${Math.round(oldFert)}→${Math.round(plot.fertility)} 🧪`,
+      acted: true,
+      earned: 0
+    };
+  }
+}
+
+/** 🛒 购买种子行为 */
+class BuySeedsBehavior extends FarmerBehavior {
+  constructor() { super('购买种子', '🛒', 5, 'NORMAL', ['购物', '资源管理']); }
+
+  canExecute(farmer, game) {
+    // 种子库存不足且有钱
+    const totalSeeds = Object.values(farmer.seeds).reduce((a, b) => a + b, 0);
+    return totalSeeds < 10 && game.sharedMoney >= 50;
+  }
+
+  getTarget() { return null; }
+
+  execute(farmer, game) {
+    const SEED_PRICES = { wheat: 2, carrot: 3, rice: 8, tomato: 5 };
+    const CROP_NAMES = { wheat: '小麦', carrot: '胡萝卜', rice: '水稻', tomato: '番茄' };
+
+    // 统计当前作物（多样性优先）
+    const cropCounts = {};
+    for (let y = 0; y < game.height; y++) {
+      for (let x = 0; x < game.width; x++) {
+        const crop = game.plots[y][x].crop;
+        if (crop) cropCounts[crop] = (cropCounts[crop] || 0) + 1;
+      }
+    }
+
+    // 优先买种植少的种子
+    const cropTypes = Object.keys(SEED_PRICES).sort((a, b) => {
+      return (cropCounts[a] || 0) - (cropCounts[b] || 0);
+    });
+
+    let bought = 0, cost = 0;
+    const boughtItems = [];
+
+    for (const crop of cropTypes) {
+      const price = SEED_PRICES[crop];
+      const buyCost = price * 5;
+
+      if ((farmer.seeds[crop] || 0) < 5 && game.sharedMoney >= buyCost + 30) {
+        farmer.seeds[crop] = (farmer.seeds[crop] || 0) + 5;
+        game.sharedMoney -= buyCost;
+        bought++;
+        cost += buyCost;
+        boughtItems.push(`${CROP_NAMES[crop]}x5`);
+      }
+    }
+
+    if (!bought) return { log: '', acted: false, earned: 0 };
+
+    farmer.state = 'idle';
+    farmer.currentAction = '买了种子';
+    return {
+      log: `${farmer.fullName} 购买了 ${boughtItems.join('、')}（-${cost}💰）`,
+      acted: true,
+      earned: 0
+    };
+  }
+}
+
+/** 🧴 购买杀虫剂行为 */
+class BuyPesticideBehavior extends FarmerBehavior {
+  constructor() { super('购买杀虫剂', '🧴', 4, 'NORMAL', ['购物', '战斗准备']); }
+
+  canExecute(farmer, game) {
+    return (farmer.items.pesticide || 0) < 2 && game.sharedMoney >= 50;
+  }
+
+  getTarget() { return null; }
+
+  execute(farmer, game) {
+    const cost = 40;
+    if (game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
+
+    farmer.items.pesticide = (farmer.items.pesticide || 0) + 2;
+    game.sharedMoney -= cost;
+
+    farmer.state = 'idle';
+    farmer.currentAction = '买了杀虫剂';
+    return {
+      log: `${farmer.fullName} 购买了杀虫剂x2（-40💰）`,
+      acted: true,
+      earned: 0
+    };
+  }
+}
+
+/** 🔫 购买武器行为 */
+class BuyWeaponBehavior extends FarmerBehavior {
+  constructor() { super('购买武器', '🔫', 5, 'NORMAL', ['购物', '战斗准备']); }
+
+  canExecute(farmer, game) {
+    // 武器库存不足且有钱，或者有野生动物威胁时优先进货
+    const hasWeapon = (farmer.items.weapon || 0) > 0;
+    const wildAnimals = game.wildAnimals || [];
+    const hasThreat = wildAnimals.length > 0;
+
+    // 有威胁但没武器 -> 紧急购买
+    if (hasThreat && !hasWeapon && game.sharedMoney >= 60) return true;
+    // 常规补货
+    if (!hasWeapon && game.sharedMoney >= 100) return true;
+    return false;
+  }
+
+  getTarget() { return null; }
+
+  execute(farmer, game) {
+    const cost = 50;
+    if (game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
+
+    farmer.items.weapon = (farmer.items.weapon || 0) + 1;
+    game.sharedMoney -= cost;
+
+    farmer.state = 'idle';
+    farmer.currentAction = '买了武器';
+    return {
+      log: `${farmer.fullName} 购买了猎枪🔫（-50💰），可以对付野生动物了`,
+      acted: true,
+      earned: 0
+    };
+  }
+}
+
+/** 🥇 投资黄金行为 */
+class InvestGoldBehavior extends FarmerBehavior {
+  constructor() {
+    super('投资黄金', '🥇', 3, 'NORMAL', ['投资', '金融']);
+    this._cooldown = 0;
+  }
+
+  canExecute(farmer, game) {
+    // 冷却检查（每5分钟最多操作一次）
+    if (Date.now() < this._cooldown) return false;
+
+    // 需要有金价历史数据
+    const history = game.goldPriceHistory || [];
+    if (history.length < 3) return false;
+
+    // 检查是否有交易机会
+    const decision = this._analyzeMarket(farmer, game);
+    return decision !== null;
+  }
+
+  getTarget() { return null; } // 原地操作
+
+  execute(farmer, game) {
+    const decision = this._analyzeMarket(farmer, game);
+    if (!decision) return { log: '', acted: false, earned: 0 };
+
+    let log = '';
+    let earned = 0;
+
+    if (decision.action === 'buy') {
+      // 买入黄金
+      const result = game.buyGold(decision.amount);
+      if (result.success) {
+        log = `${farmer.fullName} ${decision.reason}：买入 ${decision.amount.toFixed(2)}g 黄金 🥇（-${result.cost}💰）`;
+        farmer.state = 'idle';
+        farmer.currentAction = '投资了黄金';
+      } else {
+        return { log: '', acted: false, earned: 0 };
+      }
+    } else if (decision.action === 'sell') {
+      // 卖出黄金
+      const result = game.sellGold(decision.amount);
+      if (result.success) {
+        earned = result.revenue;
+        log = `${farmer.fullName} ${decision.reason}：卖出 ${decision.amount.toFixed(2)}g 黄金 🥇（+${result.revenue}💰）`;
+        farmer.state = 'idle';
+        farmer.currentAction = '卖出了黄金';
+      } else {
+        return { log: '', acted: false, earned: 0 };
+      }
+    }
+
+    this._cooldown = Date.now() + 300000; // 5分钟冷却
+    return { log, acted: true, earned };
+  }
+
+  _analyzeMarket(farmer, game) {
+    const history = game.goldPriceHistory || [];
+    if (history.length < 3) return null;
+
+    // 计算移动平均
+    const avgPrice = history.reduce((sum, h) => sum + h.price, 0) / history.length;
+    const currentPrice = game.goldPrice;
+    const priceRatio = currentPrice / avgPrice;
+
+    // 获取性格影响（谨慎值影响投资决策）
+    const cautiousness = farmer.personality?.['谨慎'] || 0.5;
+    const threshold = 0.95 + (1 - cautiousness) * 0.05; // 谨慎的人需要更大的折扣才买入
+
+    // 策略1：金价低于均价，逢低买入
+    if (priceRatio < threshold && game.sharedMoney > 300) {
+      // 计算买入量：根据性格和资金
+      const investRatio = 0.2 + (1 - cautiousness) * 0.1; // 投资20%-30%资金
+      const buyAmount = Math.min(
+        (game.sharedMoney * investRatio) / currentPrice,
+        10 // 最多买10克
+      );
+      if (buyAmount >= 0.1) {
+        return { action: 'buy', amount: buyAmount, reason: '金价走低，逢低买入' };
+      }
+    }
+
+    // 策略2：金价高于均价，逢高卖出
+    if (priceRatio > 1.05 && game.goldAmount > 0.5) {
+      // 计算卖出量：根据性格
+      const sellRatio = 0.3 + cautiousness * 0.2; // 卖出30%-50%
+      const sellAmount = Math.min(
+        game.goldAmount * sellRatio,
+        game.goldAmount * 0.5 // 最多卖一半
+      );
+      if (sellAmount >= 0.1) {
+        return { action: 'sell', amount: sellAmount, reason: '金价走高，逢高卖出' };
+      }
+    }
+
+    return null;
+  }
+}
+
+// ============================================================
+//  内置行为 - 低优/空闲层 (LOW/IDLE)
+// ============================================================
+
 /** 巡视/闲逛（兜底行为） */
 class WanderBehavior extends FarmerBehavior {
-  constructor() { super('巡视', '🚶', 1); }
+  constructor() { super('巡视', '🚶', 1, 'IDLE', ['探索']); }
   canExecute() { return true; }
 
   getTarget(farmer, game) {
@@ -586,18 +1344,120 @@ class WanderBehavior extends FarmerBehavior {
   }
 }
 
-// ——— 注册所有默认行为 ———
+// ——— 注册所有默认行为（按优先级顺序）———
+// CRITICAL
 FarmerBehavior.register(SleepBehavior);
-FarmerBehavior.register(EatBehavior);           // 新增：吃东西
+FarmerBehavior.register(EatBehavior);
+FarmerBehavior.register(EmergencyLiquidateBehavior);
+// URGENT
 FarmerBehavior.register(KillPestBehavior);
+FarmerBehavior.register(FeedAnimalBehavior);
+FarmerBehavior.register(HuntWildAnimalBehavior);
+// HIGH
 FarmerBehavior.register(HarvestCropBehavior);
-FarmerBehavior.register(FeedAnimalBehavior);    // 新增：喂养动物
-FarmerBehavior.register(WaterCropBehavior);
-FarmerBehavior.register(PlantCropBehavior);
 FarmerBehavior.register(HarvestAnimalBehavior);
+FarmerBehavior.register(WaterCropBehavior);
+// NORMAL
+FarmerBehavior.register(PlantCropBehavior);
 FarmerBehavior.register(BuyAnimalBehavior);
-FarmerBehavior.register(HireFireFarmerBehavior); // 新增：管理人手
+FarmerBehavior.register(HireFireFarmerBehavior);
+FarmerBehavior.register(FertilizeBehavior);
+FarmerBehavior.register(BuySeedsBehavior);
+FarmerBehavior.register(BuyPesticideBehavior);
+FarmerBehavior.register(BuyWeaponBehavior);
+FarmerBehavior.register(InvestGoldBehavior);
+// IDLE
 FarmerBehavior.register(WanderBehavior);
+
+// ============================================================
+//  决策引擎 - 核心决策逻辑
+// ============================================================
+class DecisionEngine {
+  constructor(farmer, game) {
+    this.farmer = farmer;
+    this.game = game;
+    this.urgencyEvaluator = new UrgencyEvaluator(game, farmer);
+  }
+
+  /**
+   * 选择最佳行为
+   * 算法：紧急度优先 + 加权随机
+   * 1. 计算所有可执行行为的紧急度
+   * 2. 如果有 CRITICAL 级别的紧急行为，直接返回
+   * 3. 否则按紧急度加权随机选择
+   */
+  selectBehavior() {
+    const eligible = this.farmer.behaviors.filter(b => b.canExecute(this.farmer, this.game));
+    if (!eligible.length) return null;
+
+    // 计算每个行为的综合分数
+    const scored = eligible.map(b => {
+      const urgency = this.urgencyEvaluator.evaluate(b.name);
+      const adjustedWeight = b.getAdjustedWeight(this.farmer.personality);
+      const priorityValue = b.priorityValue;
+
+      // 综合分数 = 紧急度 + 优先级基数 + 权重
+      // 紧急度和优先级是硬性因素，权重是软性调节
+      const score = {
+        behavior: b,
+        urgency,
+        priority: priorityValue,
+        weight: adjustedWeight,
+        total: urgency * 2 + priorityValue + adjustedWeight
+      };
+      return score;
+    });
+
+    // 按紧急度排序，找出最高紧急度
+    scored.sort((a, b) => b.urgency - a.urgency);
+    const maxUrgency = scored[0].urgency;
+
+    // 如果有 CRITICAL 级别紧急度（>=100），直接返回
+    if (maxUrgency >= DECISION_CONFIG.priorityLevels.CRITICAL) {
+      // 在所有 CRITICAL 行为中选择权重最高的
+      const critical = scored.filter(s => s.urgency >= DECISION_CONFIG.priorityLevels.CRITICAL);
+      critical.sort((a, b) => b.total - a.total);
+      return critical[0].behavior;
+    }
+
+    // URGENT 级别：优先处理但允许一定随机性
+    if (maxUrgency >= DECISION_CONFIG.priorityLevels.URGENT) {
+      const urgent = scored.filter(s => s.urgency >= DECISION_CONFIG.priorityLevels.URGENT);
+      // 70% 概率选择最高分，30% 加权随机
+      if (Math.random() < 0.7) {
+        urgent.sort((a, b) => b.total - a.total);
+        return urgent[0].behavior;
+      }
+      // 加权随机
+      return this._weightedRandom(urgent);
+    }
+
+    // 普通情况：加权随机
+    return this._weightedRandom(scored);
+  }
+
+  _weightedRandom(scored) {
+    const total = scored.reduce((s, item) => s + item.total, 0);
+    let rand = Math.random() * total;
+    for (const item of scored) {
+      rand -= item.total;
+      if (rand <= 0) return item.behavior;
+    }
+    return scored[scored.length - 1].behavior;
+  }
+
+  /** 获取决策调试信息 */
+  getDebugInfo() {
+    const eligible = this.farmer.behaviors.filter(b => b.canExecute(this.farmer, this.game));
+    return eligible.map(b => ({
+      name: b.name,
+      priority: b.priority,
+      urgency: this.urgencyEvaluator.evaluate(b.name),
+      weight: Math.round(b.weight * 10) / 10,
+      adjustedWeight: Math.round(b.getAdjustedWeight(this.farmer.personality) * 10) / 10
+    }));
+  }
+}
 
 // ============================================================
 //  农夫 NPC 主类
@@ -637,6 +1497,9 @@ class Farmer {
 
     // 从注册表实例化所有行为
     this.behaviors = Array.from(FarmerBehavior.registry.values()).map(Cls => new Cls());
+
+    // ====== 决策引擎 ======
+    this.decisionEngine = new DecisionEngine(this, game);
 
     this.tickIntervalMs = options.tickInterval || 28000;
     this.moveIntervalMs = options.moveInterval || 1600;
@@ -1023,26 +1886,15 @@ ${chatContext || '暂无聊天记录'}
     }
   }
 
-  // ---------- 加权随机选择 ----------
+  // ---------- 决策逻辑 ----------
 
   _pickBehavior() {
-    const eligible = this.behaviors.filter(b => b.canExecute(this, this.game));
-    if (!eligible.length) return null;
+    return this.decisionEngine.selectBehavior();
+  }
 
-    // EatBehavior 和 SleepBehavior 有强制优先级
-    const eat   = eligible.find(b => b.name === '吃东西');
-    if (eat && this.hunger >= 75) return eat; // 非常饿时强制进食
-
-    const sleep = eligible.find(b => b.name === '睡觉');
-    if (sleep) return sleep;
-
-    const total = eligible.reduce((s, b) => s + b.weight, 0);
-    let rand = Math.random() * total;
-    for (const b of eligible) {
-      rand -= b.weight;
-      if (rand <= 0) return b;
-    }
-    return eligible[eligible.length - 1];
+  /** 获取决策调试信息 */
+  getDecisionDebugInfo() {
+    return this.decisionEngine.getDebugInfo();
   }
 
   // ---------- 移动循环 ----------
@@ -1097,7 +1949,12 @@ ${chatContext || '暂无聊天记录'}
 
       if (this.walkTarget) return; // 仍在赶路，等到达再决策
 
-      if (this._tickCount % 20 === 0) this._restockSeeds();
+      // 每50次tick衰减权重（防止历史数据过度影响）
+      if (this._tickCount % 50 === 0) {
+        for (const behavior of this.behaviors) {
+          behavior.decayWeight();
+        }
+      }
 
       const beh = this._pickBehavior();
       if (!beh) return;
@@ -1123,60 +1980,8 @@ ${chatContext || '暂无聊天记录'}
     const { log, acted, earned } = beh.execute(this, this.game);
     if (acted) {
       beh.recordProfit(earned);
+      this.recordAction(beh.name, { earned, log });
       if (log) this._log(log, beh.emoji, 'farmer');
-    }
-  }
-
-  // ---------- 补仓 ----------
-
-  _restockSeeds() {
-    const SEED_PRICES = { wheat: 2, carrot: 3, rice: 8, tomato: 5 };
-    const CROP_NAMES = { wheat: '小麦', carrot: '胡萝卜', rice: '水稻', tomato: '番茄' };
-
-    // 统计当前作物数量（用于多样性决策）
-    const cropCounts = {};
-    for (let y = 0; y < this.game.height; y++) {
-      for (let x = 0; x < this.game.width; x++) {
-        const crop = this.game.plots[y][x].crop;
-        if (crop) {
-          cropCounts[crop] = (cropCounts[crop] || 0) + 1;
-        }
-      }
-    }
-
-    // 按多样性优先排序：优先购买当前种植少的作物种子
-    const cropTypes = Object.keys(SEED_PRICES).sort((a, b) => {
-      const countA = cropCounts[a] || 0;
-      const countB = cropCounts[b] || 0;
-      // 没种的作物优先
-      if (countA === 0 && countB > 0) return -1;
-      if (countB === 0 && countA > 0) return 1;
-      // 都有种，少的优先
-      return countA - countB;
-    });
-
-    for (const crop of cropTypes) {
-      const price = SEED_PRICES[crop];
-      const cost = price * 5;
-      const currentCount = cropCounts[crop] || 0;
-      const seedCount = this.seeds[crop] || 0;
-
-      // 种子库存低于5且有钱就买
-      if (seedCount < 5 && this.game.sharedMoney >= cost + 50) {
-        this.seeds[crop] = seedCount + 5;
-        this.game.sharedMoney -= cost;
-
-        // 日志中包含多样性提示
-        const diversityHint = currentCount === 0 ? '（新种类，提高多样性！）' : '';
-        this._log(`${this.fullName} 购买了 ${CROP_NAMES[crop]}种子x5（-${cost}💰）${diversityHint}`, '🌱', 'shop');
-      }
-    }
-
-    // 杀虫剂：40金币买2个
-    if ((this.items.pesticide || 0) < 2 && this.game.sharedMoney >= 90) {
-      this.items.pesticide = (this.items.pesticide || 0) + 2;
-      this.game.sharedMoney -= 40;
-      this._log(`${this.fullName} 购买了 杀虫剂x2（-40💰）`, '🧪', 'shop');
     }
   }
 
@@ -1228,17 +2033,29 @@ ${chatContext || '暂无聊天记录'}
 }
 
 module.exports = {
+  // 核心类
   Farmer,
   FarmerBehavior,
+  DecisionEngine,
+  UrgencyEvaluator,
+  DECISION_CONFIG,
+  // 行为类
   SleepBehavior,
   EatBehavior,
+  EmergencyLiquidateBehavior,
   KillPestBehavior,
   HarvestCropBehavior,
   WaterCropBehavior,
   PlantCropBehavior,
   HarvestAnimalBehavior,
   FeedAnimalBehavior,
+  HuntWildAnimalBehavior,
   BuyAnimalBehavior,
   HireFireFarmerBehavior,
+  FertilizeBehavior,
+  BuySeedsBehavior,
+  BuyPesticideBehavior,
+  BuyWeaponBehavior,
+  InvestGoldBehavior,
   WanderBehavior
 };
