@@ -5,52 +5,69 @@ const { Farmer } = require('./farmer');
 
 // ========== 天气系统 ==========
 const WEATHER_TYPES = {
-  sunny: { 
-    name: '晴天', 
-    emoji: '☀️', 
+  sunny: {
+    name: '晴天',
+    emoji: '☀️',
     description: '作物正常生长，土壤水分蒸发较快',
-    moistureChange: -5, // 每tick湿度变化
+    moistureChange: -5,
     growthMultiplier: 1.0,
     pestChance: 0.1,
+    weight: 35,  // 权重：正常天气
     color: '#FFF9C4'
   },
-  rainy: { 
-    name: '雨天', 
-    emoji: '🌧️', 
+  rainy: {
+    name: '雨天',
+    emoji: '🌧️',
     description: '自动浇水，作物生长加速！土壤保持湿润',
     moistureChange: +10,
     growthMultiplier: 1.3,
     pestChance: 0.05,
+    weight: 25,  // 权重：有利天气
     color: '#90CAF9'
   },
-  stormy: { 
-    name: '暴风雨', 
-    emoji: '⛈️', 
-    description: '作物可能被损坏！需要及时保护',
-    moistureChange: +20,
-    growthMultiplier: 0.7,
-    pestChance: 0.3,
-    damageChance: 0.2, // 作物损坏几率
-    color: '#5C6BC0'
+  cloudy: {
+    name: '多云',
+    emoji: '⛅',
+    description: '阳光柔和，适合大部分作物生长',
+    moistureChange: -2,
+    growthMultiplier: 1.1,
+    pestChance: 0.08,
+    weight: 20,  // 权重：正常天气
+    color: '#E0E0E0'
   },
-  foggy: { 
-    name: '雾天', 
-    emoji: '🌫️', 
+  foggy: {
+    name: '雾天',
+    emoji: '🌫️',
     description: '害虫活跃期，注意防治！',
     moistureChange: 0,
     growthMultiplier: 0.9,
-    pestChance: 0.4,
+    pestChance: 0.15,  // 降低：0.4 -> 0.15
+    weight: 8,  // 权重：轻微负面
     color: '#B0BEC5'
   },
-  snowy: { 
-    name: '雪天', 
-    emoji: '❄️', 
+  stormy: {
+    name: '暴风雨',
+    emoji: '⛈️',
+    description: '作物可能被损坏！需要及时保护',
+    moistureChange: +20,
+    growthMultiplier: 0.7,
+    pestChance: 0.15,  // 降低：0.3 -> 0.15
+    damageChance: 0.08,  // 降低：0.2 -> 0.08
+    weight: 6,  // 权重：灾害天气（低概率）
+    isDisaster: true,
+    color: '#5C6BC0'
+  },
+  snowy: {
+    name: '雪天',
+    emoji: '❄️',
     description: '只有抗寒作物才能生长！',
     moistureChange: -10,
     growthMultiplier: 0.3,
     pestChance: 0.02,
-    damageChance: 0.3,
-    coldOnly: ['wheat'], // 只允许耐寒作物
+    damageChance: 0.1,  // 降低：0.3 -> 0.1
+    coldOnly: ['wheat'],
+    weight: 6,  // 权重：灾害天气（低概率）
+    isDisaster: true,
     color: '#E1F5FE'
   }
 };
@@ -292,16 +309,16 @@ const CROPS = {
 
 // 动物成长阶段配置
 const ANIMAL_STAGES = {
-  baby: { name: '幼年期', durationRatio: 0.2 },   // 占总成长时间的20%
-  young: { name: '青年期', durationRatio: 0.2 },  // 占总成长时间的20%
-  adult: { name: '成年期', durationRatio: 0.4 },  // 占总成长时间的40%（黄金产出期）
-  old: { name: '老年期', durationRatio: 0.2 }    // 占总成长时间的20%（产量下降）
+  baby: { name: '幼年期', durationRatio: 0.15 },   // 占总成长时间的15%
+  young: { name: '青年期', durationRatio: 0.15 },  // 占总成长时间的15%
+  adult: { name: '成年期', durationRatio: 0.55 },  // 占总成长时间的55%（黄金产出期）
+  old: { name: '老年期', durationRatio: 0.15 }     // 占总成长时间的15%（产量下降）
 };
 
 // 动物衰老配置
 const ANIMAL_AGING = {
   // 成年后开始计算老化时间（相对于growthTime的倍数）
-  oldAgeStart: 1.5,        // 成年后过1.5倍growthTime进入老年
+  oldAgeStart: 2.5,        // 成年后过2.5倍growthTime进入老年（延长成年期）
   oldAgeYieldMultiplier: 0.2,  // 老年后产量只有20%
   oldAgeSellMultiplier: 0.6,   // 老年后卖价60%
   productCooldownMultiplier: 2.5, // 老年后产出冷却延长2.5倍
@@ -983,6 +1000,8 @@ class FarmGame {
     this.weather = 'sunny'; // 当前天气
     this.weatherChangeTimer = 0; // 天气变化计时器
     this.weatherDuration = 300; // 天气持续时间（秒）
+    this.lastDisasterTime = 0; // 上次灾害天气时间
+    this.DISASTER_COOLDOWN = 180; // 灾害冷却时间（秒）
 
     // ========== 季节系统 ==========
     this.season = 'spring'; // 当前季节
@@ -1852,11 +1871,35 @@ class FarmGame {
     }
   }
   
-  // 改变天气
+  // 改变天气（使用加权随机）
   changeWeather() {
-    const weatherKeys = Object.keys(WEATHER_TYPES);
-    const newWeather = weatherKeys[Math.floor(Math.random() * weatherKeys.length)];
+    const now = Date.now();
+    const disasterTypes = Object.keys(WEATHER_TYPES).filter(k => WEATHER_TYPES[k].isDisaster);
+
+    // 灾害冷却机制：灾害天气后3分钟内不再出现灾害
+    const inCooldown = now - this.lastDisasterTime < this.DISASTER_COOLDOWN * 1000;
+
+    // 构建加权随机池
+    const weightedWeather = [];
+    for (const [key, weather] of Object.entries(WEATHER_TYPES)) {
+      // 冷却期内跳过灾害天气
+      if (inCooldown && weather.isDisaster) continue;
+
+      // 将天气加入加权池（权重越大，概率越高）
+      for (let i = 0; i < weather.weight; i++) {
+        weightedWeather.push(key);
+      }
+    }
+
+    // 随机选择
+    const newWeather = weightedWeather[Math.floor(Math.random() * weightedWeather.length)];
     this.weather = newWeather;
+
+    // 记录灾害时间
+    if (WEATHER_TYPES[newWeather].isDisaster) {
+      this.lastDisasterTime = now;
+    }
+
     const w = WEATHER_TYPES[newWeather];
     console.log(`[Weather] Weather changed to: ${w.emoji} ${w.name}`);
     this.addFarmLog(`天气变为 ${w.emoji} ${w.name}：${w.description}`, w.emoji, 'weather');
