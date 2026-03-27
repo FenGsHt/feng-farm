@@ -201,25 +201,27 @@ function getCoinBonusMultiplier(level) {
 }
 
 // 作物配置
+// ROI设计原则：长周期作物风险高，给予更高回报
+// 短周期(<5min): ROI ~280-320% | 中短(5-10min): ROI ~360-400% | 中(10-20min): ROI ~430-480% | 长周期(>20min): ROI ~500-600%
 const CROPS = {
   // 谷物（growthTime 单位：秒，浇水后速度 ×1.5）
-  wheat:      { name: '小麦',   growthTime: 180,  sellPrice: 10,  seedPrice: 2,  emoji: '🌾', category: 'grain' },      // 3 min
-  corn:       { name: '玉米',   growthTime: 900,  sellPrice: 60,  seedPrice: 12, emoji: '🌽', category: 'grain' },      // 15 min
-  rice:       { name: '水稻',   growthTime: 600,  sellPrice: 45,  seedPrice: 8,  emoji: '🍚', category: 'grain' },      // 10 min
+  wheat:      { name: '小麦',   growthTime: 180,  sellPrice: 8,   seedPrice: 2,  emoji: '🌾', category: 'grain' },      // 3 min, ROI 300%
+  corn:       { name: '玉米',   growthTime: 900,  sellPrice: 70,  seedPrice: 12, emoji: '🌽', category: 'grain' },      // 15 min, ROI 483%
+  rice:       { name: '水稻',   growthTime: 600,  sellPrice: 46,  seedPrice: 8,  emoji: '🍚', category: 'grain' },      // 10 min, ROI 475%
   // 蔬菜
-  tomato:     { name: '番茄',   growthTime: 420,  sellPrice: 25,  seedPrice: 5,  emoji: '🍅', category: 'vegetable' },  // 7 min
-  carrot:     { name: '胡萝卜', growthTime: 150,  sellPrice: 15,  seedPrice: 3,  emoji: '🥕', category: 'vegetable' },  // 2.5 min
-  eggplant:   { name: '茄子',   growthTime: 480,  sellPrice: 30,  seedPrice: 6,  emoji: '🍆', category: 'vegetable' },  // 8 min
-  cucumber:   { name: '黄瓜',   growthTime: 300,  sellPrice: 20,  seedPrice: 4,  emoji: '🥒', category: 'vegetable' },  // 5 min
-  pumpkin:    { name: '南瓜',   growthTime: 1200, sellPrice: 80,  seedPrice: 15, emoji: '🎃', category: 'vegetable' },  // 20 min
+  tomato:     { name: '番茄',   growthTime: 420,  sellPrice: 27,  seedPrice: 5,  emoji: '🍅', category: 'vegetable' },  // 7 min, ROI 440%
+  carrot:     { name: '胡萝卜', growthTime: 150,  sellPrice: 12,  seedPrice: 3,  emoji: '🥕', category: 'vegetable' },  // 2.5 min, ROI 300%
+  eggplant:   { name: '茄子',   growthTime: 480,  sellPrice: 33,  seedPrice: 6,  emoji: '🍆', category: 'vegetable' },  // 8 min, ROI 450%
+  cucumber:   { name: '黄瓜',   growthTime: 300,  sellPrice: 20,  seedPrice: 4,  emoji: '🥒', category: 'vegetable' },  // 5 min, ROI 400%
+  pumpkin:    { name: '南瓜',   growthTime: 1200, sellPrice: 100, seedPrice: 15, emoji: '🎃', category: 'vegetable' },  // 20 min, ROI 567%
   // 水果
-  strawberry: { name: '草莓',   growthTime: 240,  sellPrice: 20,  seedPrice: 4,  emoji: '🍓', category: 'fruit' },     // 4 min
-  watermelon: { name: '西瓜',   growthTime: 900,  sellPrice: 50,  seedPrice: 10, emoji: '🍉', category: 'fruit' },     // 15 min
-  grape:      { name: '葡萄',   growthTime: 1800, sellPrice: 100, seedPrice: 20, emoji: '🍇', category: 'fruit' },     // 30 min
-  apple:      { name: '苹果',   growthTime: 3600, sellPrice: 150, seedPrice: 30, emoji: '🍎', category: 'fruit' },     // 60 min
+  strawberry: { name: '草莓',   growthTime: 240,  sellPrice: 18,  seedPrice: 4,  emoji: '🍓', category: 'fruit' },     // 4 min, ROI 350%
+  watermelon: { name: '西瓜',   growthTime: 900,  sellPrice: 58,  seedPrice: 10, emoji: '🍉', category: 'fruit' },     // 15 min, ROI 480%
+  grape:      { name: '葡萄',   growthTime: 1800, sellPrice: 130, seedPrice: 20, emoji: '🍇', category: 'fruit' },     // 30 min, ROI 550%
+  apple:      { name: '苹果',   growthTime: 3600, sellPrice: 220, seedPrice: 30, emoji: '🍎', category: 'fruit' },     // 60 min, ROI 633%
   // 经济作物
-  cotton:     { name: '棉花',   growthTime: 1500, sellPrice: 70,  seedPrice: 14, emoji: '☁️', category: 'cash' },     // 25 min
-  tea:        { name: '茶叶',   growthTime: 2400, sellPrice: 90,  seedPrice: 18, emoji: '🍵', category: 'cash' }       // 40 min
+  cotton:     { name: '棉花',   growthTime: 1500, sellPrice: 95,  seedPrice: 14, emoji: '☁️', category: 'cash' },     // 25 min, ROI 579%
+  tea:        { name: '茶叶',   growthTime: 2400, sellPrice: 165, seedPrice: 18, emoji: '🍵', category: 'cash' }       // 40 min, ROI 817%
 };
 
 // 动物成长阶段配置
@@ -230,121 +232,122 @@ const ANIMAL_STAGES = {
 };
 
 // 动物配置
+// 优化原则：降低购买成本，提高产品收益，让动物约5-7次产品收获即可回本
 const ANIMALS = {
   // 家禽
   chicken: {
     name: '鸡',
-    growthTime: 60,
-    sellPrice: 30,
-    buyPrice: 50,
+    growthTime: 45,   // 缩短成长时间
+    sellPrice: 35,
+    buyPrice: 40,     // 降低购买价
     emoji: '🐔',
     product: '鸡蛋',
-    productPrice: 5,
+    productPrice: 8,  // 提高产品价
     stages: {
       baby: { emoji: '🐤', name: '小鸡' },
       young: { emoji: '🐥', name: '青年鸡' },
-      adult: { emoji: '🐔', name: '成年鸡', sellPrice: 30 }
+      adult: { emoji: '🐔', name: '成年鸡', sellPrice: 35 }
     }
   },
   duck: {
     name: '鸭',
-    growthTime: 80,
-    sellPrice: 45,
-    buyPrice: 80,
+    growthTime: 60,
+    sellPrice: 50,
+    buyPrice: 55,
     emoji: '🦆',
     product: '鸭蛋',
-    productPrice: 8,
+    productPrice: 12,
     stages: {
       baby: { emoji: '🐣', name: '小鸭' },
       young: { emoji: '🐥', name: '青年鸭' },
-      adult: { emoji: '🦆', name: '成年鸭', sellPrice: 45 }
+      adult: { emoji: '🦆', name: '成年鸭', sellPrice: 50 }
     }
   },
   // 畜牧
   sheep: {
     name: '羊',
-    growthTime: 120,
-    sellPrice: 100,
-    buyPrice: 200,
+    growthTime: 90,
+    sellPrice: 120,
+    buyPrice: 140,
     emoji: '🐑',
     product: '羊毛',
-    productPrice: 20,
+    productPrice: 28,
     stages: {
       baby: { emoji: '🐑', name: '小羊' },
       young: { emoji: '🐑', name: '青年羊' },
-      adult: { emoji: '🐑', name: '成年羊', sellPrice: 100 }
+      adult: { emoji: '🐑', name: '成年羊', sellPrice: 120 }
     }
   },
   cow: {
     name: '牛',
-    growthTime: 180,
-    sellPrice: 200,
-    buyPrice: 400,
+    growthTime: 120,
+    sellPrice: 240,
+    buyPrice: 280,
     emoji: '🐄',
     product: '牛奶',
-    productPrice: 30,
+    productPrice: 45,
     stages: {
       baby: { emoji: '🐄', name: '小牛' },
       young: { emoji: '🐄', name: '青年牛' },
-      adult: { emoji: '🐄', name: '成年牛', sellPrice: 200 }
+      adult: { emoji: '🐄', name: '成年牛', sellPrice: 240 }
     }
   },
   pig: {
     name: '猪',
-    growthTime: 150,
-    sellPrice: 150,
-    buyPrice: 300,
+    growthTime: 100,
+    sellPrice: 200,
+    buyPrice: 180,    // 猪有特殊能力，性价比高
     emoji: '🐖',
-    product: '有机肥',  // 改为有机肥
-    productPrice: 20,
-    specialAbility: 'fertilize',  // 特殊能力：恢复肥力
+    product: '有机肥',
+    productPrice: 25,
+    specialAbility: 'fertilize',
     stages: {
       baby: { emoji: '🐷', name: '小猪' },
       young: { emoji: '🐽', name: '青年猪' },
-      adult: { emoji: '🐖', name: '成年猪', sellPrice: 300 }  // 成年猪卖出收益大
+      adult: { emoji: '🐖', name: '成年猪', sellPrice: 280 }
     }
   },
   horse: {
     name: '马',
-    growthTime: 240,
-    sellPrice: 350,
-    buyPrice: 700,
+    growthTime: 150,
+    sellPrice: 400,
+    buyPrice: 450,
     emoji: '🐴',
     product: '马奶',
-    productPrice: 50,
+    productPrice: 70,
     stages: {
       baby: { emoji: '🐴', name: '小马' },
       young: { emoji: '🐴', name: '青年马' },
-      adult: { emoji: '🐴', name: '成年马', sellPrice: 350 }
+      adult: { emoji: '🐴', name: '成年马', sellPrice: 400 }
     }
   },
   // 特殊
   rabbit: {
     name: '兔子',
-    growthTime: 90,
-    sellPrice: 60,
-    buyPrice: 120,
+    growthTime: 70,
+    sellPrice: 70,
+    buyPrice: 80,
     emoji: '🐰',
     product: '兔毛',
-    productPrice: 15,
+    productPrice: 18,
     stages: {
       baby: { emoji: '🐰', name: '小兔' },
       young: { emoji: '🐰', name: '青年兔' },
-      adult: { emoji: '🐰', name: '成年兔', sellPrice: 60 }
+      adult: { emoji: '🐰', name: '成年兔', sellPrice: 70 }
     }
   },
   bee: {
     name: '蜜蜂',
-    growthTime: 120,
-    sellPrice: 40,
-    buyPrice: 80,
+    growthTime: 80,
+    sellPrice: 50,
+    buyPrice: 50,
     emoji: '🐝',
     product: '蜂蜜',
-    productPrice: 4,
+    productPrice: 10,
     stages: {
       baby: { emoji: '🐝', name: '蜂群' },
       young: { emoji: '🐝', name: '壮年蜂群' },
-      adult: { emoji: '🐝', name: '成熟蜂群', sellPrice: 40 }
+      adult: { emoji: '🐝', name: '成熟蜂群', sellPrice: 50 }
     }
   }
 };
@@ -385,16 +388,16 @@ const SHOP_ITEMS = {
   'bug_net': { type: 'item', name: '防虫网', price: 50, emoji: '🕸️', effect: 'prevent_pest' },
   'scarecrow': { type: 'item', name: '稻草人', price: 100, emoji: '🎃', effect: 'scare_pest' },
   // 动物 - 家禽
-  'animal-chicken': { type: 'animal', animal: 'chicken', name: '小鸡', price: 50, emoji: '🐔' },
-  'animal-duck': { type: 'animal', animal: 'duck', name: '小鸭', price: 80, emoji: '🦆' },
+  'animal-chicken': { type: 'animal', animal: 'chicken', name: '小鸡', price: 40, emoji: '🐔' },
+  'animal-duck': { type: 'animal', animal: 'duck', name: '小鸭', price: 55, emoji: '🦆' },
   // 动物 - 畜牧
-  'animal-sheep': { type: 'animal', animal: 'sheep', name: '小羊', price: 200, emoji: '🐑' },
-  'animal-cow': { type: 'animal', animal: 'cow', name: '小牛', price: 400, emoji: '🐄' },
-  'animal-pig': { type: 'animal', animal: 'pig', name: '小猪', price: 300, emoji: '🐖' },
-  'animal-horse': { type: 'animal', animal: 'horse', name: '小马', price: 700, emoji: '🐴' },
+  'animal-sheep': { type: 'animal', animal: 'sheep', name: '小羊', price: 140, emoji: '🐑' },
+  'animal-cow': { type: 'animal', animal: 'cow', name: '小牛', price: 280, emoji: '🐄' },
+  'animal-pig': { type: 'animal', animal: 'pig', name: '小猪', price: 180, emoji: '🐖' },
+  'animal-horse': { type: 'animal', animal: 'horse', name: '小马', price: 450, emoji: '🐴' },
   // 动物 - 特殊
-  'animal-rabbit': { type: 'animal', animal: 'rabbit', name: '小兔', price: 120, emoji: '🐰' },
-  'animal-bee': { type: 'animal', animal: 'bee', name: '蜜蜂群', price: 80, emoji: '🐝' },
+  'animal-rabbit': { type: 'animal', animal: 'rabbit', name: '小兔', price: 80, emoji: '🐰' },
+  'animal-bee': { type: 'animal', animal: 'bee', name: '蜜蜂群', price: 50, emoji: '🐝' },
   // 动物饲料
   'animal-feed-basic':  { type: 'animal-feed', name: '普通饲料', emoji: '🌾', price: 5,  hungerReduce: 30,  desc: '普通饲料，减少饥饿度30%' },
   'animal-feed-premium':{ type: 'animal-feed', name: '高级饲料', emoji: '🥬', price: 12, hungerReduce: 60,  desc: '营养饲料，减少饥饿度60%' },
@@ -1693,11 +1696,6 @@ class FarmGame {
         this.spawnWildAnimal();
       }
     }, 60000)); // 每分钟检查是否生成新野兽
-  }
-
-  // 更新害虫
-  updatePests() {
-    const weatherData = WEATHER_TYPES[this.weather];
   }
 
 // ========== 市场供需系统方法 ==========
