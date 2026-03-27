@@ -1501,6 +1501,9 @@ class Farmer {
     // ====== 决策引擎 ======
     this.decisionEngine = new DecisionEngine(this, game);
 
+    // ====== 策略同步 ======
+    this._lastStrategyVersion = 0; // 用于追踪已应用的策略版本
+
     this.tickIntervalMs = options.tickInterval || 28000;
     this.moveIntervalMs = options.moveInterval || 1600;
 
@@ -1599,6 +1602,17 @@ class Farmer {
   // ---------- LLM 预留接口 ----------
 
   async thinkWithAI() {
+    // 检查是否是头号农夫（只有头号农夫应该深度思考）
+    const isLeadFarmer = this.game.farmers?.[0] === this;
+    if (!isLeadFarmer) {
+      // 非头号农夫，检查是否有共享策略需要应用
+      const strategy = this.game.getSharedStrategy?.();
+      if (strategy && strategy.version !== this._lastStrategyVersion) {
+        return this.applySharedStrategy(strategy);
+      }
+      return null;
+    }
+
     // 检查环境变量配置
     const LLM_API_URL = process.env.LLM_API_URL || '';
     const LLM_API_KEY = process.env.LLM_API_KEY || '';
@@ -1613,26 +1627,43 @@ class Farmer {
       // 构建当前农场状态描述
       const farmState = this._buildFarmStateDescription();
 
-      const prompt = `你是一个农场游戏中的AI农夫，名字叫${this.fullName}。你需要分析当前农场状况并决定接下来的行动优先级。
+      // 获取之前的策略历史（用于连续性）
+      const previousStrategy = this.game.sharedStrategy;
+      const strategyContext = previousStrategy
+        ? `\n\n上次策略（${Math.round((Date.now() - previousStrategy.timestamp) / 60000)}分钟前）：
+${previousStrategy.thinking}
+权重: ${JSON.stringify(previousStrategy.weights)}`
+        : '';
+
+      const prompt = `你是农场游戏的AI团队领袖，负责为整个农夫团队制定策略。
 
 当前农场状态：
 ${farmState}
+${strategyContext}
 
-你的可选行为及其当前权重：
-${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n')}
+农夫团队可执行的行为：
+${this.behaviors.map(b => `- ${b.name}: 基础权重 ${b.baseWeight}`).join('\n')}
 
-请分析当前局势，返回一个JSON对象调整各行为的权重（权重范围1-100）：
+请分析当前局势，为整个团队制定策略。返回JSON：
 {
-  "thinking": "你的思考过程（简短描述当前状况和策略）",
+  "thinking": "策略分析（简短，说明重点任务和优先级）",
   "weights": {
-    "种植": 数字,
-    "浇水": 数字,
-    "收获作物": 数字,
-    "清理害虫": 数字,
-    "喂养动物": 数字,
-    "收获动物产品": 数字
-  }
+    "收获作物": 数字(1-100),
+    "浇水": 数字(1-100),
+    "种植作物": 数字(1-100),
+    "消灭害虫": 数字(1-100),
+    "喂养动物": 数字(1-100),
+    "收获动物产品": 数字(1-100),
+    "购买动物": 数字(1-100),
+    "投资黄金": 数字(1-100)
+  },
+  "focus": "当前重点任务（一句话）"
 }
+
+注意：
+1. 根据当前农场状态调整优先级
+2. 保持策略的连续性，避免频繁大幅调整
+3. 考虑经济效益和资源约束
 
 只返回JSON，不要其他文字。`;
 
@@ -1665,7 +1696,7 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
 
       const result = JSON.parse(jsonMatch[0]);
 
-      // 更新权重
+      // 更新自己的权重
       if (result.weights) {
         for (const behavior of this.behaviors) {
           if (result.weights[behavior.name] !== undefined) {
@@ -1679,7 +1710,8 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
         timestamp: Date.now(),
         farmerName: this.fullName,
         thinking: result.thinking || '思考中...',
-        weights: result.weights || {}
+        weights: result.weights || {},
+        focus: result.focus || ''
       };
 
       // 保存到游戏状态
@@ -1687,7 +1719,7 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
         this.game.addFarmerThought(thoughtRecord);
       }
 
-      this._log(`🧠 ${this.fullName} AI思考: ${result.thinking?.substring(0, 50)}...`, '🧠', 'ai-thought');
+      this._log(`🧠 团队策略: ${result.thinking?.substring(0, 40)}...`, '🧠', 'ai-thought');
 
       return thoughtRecord;
 
@@ -1695,6 +1727,33 @@ ${this.behaviors.map(b => `- ${b.name}: 权重 ${b.weight.toFixed(1)}`).join('\n
       console.error('[Farmer LLM] 思考失败:', error.message);
       return null;
     }
+  }
+
+  /** 应用共享策略（非头号农夫调用） */
+  applySharedStrategy(strategy) {
+    if (!strategy || !strategy.weights) return null;
+
+    // 记录策略版本，避免重复应用
+    this._lastStrategyVersion = strategy.version;
+
+    // 应用共享权重（保留个人性格调整）
+    for (const behavior of this.behaviors) {
+      const sharedWeight = strategy.weights[behavior.name];
+      if (sharedWeight !== undefined) {
+        // 基础共享权重 + 个人性格微调
+        const personalityAdjust = behavior.getAdjustedWeight(this.personality);
+        behavior.weight = Math.max(1, Math.min(100, sharedWeight * 0.8 + personalityAdjust * 0.2));
+      }
+    }
+
+    this._log(`📋 ${this.fullName} 同步了团队策略`, '📋', 'system');
+
+    return {
+      timestamp: strategy.timestamp,
+      farmerName: this.fullName,
+      thinking: `同步团队策略: ${strategy.thinking?.substring(0, 30)}...`,
+      weights: strategy.weights
+    };
   }
 
   // 构建农场状态描述

@@ -865,6 +865,10 @@ class FarmGame {
     // ========== 农夫AI思考记录 ==========
     this.farmerThoughts = []; // 最近思考记录
 
+    // ========== 共享决策策略 ==========
+    this.sharedStrategy = null; // { timestamp, weights, thinking, updatedBy }
+    this.strategyVersion = 0; // 策略版本号，用于同步
+
     // ========== 农夫工资系统 ==========
     this.lastSalaryTime = Date.now(); // 上次工资结算时间
     this.unpaidSalary = 0;            // 累计欠薪
@@ -2485,15 +2489,46 @@ class FarmGame {
   async triggerFarmerAIThinking() {
     console.log('[Farmer AI] 开始AI思考周期...');
 
-    for (const farmer of this.farmers) {
-      if (!farmer.isDead) {
-        try {
-          await farmer.thinkWithAI();
-        } catch (err) {
-          console.error(`[Farmer AI] ${farmer.fullName} 思考失败:`, err.message);
+    // 检查是否有LLM配置
+    const LLM_API_URL = process.env.LLM_API_URL || '';
+    const LLM_API_KEY = process.env.LLM_API_KEY || '';
+
+    if (!LLM_API_URL || !LLM_API_KEY) {
+      // 没有LLM配置，跳过思考
+      return;
+    }
+
+    // 只有头号农夫进行深度思考，生成共享策略
+    const leadFarmer = this.farmers.find(f => !f.isDead);
+    if (!leadFarmer) return;
+
+    try {
+      const thought = await leadFarmer.thinkWithAI();
+      if (thought) {
+        // 更新共享策略
+        this.sharedStrategy = {
+          timestamp: Date.now(),
+          weights: thought.weights || {},
+          thinking: thought.thinking || '',
+          updatedBy: leadFarmer.fullName,
+          version: ++this.strategyVersion
+        };
+
+        // 其他农夫应用共享策略（只更新权重，不重复思考）
+        for (const farmer of this.farmers) {
+          if (farmer !== leadFarmer && !farmer.isDead) {
+            farmer.applySharedStrategy(this.sharedStrategy);
+          }
         }
       }
+    } catch (err) {
+      console.error(`[Farmer AI] ${leadFarmer.fullName} 思考失败:`, err.message);
     }
+  }
+
+  // 获取共享策略
+  getSharedStrategy() {
+    return this.sharedStrategy;
   }
 
   // 添加农夫思考记录
