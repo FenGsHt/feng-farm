@@ -1453,6 +1453,261 @@ FarmerBehavior.register(InvestGoldBehavior);
 FarmerBehavior.register(WanderBehavior);
 
 // ============================================================
+//  目标规划系统
+// ============================================================
+class GoalPlanner {
+  constructor(farmer) {
+    this.farmer = farmer;
+    this.currentGoal = null;        // 当前目标
+    this.weeklyTarget = 1000;       // 周目标：赚1000金币
+    this.earnedThisWeek = 0;        // 本周已赚
+    this.strategyPlan = [];         // 策略计划
+    this.lastPlanTime = 0;          // 上次规划时间
+    this.planInterval = 600000;     // 10分钟重新规划一次
+  }
+
+  /** 更新收益记录 */
+  recordEarning(amount) {
+    this.earnedThisWeek += amount;
+  }
+
+  /** 深度思考：制定赚钱策略 */
+  makePlan(game) {
+    const now = Date.now();
+    if (now - this.lastPlanTime < this.planInterval) return null;
+
+    this.lastPlanTime = now;
+    const thoughts = [];
+
+    // 1. 分析当前财务状况
+    const money = game.sharedMoney || 0;
+    const goldAmount = game.goldAmount || 0;
+    const goldPrice = game.currentGoldPrice || 500;
+
+    thoughts.push(`💰 当前金币: ${Math.floor(money)}, 黄金: ${goldAmount.toFixed(2)}克`);
+
+    // 2. 计算收入差距
+    const gap = this.weeklyTarget - this.earnedThisWeek;
+    thoughts.push(`🎯 本周目标: ${this.weeklyTarget}, 已赚: ${Math.floor(this.earnedThisWeek)}, 差距: ${Math.floor(gap)}`);
+
+    // 3. 分析最赚钱的行为
+    const profitableActions = this._analyzeProfitableActions(game);
+    thoughts.push(`📈 最赚钱行为: ${profitableActions.slice(0, 3).map(a => a.name).join(', ')}`);
+
+    // 4. 制定策略
+    this.strategyPlan = [];
+
+    if (gap > 0) {
+      // 有差距，需要更积极的策略
+      if (profitableActions.length > 0) {
+        const topAction = profitableActions[0];
+        this.strategyPlan.push({
+          action: topAction.name,
+          reason: `收益最高(${Math.floor(topAction.avgProfit)}金币/次)`,
+          priority: 'high',
+          weightBonus: 5
+        });
+      }
+
+      // 检查黄金投资机会
+      const goldAdvice = this._analyzeGoldInvestment(game);
+      if (goldAdvice) {
+        this.strategyPlan.push(goldAdvice);
+      }
+
+      // 检查作物多样性收益
+      const diversityBonus = game.getCropDiversityBonus?.() || 1;
+      if (diversityBonus < 1.3) {
+        this.strategyPlan.push({
+          action: '种植作物',
+          reason: `提高多样性收益(当前${(diversityBonus * 100).toFixed(0)}%)`,
+          priority: 'medium',
+          weightBonus: 3
+        });
+      }
+    }
+
+    // 5. 生成思考日志
+    const thinking = thoughts.join('\n');
+    console.log(`[GoalPlanner] ${this.farmer.fullName} 深度思考:\n${thinking}`);
+
+    return {
+      thinking,
+      plan: this.strategyPlan,
+      profitableActions
+    };
+  }
+
+  /** 分析最赚钱的行为 */
+  _analyzeProfitableActions(game) {
+    const actions = [];
+
+    for (const behavior of this.farmer.behaviors) {
+      if (behavior._earnedTotal > 0 && behavior._callCount > 0) {
+        actions.push({
+          name: behavior.name,
+          totalProfit: behavior._earnedTotal,
+          callCount: behavior._callCount,
+          avgProfit: behavior._earnedTotal / behavior._callCount
+        });
+      }
+    }
+
+    return actions.sort((a, b) => b.avgProfit - a.avgProfit);
+  }
+
+  /** 分析黄金投资机会 */
+  _analyzeGoldInvestment(game) {
+    const history = game.goldPriceHistory || [];
+    if (history.length < 3) return null;
+
+    const currentPrice = game.currentGoldPrice || 500;
+    const avgPrice = history.reduce((s, h) => s + h.price, 0) / history.length;
+    const ratio = currentPrice / avgPrice;
+
+    if (ratio < 0.95 && game.sharedMoney > 200) {
+      return {
+        action: '投资黄金',
+        reason: `金价低于均价(${(ratio * 100).toFixed(0)}%)，逢低买入`,
+        priority: 'medium',
+        weightBonus: 4
+      };
+    }
+    if (ratio > 1.1 && game.goldAmount > 0.5) {
+      return {
+        action: '投资黄金',
+        reason: `金价高于均价(${(ratio * 100).toFixed(0)}%)，逢高卖出`,
+        priority: 'high',
+        weightBonus: 6
+      };
+    }
+    return null;
+  }
+
+  /** 获取当前策略对行为的权重加成 */
+  getWeightBonus(behaviorName) {
+    for (const plan of this.strategyPlan) {
+      if (plan.action === behaviorName) {
+        return plan.weightBonus || 0;
+      }
+    }
+    return 0;
+  }
+
+  /** 获取策略描述 */
+  getPlanDescription() {
+    if (this.strategyPlan.length === 0) return '暂无特殊计划';
+    return this.strategyPlan.map(p => `${p.action}(${p.reason})`).join('; ');
+  }
+}
+
+// ============================================================
+//  教训学习系统
+// ============================================================
+class LessonLearner {
+  constructor(farmer) {
+    this.farmer = farmer;
+    this.lessons = [];           // 教训记录
+    this.maxLessons = 20;        // 最多保留20条
+    this.failureStats = {};      // 失败统计
+  }
+
+  /** 记录失败/教训 */
+  recordFailure(type, details) {
+    const lesson = {
+      type,
+      details,
+      time: Date.now(),
+      count: 1
+    };
+
+    // 检查是否有类似教训
+    const existing = this.lessons.find(l =>
+      l.type === type && JSON.stringify(l.details) === JSON.stringify(details)
+    );
+
+    if (existing) {
+      existing.count++;
+      existing.lastTime = Date.now();
+    } else {
+      lesson.lastTime = Date.now();
+      this.lessons.push(lesson);
+
+      if (this.lessons.length > this.maxLessons) {
+        this.lessons.shift();
+      }
+    }
+
+    // 更新失败统计
+    this.failureStats[type] = (this.failureStats[type] || 0) + 1;
+
+    // 生成思考
+    const thought = this._generateThought(lesson);
+    console.log(`[LessonLearner] ${this.farmer.fullName} 吸取教训: ${thought}`);
+
+    return thought;
+  }
+
+  /** 根据教训生成决策建议 */
+  getAdvice() {
+    const advice = [];
+
+    // 分析失败模式
+    const sortedFailures = Object.entries(this.failureStats)
+      .sort((a, b) => b[1] - a[1]);
+
+    for (const [type, count] of sortedFailures.slice(0, 3)) {
+      switch (type) {
+        case 'crop_died':
+          if (count >= 2) {
+            advice.push({ action: '浇水', bonus: 3, reason: '曾有作物枯死，需更勤浇水' });
+            advice.push({ action: '施肥', bonus: 2, reason: '施肥可加速收获，减少风险' });
+          }
+          break;
+        case 'pest_damage':
+          if (count >= 2) {
+            advice.push({ action: '消灭害虫', bonus: 4, reason: '害虫问题频发，需优先处理' });
+            advice.push({ action: '购买杀虫剂', bonus: 2, reason: '备足杀虫剂' });
+          }
+          break;
+        case 'animal_starved':
+          advice.push({ action: '喂养动物', bonus: 5, reason: '曾有动物饿死，需优先喂养' });
+          break;
+        case 'gold_loss':
+          advice.push({ action: '投资黄金', bonus: -3, reason: '黄金投资亏损，暂时观望' });
+          break;
+        case 'disaster_damage':
+          advice.push({ action: '收获作物', bonus: 3, reason: '灾害频发，及时收获减少损失' });
+          break;
+      }
+    }
+
+    return advice;
+  }
+
+  /** 生成教训思考 */
+  _generateThought(lesson) {
+    const templates = {
+      crop_died: `作物枯死了，下次要更勤快浇水！`,
+      pest_damage: `害虫又破坏了作物，得加强防治！`,
+      animal_starved: `动物饿死了好心疼，要记得按时喂养！`,
+      gold_loss: `黄金投资亏了，得更谨慎看准时机！`,
+      disaster_damage: `灾害天气损失惨重，要关注天气预报！`,
+      missed_harvest: `成熟作物没收，下次要及时收获！`
+    };
+    return templates[lesson.type] || `记住了：${lesson.type}`;
+  }
+
+  /** 获取最近教训摘要 */
+  getRecentLessons(count = 5) {
+    return this.lessons
+      .sort((a, b) => b.lastTime - a.lastTime)
+      .slice(0, count)
+      .map(l => `${l.type}(${l.count}次)`);
+  }
+}
+
+// ============================================================
 //  决策引擎 - 核心决策逻辑
 // ============================================================
 class DecisionEngine {
@@ -1479,14 +1734,29 @@ class DecisionEngine {
       const adjustedWeight = b.getAdjustedWeight(this.farmer.personality);
       const priorityValue = b.priorityValue;
 
-      // 综合分数 = 紧急度 + 优先级基数 + 权重
+      // 获取目标规划的权重加成
+      const goalBonus = this.farmer.goalPlanner.getWeightBonus(b.name);
+
+      // 获取教训建议的权重加成
+      const lessonAdvice = this.farmer.lessonLearner.getAdvice();
+      let lessonBonus = 0;
+      for (const advice of lessonAdvice) {
+        if (advice.action === b.name) {
+          lessonBonus = advice.bonus;
+          break;
+        }
+      }
+
+      // 综合分数 = 紧急度 + 优先级基数 + 权重 + 目标加成 + 教训加成
       // 紧急度和优先级是硬性因素，权重是软性调节
       const score = {
         behavior: b,
         urgency,
         priority: priorityValue,
         weight: adjustedWeight,
-        total: urgency * 2 + priorityValue + adjustedWeight
+        goalBonus,
+        lessonBonus,
+        total: urgency * 2 + priorityValue + adjustedWeight + goalBonus + lessonBonus
       };
       return score;
     });
@@ -1583,6 +1853,12 @@ class Farmer {
 
     // ====== 决策引擎 ======
     this.decisionEngine = new DecisionEngine(this, game);
+
+    // ====== 目标规划系统 ======
+    this.goalPlanner = new GoalPlanner(this);
+
+    // ====== 教训学习系统 ======
+    this.lessonLearner = new LessonLearner(this);
 
     // ====== 策略同步 ======
     this._lastStrategyVersion = 0; // 用于追踪已应用的策略版本
@@ -2200,6 +2476,11 @@ ${chatContext || '暂无聊天记录'}
         }
       }
 
+      // 每100次tick进行深度思考（约45分钟一次）
+      if (this._tickCount % 100 === 0) {
+        this._deepThink();
+      }
+
       const beh = this._pickBehavior();
       if (!beh) return;
 
@@ -2225,8 +2506,50 @@ ${chatContext || '暂无聊天记录'}
     if (acted) {
       beh.recordProfit(earned);
       this.recordAction(beh.name, { earned, log });
+
+      // 记录收益到目标规划系统
+      if (earned > 0) {
+        this.goalPlanner.recordEarning(earned);
+      }
+
+      // 如果亏损，记录教训
+      if (earned < 0) {
+        this.lessonLearner.recordFailure('gold_loss', { action: beh.name, loss: -earned });
+      }
+
       if (log) this._log(log, beh.emoji, 'farmer');
     }
+  }
+
+  // ---------- 深度思考 ----------
+  _deepThink() {
+    // 目标规划：分析当前状况，制定赚钱策略
+    const planResult = this.goalPlanner.makePlan(this.game);
+
+    if (planResult) {
+      // 记录思考到农场日志
+      const thinking = `💭 ${this.fullName} 深度思考:\n${planResult.thinking}\n📋 策略: ${this.goalPlanner.getPlanDescription()}`;
+
+      // 如果有教训，也加入思考
+      const recentLessons = this.lessonLearner.getRecentLessons(3);
+      if (recentLessons.length > 0) {
+        const lessonStr = recentLessons.join(', ');
+        this._log(`${thinking}\n📚 吸取教训: ${lessonStr}`, '🧠', 'farmer');
+      } else {
+        this._log(thinking, '🧠', 'farmer');
+      }
+    }
+  }
+
+  /** 记录失败/教训（供外部调用） */
+  recordFailure(type, details) {
+    const thought = this.lessonLearner.recordFailure(type, details);
+    this._log(`❌ ${this.fullName} 吸取教训: ${thought}`, '😔', 'farmer');
+  }
+
+  /** 记录收益（供行为类调用） */
+  recordEarning(amount) {
+    this.goalPlanner.recordEarning(amount);
   }
 
   _log(message, emoji, type) {

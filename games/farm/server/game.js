@@ -1861,11 +1861,21 @@ class FarmGame {
         // 暴风雨或雪天可能损坏作物
         if (weatherData.damageChance && plot.crop && Math.random() < weatherData.damageChance * 0.01) {
           // 作物被损坏
+          const cropType = plot.crop;
+          const owner = plot.owner;
           plot.crop = null;
           plot.plantedAt = null;
           plot.growthStage = 0;
           plot.owner = null;
           plot.isWatered = false;
+
+          // 记录灾害教训给农夫
+          if (owner && this.farmers) {
+            const farmer = this.farmers.find(f => f.name === owner);
+            if (farmer && farmer.recordFailure) {
+              farmer.recordFailure('disaster_damage', { crop: cropType, weather: this.weather });
+            }
+          }
         }
       }
     }
@@ -2265,15 +2275,34 @@ class FarmGame {
 
       if (plot && plot.crop && plot.growthStage < 3) {
         // 降低生长阶段
+        const oldStage = plot.growthStage;
         plot.growthStage = Math.max(0, plot.growthStage - pestData.damage);
+
+        // 如果生长阶段被大幅降低，记录教训
+        if (oldStage - plot.growthStage >= 1 && plot.owner && this.farmers) {
+          const farmer = this.farmers.find(f => f.name === plot.owner);
+          if (farmer && farmer.recordFailure) {
+            farmer.recordFailure('pest_damage', { crop: plot.crop, pestType: pest.type });
+          }
+        }
       }
 
       // 老鼠可能偷吃成熟作物
       if (pest.type === 'rat' && plot && plot.crop && plot.growthStage >= 3) {
         if (Math.random() < pestData.stealChance) {
+          const cropType = plot.crop;
+          const owner = plot.owner;
           plot.crop = null;
           plot.plantedAt = null;
           plot.growthStage = 0;
+
+          // 记录教训
+          if (owner && this.farmers) {
+            const farmer = this.farmers.find(f => f.name === owner);
+            if (farmer && farmer.recordFailure) {
+              farmer.recordFailure('pest_damage', { crop: cropType, pestType: 'rat', stolen: true });
+            }
+          }
         }
       }
 
