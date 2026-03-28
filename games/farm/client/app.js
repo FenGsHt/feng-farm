@@ -1316,6 +1316,7 @@ function updateGameState(state) {
   renderDiversity();
   renderPests();
   renderAnimalsOnMap();
+  renderWildAnimalsOnMap();
   renderFarmer();
   renderFarmLog();
   renderFarmerThoughts();
@@ -3363,6 +3364,41 @@ function renderAnimalsOnMap() {
 // 缓动函数：easeOutQuad
 function easeOutQuad(t) {
   return t * (2 - t);
+}
+
+// 渲染野生动物到地图上
+function renderWildAnimalsOnMap() {
+  if (!gameState?.wildAnimals || !farmGrid) return;
+
+  // 移除旧的野生动物元素
+  document.querySelectorAll('.wild-animal-on-map').forEach(el => el.remove());
+
+  const WILD_ANIMAL_EMOJIS = {
+    wolf: '🐺',
+    fox: '🦊',
+    eagle: '🦅',
+    snake: '🐍'
+  };
+
+  gameState.wildAnimals.forEach(wild => {
+    const cell = document.getElementById(`plot-${wild.x}-${wild.y}`);
+    if (!cell) return;
+
+    const emoji = WILD_ANIMAL_EMOJIS[wild.type] || '🐾';
+    const isAttacking = wild.nearPen && wild.attackCount > 0;
+    const attackProgress = wild.attackCount || 0;
+    const attacksNeeded = wild.attacksNeeded || 3;
+
+    const wildEl = document.createElement('div');
+    wildEl.className = `wild-animal-on-map${isAttacking ? ' attacking' : ''}`;
+    wildEl.dataset.wildId = wild.id;
+    wildEl.innerHTML = `
+      <span class="wild-emoji">${emoji}</span>
+      ${attackProgress > 0 ? `<span class="attack-progress">${attackProgress}/${attacksNeeded}</span>` : ''}
+    `;
+
+    cell.appendChild(wildEl);
+  });
 }
 
 // 显示喂养动物模态框

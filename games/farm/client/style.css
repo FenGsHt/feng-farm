@@ -4212,6 +4212,55 @@ button:active {
   animation: animal-hungry-shake 0.3s ease-in-out infinite;
 }
 
+/* ========== 野生动物 ========== */
+.wild-animal-on-map {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 50;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.wild-animal-on-map:hover {
+  transform: scale(1.2);
+}
+
+.wild-emoji {
+  font-size: 16px;
+  filter: drop-shadow(0 0 3px rgba(255, 0, 0, 0.6));
+  animation: wild-idle 1s ease-in-out infinite;
+}
+
+@keyframes wild-idle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.wild-animal-on-map.attacking .wild-emoji {
+  animation: wild-attack 0.3s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(255, 0, 0, 0.9));
+}
+
+@keyframes wild-attack {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-5px) rotate(-5deg); }
+  75% { transform: translateY(-5px) rotate(5deg); }
+}
+
+.attack-progress {
+  font-size: 9px;
+  background: rgba(255, 0, 0, 0.8);
+  color: white;
+  padding: 1px 3px;
+  border-radius: 3px;
+  margin-top: -2px;
+  font-weight: bold;
+}
+
 /* ========== P2: 农夫动画增强 ========== */
 
 /* 农夫惊讶动画（发现害虫） */
