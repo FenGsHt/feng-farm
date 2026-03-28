@@ -322,8 +322,8 @@ class FarmerBehavior {
     );
   }
 
-  /** 获取考虑性格的调整后权重 */
-  getAdjustedWeight(personality) {
+  /** 获取考虑性格和玩家建议的调整后权重 */
+  getAdjustedWeight(personality, farmer = null) {
     let adjustedWeight = this.weight;
 
     // 应用性格修正
@@ -335,6 +335,12 @@ class FarmerBehavior {
         const traitEffect = (traitValue - 0.5) * 2; // -1 到 1
         adjustedWeight *= (1 + (modifier - 1) * Math.abs(traitEffect));
       }
+    }
+
+    // 应用玩家建议权重调整
+    if (farmer && farmer.getSuggestionMultiplier) {
+      const suggestionMultiplier = farmer.getSuggestionMultiplier(this.name);
+      adjustedWeight *= suggestionMultiplier;
     }
 
     return adjustedWeight;
@@ -1731,7 +1737,7 @@ class DecisionEngine {
     // 计算每个行为的综合分数
     const scored = eligible.map(b => {
       const urgency = this.urgencyEvaluator.evaluate(b.name);
-      const adjustedWeight = b.getAdjustedWeight(this.farmer.personality);
+      const adjustedWeight = b.getAdjustedWeight(this.farmer.personality, this.farmer);
       const priorityValue = b.priorityValue;
 
       // 获取目标规划的权重加成
@@ -1807,7 +1813,8 @@ class DecisionEngine {
       priority: b.priority,
       urgency: this.urgencyEvaluator.evaluate(b.name),
       weight: Math.round(b.weight * 10) / 10,
-      adjustedWeight: Math.round(b.getAdjustedWeight(this.farmer.personality) * 10) / 10
+      adjustedWeight: Math.round(b.getAdjustedWeight(this.farmer.personality, this.farmer) * 10) / 10,
+      suggestionMultiplier: this.farmer.getSuggestionMultiplier(b.name)
     }));
   }
 }
@@ -1847,6 +1854,11 @@ class Farmer {
     // ====== 聊天系统 ======
     this.chatHistory = options.chatHistory || []; // 最近聊天记录
     this.recentActions = []; // 最近行动记录
+
+    // ====== 玩家建议权重调整 ======
+    // 存储玩家通过聊天给出的建议，会临时调整行为权重
+    this.suggestionWeights = options.suggestionWeights || {}; // { '收获作物': { multiplier: 1.5, expiresAt: timestamp } }
+    this.suggestionDuration = 300000; // 建议持续5分钟
 
     // 从注册表实例化所有行为
     this.behaviors = Array.from(FarmerBehavior.registry.values()).map(Cls => new Cls());
@@ -2112,7 +2124,7 @@ ${strategyContext}
       const sharedWeight = strategy.weights[behavior.name];
       if (sharedWeight !== undefined) {
         // 基础共享权重 + 个人性格微调
-        const personalityAdjust = behavior.getAdjustedWeight(this.personality);
+        const personalityAdjust = behavior.getAdjustedWeight(this.personality, this);
         behavior.weight = Math.max(1, Math.min(100, sharedWeight * 0.8 + personalityAdjust * 0.2));
       }
     }
@@ -2283,7 +2295,31 @@ ${recentActions || '暂无特别行动'}
 【最近聊天】
 ${chatContext || '暂无聊天记录'}
 
-请根据你的性格和当前状况，用自然、简短的方式回复玩家（1-3句话）。回复要体现你的性格特点。`;
+【可调整的行为】
+玩家可能会给你建议调整以下行为：
+- 收获作物、浇水、种植作物、消灭害虫
+- 喂养动物、收获动物产品、购买动物、投资黄金
+- 吃东西、施肥
+
+请分析玩家消息，如果包含对你的工作建议，请：
+1. 用自然简短的方式回复（1-3句话，体现性格）
+2. 同时返回你理解的建议
+
+返回JSON格式：
+{
+  "reply": "你的回复文字",
+  "suggestion": {
+    "action": "行为名称",
+    "direction": "more" 或 "less" 或 null
+  }
+}
+
+direction说明：
+- "more": 玩家建议多做这件事
+- "less": 玩家建议少做这件事
+- null: 只是普通聊天，没有建议
+
+只返回JSON，不要其他文字。`;
 
       const response = await fetch(LLM_API_URL, {
         method: 'POST',
@@ -2307,7 +2343,20 @@ ${chatContext || '暂无聊天记录'}
       }
 
       const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content || '嗯...让我想想怎么回答。';
+      const rawContent = data.choices?.[0]?.message?.content || '{"reply":"嗯...让我想想怎么回答。","suggestion":null}';
+
+      // 解析JSON回复
+      let parsed;
+      try {
+        // 清理可能的 markdown 代码块标记
+        const cleaned = rawContent.replace(/```json\n?|\n?```/g, '').trim();
+        parsed = JSON.parse(cleaned);
+      } catch (e) {
+        // 如果解析失败，使用原始内容作为回复
+        parsed = { reply: rawContent, suggestion: null };
+      }
+
+      const reply = parsed.reply || rawContent;
 
       // 记录农夫回复
       this.chatHistory.push({
@@ -2315,6 +2364,11 @@ ${chatContext || '暂无聊天记录'}
         content: reply,
         time: Date.now()
       });
+
+      // 应用玩家建议到权重
+      if (parsed.suggestion && parsed.suggestion.action && parsed.suggestion.direction) {
+        this._applySuggestion(parsed.suggestion);
+      }
 
       return reply;
 
@@ -2324,6 +2378,56 @@ ${chatContext || '暂无聊天记录'}
       this.chatHistory.push({ role: 'farmer', content: fallbackReply, time: Date.now() });
       return fallbackReply;
     }
+  }
+
+  // ---------- 应用玩家建议 ----------
+
+  _applySuggestion(suggestion) {
+    const { action, direction } = suggestion;
+
+    // 验证行为名称是否有效
+    const validActions = [
+      '收获作物', '浇水', '种植作物', '消灭害虫',
+      '喂养动物', '收获动物产品', '购买动物', '投资黄金',
+      '吃东西', '施肥', '出售作物', '出售动物'
+    ];
+
+    if (!validActions.includes(action)) {
+      console.log(`[Suggestion] 未知行为: ${action}`);
+      return;
+    }
+
+    // 设置权重调整倍数
+    const multiplier = direction === 'more' ? 1.5 : 0.5;
+
+    // 存储建议权重，持续5分钟
+    this.suggestionWeights[action] = {
+      multiplier,
+      expiresAt: Date.now() + this.suggestionDuration,
+      direction
+    };
+
+    // 记录到行动日志
+    this.recentActions.push({
+      time: Date.now(),
+      action: `听取了建议：${direction === 'more' ? '多' : '少'}做${action}`
+    });
+
+    console.log(`[Suggestion] ${this.name} 调整权重: ${action} × ${multiplier}，持续5分钟`);
+  }
+
+  // 获取建议权重调整（清理过期建议）
+  getSuggestionMultiplier(actionName) {
+    const suggestion = this.suggestionWeights[actionName];
+    if (!suggestion) return 1;
+
+    // 检查是否过期
+    if (Date.now() > suggestion.expiresAt) {
+      delete this.suggestionWeights[actionName];
+      return 1;
+    }
+
+    return suggestion.multiplier;
   }
 
   // ---------- 决策逻辑 ----------
