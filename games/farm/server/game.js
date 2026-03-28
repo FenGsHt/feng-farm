@@ -2463,7 +2463,10 @@ class FarmGame {
       y,
       hp: config.hp,
       nearPen: false,
-      targetPen: null
+      targetPen: null,
+      attackCount: 0,        // 攻击次数
+      attacksNeeded: 3,      // 需要攻击3次才能吃掉动物
+      lastAttackTime: 0      // 上次攻击时间
     };
 
     this.wildAnimals.push(wildAnimal);
@@ -2475,6 +2478,7 @@ class FarmGame {
   // 更新野生动物（移动和攻击）
   updateWildAnimals() {
     const toRemove = [];
+    const now = Date.now();
 
     for (const wild of this.wildAnimals) {
       const config = this.WILD_ANIMAL_TYPES[wild.type];
@@ -2521,11 +2525,37 @@ class FarmGame {
         }
       }
 
-      // 攻击动物
+      // 攻击动物（需要多次攻击）
       if (wild.nearPen && nearestPen.pen.animal) {
-        // 有概率吃掉动物
-        if (Math.random() < 0.3) {
-          const animalConfig = this.ANIMALS[nearestPen.pen.animal];
+        // 攻击间隔至少30秒，给农夫反应时间
+        if (now - wild.lastAttackTime < 30000) {
+          continue;
+        }
+
+        wild.lastAttackTime = now;
+        wild.attackCount++;
+
+        const animalConfig = this.ANIMALS[nearestPen.pen.animal];
+        const remaining = wild.attacksNeeded - wild.attackCount;
+
+        if (remaining > 0) {
+          // 还没吃完，发出警告
+          this.addFarmLog(
+            `⚠️ ${config.emoji}${config.name} 正在攻击 ${animalConfig.emoji}${animalConfig.name}！还需 ${remaining} 次攻击就会吃掉！`,
+            config.emoji,
+            'danger'
+          );
+
+          // 记录教训给农夫
+          if (this.farmers) {
+            for (const farmer of this.farmers) {
+              if (farmer.recordFailure) {
+                farmer.recordFailure('wildlife_attack', { animal: nearestPen.pen.animal, wildType: wild.type });
+              }
+            }
+          }
+        } else {
+          // 攻击次数够了，吃掉动物
           nearestPen.pen.animal = null;
           nearestPen.pen.hunger = 0;
           nearestPen.pen.productReady = false;
@@ -2539,6 +2569,10 @@ class FarmGame {
           // 吃掉动物后，野兽可能离开
           if (Math.random() < 0.5) {
             toRemove.push(wild.id);
+          } else {
+            // 重置攻击计数，寻找下一个目标
+            wild.attackCount = 0;
+            wild.targetPen = null;
           }
         }
       }
