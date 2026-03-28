@@ -180,7 +180,7 @@ const MARKET_EVENT_TYPES = {
     emoji: '📈',
     description: '市场对该作物需求激增！',
     priceMultiplier: 1.3,  // +30%
-    duration: 300,  // 5分钟
+    duration: 600,  // 10分钟
     category: 'all'  // 适用于所有作物
   },
   oversupply: {
@@ -188,7 +188,7 @@ const MARKET_EVENT_TYPES = {
     emoji: '📉',
     description: '市场供应过剩，价格下跌...',
     priceMultiplier: 0.8,  // -20%
-    duration: 300,
+    duration: 600,
     category: 'all'
   },
   festival: {
@@ -196,7 +196,7 @@ const MARKET_EVENT_TYPES = {
     emoji: '🎉',
     description: '节日庆典，农产品价格上涨！',
     priceMultiplier: 1.2,  // +20%
-    duration: 600,  // 10分钟
+    duration: 1800,  // 30分钟
     category: 'all'
   },
   special_order: {
@@ -204,7 +204,7 @@ const MARKET_EVENT_TYPES = {
     emoji: '📋',
     description: '收到一笔特殊订单，高价收购！',
     priceMultiplier: 1.5,  // +50%
-    duration: 180,  // 3分钟
+    duration: 300,  // 5分钟
     category: 'all'
   }
 };

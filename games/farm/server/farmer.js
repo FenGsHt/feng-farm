@@ -2202,6 +2202,16 @@ ${strategyContext}
       lines.push(`🥇 持有黄金: ${game.goldAmount.toFixed(2)}g, 金价: ${game.goldPrice}💰/g`);
     }
 
+    // 市场事件/节日
+    const marketInfo = game.getMarketInfo ? game.getMarketInfo() : null;
+    if (marketInfo && marketInfo.activeEvents && marketInfo.activeEvents.length > 0) {
+      for (const event of marketInfo.activeEvents) {
+        const remainingMin = Math.ceil(event.remaining / 60);
+        const priceChange = event.priceMultiplier > 1 ? `+${Math.round((event.priceMultiplier - 1) * 100)}%` : `${Math.round((event.priceMultiplier - 1) * 100)}%`;
+        lines.push(`${event.emoji} ${event.name}: ${event.description} (${priceChange}) 剩余${remainingMin}分钟`);
+      }
+    }
+
     return lines.join('\n');
   }
 
@@ -2546,6 +2556,24 @@ ${chatContext || '暂无聊天记录'}
 
       let thinking = `💭 嗯...让我想想...`;
       thinking += `\n现在公库有 ${money} 金币，这周我赚了 ${earned}，目标是 ${target}。`;
+
+      // 节日/市场事件
+      const marketInfo = this.game.getMarketInfo ? this.game.getMarketInfo() : null;
+      if (marketInfo && marketInfo.activeEvents && marketInfo.activeEvents.length > 0) {
+        for (const event of marketInfo.activeEvents) {
+          if (event.priceMultiplier > 1) {
+            const remainingMin = Math.ceil(event.remaining / 60);
+            thinking += `\n${event.emoji} 趁着${event.name}，赶紧多卖点东西！还剩${remainingMin}分钟。`;
+            // 节日期间提高收获和销售优先级
+            this.goalPlanner.strategyPlan.push({
+              action: '收获作物',
+              reason: `${event.name}期间价格${Math.round((event.priceMultiplier - 1) * 100)}%上涨`,
+              priority: 'high',
+              weightBonus: 8
+            });
+          }
+        }
+      }
 
       // 策略计划
       if (this.goalPlanner.strategyPlan.length > 0) {
