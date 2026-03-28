@@ -1320,6 +1320,7 @@ function updateGameState(state) {
   renderFarmer();
   renderFarmLog();
   renderFarmerThoughts();
+  renderFarmerChats();
   renderSalaryAndTax();
   updateFarmerSelect();
 
@@ -1989,6 +1990,47 @@ function renderFarmerThoughts() {
             ).join('')}
           </div>
         ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ========== 农夫闲聊记录渲染 ==========
+function renderFarmerChats() {
+  if (!gameState) return;
+
+  // 渲染今日新闻
+  const newsContainer = document.getElementById('daily-news-list');
+  if (newsContainer && gameState.dailyNews) {
+    newsContainer.innerHTML = gameState.dailyNews.map(news =>
+      `<div class="news-item">${news}</div>`
+    ).join('');
+  }
+
+  // 渲染农夫闲聊
+  const chatContainer = document.getElementById('farmer-chats-list');
+  if (!chatContainer) return;
+
+  const chats = gameState.farmerChats || [];
+  if (chats.length === 0) {
+    chatContainer.innerHTML = '<div class="chat-empty">农夫们还没开始聊天...</div>';
+    return;
+  }
+
+  chatContainer.innerHTML = chats.slice(-3).reverse().map(chat => {
+    const time = new Date(chat.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const messagesHtml = chat.messages.map(m =>
+      `<div class="chat-message"><span class="chat-speaker">${m.speaker}:</span> ${m.content}</div>`
+    ).join('');
+
+    return `
+      <div class="chat-session">
+        <div class="chat-header">
+          <span class="chat-topic">💬 ${chat.topic || '闲聊'}</span>
+          <span class="chat-time">${time}</span>
+        </div>
+        <div class="chat-messages">${messagesHtml}</div>
+        ${chat.consensus ? `<div class="chat-consensus">🎯 达成共识：多${chat.consensus.action}</div>` : ''}
       </div>
     `;
   }).join('');

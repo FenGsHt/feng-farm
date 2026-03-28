@@ -3799,6 +3799,143 @@ button:active {
   padding: 4px 0;
 }
 
+/* ========== 今日新闻 ========== */
+.daily-news-panel {
+  background: rgba(40, 30, 50, 0.95);
+  border: 2px solid #8b5a2b;
+  border-radius: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.daily-news-header {
+  background: linear-gradient(135deg, #8b5a2b, #6b4423);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+}
+
+.daily-news-title {
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.daily-news-body {
+  padding: 10px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.daily-news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.news-item {
+  background: rgba(139, 90, 43, 0.2);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #deb887;
+  line-height: 1.4;
+}
+
+/* ========== 农夫闲聊 ========== */
+.farmer-chats-panel {
+  background: rgba(30, 50, 40, 0.95);
+  border: 2px solid #2e8b57;
+  border-radius: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.farmer-chats-header {
+  background: linear-gradient(135deg, #2e8b57, #1e6b47);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+}
+
+.farmer-chats-title {
+  color: #fff;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.farmer-chats-body {
+  padding: 10px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.farmer-chats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-session {
+  background: rgba(46, 139, 87, 0.15);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.chat-session .chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.chat-session .chat-topic {
+  color: #90ee90;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.chat-session .chat-time {
+  color: #888;
+  font-size: 11px;
+}
+
+.chat-session .chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-session .chat-message {
+  font-size: 12px;
+  color: #e0e0e0;
+  line-height: 1.4;
+}
+
+.chat-session .chat-speaker {
+  color: #98fb98;
+  font-weight: bold;
+}
+
+.chat-consensus {
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 215, 0, 0.2);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #ffd700;
+}
+
+.chat-empty,
+.thought-empty {
+  color: #666;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+}
+
 /* 肥力指示器样式 */
 .fertility-indicator {
   position: absolute;
@@ -5088,7 +5225,9 @@ button:active {
 
   /* 隐藏非必要元素 */
   .farmer-thoughts-panel,
-  .farmer-chat-panel {
+  .farmer-chat-panel,
+  .daily-news-panel,
+  .farmer-chats-panel {
     display: none;
   }
 }

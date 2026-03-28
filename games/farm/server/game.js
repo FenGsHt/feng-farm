@@ -464,6 +464,48 @@ const FARMER_FOODS = {
   'food-feast':     { name: '大餐',   emoji: '🍱', price: 80, satiety: 100 },
 };
 
+// ========== 新闻头条系统 ==========
+const FARM_NEWS_TEMPLATES = {
+  weather: {
+    sunny: [
+      '今天天气真好，适合晒谷子！',
+      '阳光充足，作物长得快！'
+    ],
+    rainy: [
+      '下雨了，终于不用浇水了！',
+      '雨天要注意排水，别让作物淹了。'
+    ],
+    stormy: [
+      '暴风雨要来了，得加固动物栏！',
+      '这种天气还是待在屋里安全。'
+    ],
+    snowy: [
+      '下雪了！好多年没见过这么大的雪。',
+      '冬天来了，动物们要注意保暖。'
+    ]
+  },
+  season: {
+    spring: '春天来了，万物复苏，正是播种的好时节！',
+    summer: '夏天到了，记得多浇水，不然作物容易枯萎。',
+    autumn: '秋天是丰收的季节，抓紧时间收获吧！',
+    winter: '冬天来了，只有耐寒作物能存活。'
+  },
+  market: [
+    '听说城里超市在抢购有机蔬菜，价格涨了！',
+    '镇上新开了农贸市场，据说收购价不错。',
+    '最近粮食价格波动大，要把握好时机卖。',
+    '有人在收购高品质水果，咱们要不要试试？'
+  ],
+  gossip: [
+    '隔壁农场的老王说他家的鸡学会了下象棋，不知道真假...',
+    '听说村口的张大爷种出了巨大的南瓜，有半人高！',
+    '最近流行种茶叶，据说利润很高。',
+    '镇上新开了一家农机店，说是有打折活动。',
+    '有人看到狐狸在农场附近转悠，得小心鸡舍。',
+    '今年的农业补贴政策好像有变化。'
+  ]
+};
+
 // 商店物品配置
 const SHOP_ITEMS = {
   // 谷物种子
@@ -1058,7 +1100,14 @@ class FarmGame {
     // ========== 动物地图显示系统 ==========
     this.wanderingAnimals = []; // 在地图上 wandering 的动物 [{id, type, x, y, owner, moveTimer}]
     this.animalPositions = {}; // 动物栏索引 -> 地图位置 {penIndex: {x, y}}
-    
+
+    // ========== 农夫闲聊系统 ==========
+    this.farmerChats = [];        // 农夫间聊天记录 [{sessionId, messages, topic, consensus}]
+    this.lastChatTime = 0;        // 上次闲聊时间
+    this.chatCooldown = 3600000;  // 闲聊冷却时间：1小时
+    this.dailyNews = [];          // 当日新闻头条
+    this.newsGeneratedDate = null; // 新闻生成日期
+
     // 初始化地块
     for (let y = 0; y < height; y++) {
       const row = [];
@@ -1143,6 +1192,9 @@ class FarmGame {
 
     // 启动农夫AI思考循环（每30分钟思考一次）
     this.startFarmerAILoop();
+
+    // 启动农夫闲聊循环（每小时最多一次）
+    this.startFarmerChatLoop();
 
     // 启动农夫工资结算循环（每分钟检查一次整点结算）
     this.startSalaryLoop();
@@ -3055,6 +3107,285 @@ class FarmGame {
     return this.farmerThoughts.slice(-10);
   }
 
+  // ========== 农夫闲聊系统 ==========
+
+  // 生成每日新闻头条
+  generateDailyNews() {
+    const today = new Date().toDateString();
+    if (this.newsGeneratedDate === today) {
+      return this.dailyNews; // 已生成过，直接返回
+    }
+
+    const news = [];
+
+    // 天气相关新闻
+    const weatherNews = FARM_NEWS_TEMPLATES.weather[this.weather];
+    if (weatherNews && weatherNews.length > 0) {
+      news.push('📰 ' + weatherNews[Math.floor(Math.random() * weatherNews.length)]);
+    }
+
+    // 季节相关新闻
+    news.push('🗓️ ' + FARM_NEWS_TEMPLATES.season[this.season]);
+
+    // 市场新闻（随机1条）
+    const marketNews = FARM_NEWS_TEMPLATES.market;
+    news.push('📈 ' + marketNews[Math.floor(Math.random() * marketNews.length)]);
+
+    // 八卦新闻（随机1-2条）
+    const gossipPool = [...FARM_NEWS_TEMPLATES.gossip];
+    const gossipCount = Math.floor(Math.random() * 2) + 1;
+    for (let i = 0; i < gossipCount && gossipPool.length > 0; i++) {
+      const idx = Math.floor(Math.random() * gossipPool.length);
+      news.push('🗣️ ' + gossipPool[idx]);
+      gossipPool.splice(idx, 1);
+    }
+
+    this.dailyNews = news;
+    this.newsGeneratedDate = today;
+    console.log('[Farm News] 生成每日新闻:', news.length, '条');
+    return news;
+  }
+
+  // 启动农夫闲聊循环
+  startFarmerChatLoop() {
+    // 每10分钟检查一次是否可以闲聊
+    this._intervals.push(setInterval(() => {
+      this.checkFarmerChat();
+    }, 600000));
+
+    // 启动后15分钟首次检查（和思考时间错开）
+    setTimeout(() => {
+      this.checkFarmerChat();
+    }, 900000);
+  }
+
+  // 检查是否可以触发农夫闲聊
+  async checkFarmerChat() {
+    const now = Date.now();
+
+    // 冷却检查：每小时最多一次
+    if (now - this.lastChatTime < this.chatCooldown) {
+      return;
+    }
+
+    // 至少2名农夫在场
+    const aliveFarmers = this.farmers.filter(f => !f.isDead);
+    if (aliveFarmers.length < 2) {
+      return;
+    }
+
+    // 检查是否有农夫正在思考（避免冲突）
+    const recentThought = this.farmerThoughts[0];
+    if (recentThought && now - recentThought.timestamp < 300000) {
+      return; // 5分钟内有思考，跳过
+    }
+
+    // 触发闲聊
+    await this.triggerFarmerChat();
+  }
+
+  // 触发农夫闲聊
+  async triggerFarmerChat() {
+    console.log('[Farmer Chat] 开始农夫闲聊...');
+
+    const LLM_API_URL = process.env.LLM_API_URL || '';
+    const LLM_API_KEY = process.env.LLM_API_KEY || '';
+
+    // 生成/获取今日新闻
+    const news = this.generateDailyNews();
+
+    // 选择2-3名农夫参与闲聊
+    const aliveFarmers = this.farmers.filter(f => !f.isDead);
+    const participantCount = Math.min(3, Math.max(2, aliveFarmers.length));
+    const participants = aliveFarmers
+      .sort(() => Math.random() - 0.5)
+      .slice(0, participantCount);
+
+    // 随机选择话题
+    const topics = [
+      { type: 'news', content: news[Math.floor(Math.random() * news.length)] },
+      { type: 'weather', content: `今天天气是${WEATHER_TYPES[this.weather]?.name || '晴天'}` },
+      { type: 'season', content: FARM_NEWS_TEMPLATES.season[this.season] },
+      { type: 'market', content: FARM_NEWS_TEMPLATES.market[Math.floor(Math.random() * FARM_NEWS_TEMPLATES.market.length)] }
+    ];
+    const topic = topics[Math.floor(Math.random() * topics.length)];
+
+    if (!LLM_API_URL || !LLM_API_KEY) {
+      // 无LLM配置，使用预设对话
+      this._generateFallbackChat(participants, topic);
+      return;
+    }
+
+    try {
+      // 构建群聊 prompt
+      const farmersInfo = participants.map(f =>
+        `${f.fullName}（性格：${f.personality.description}）`
+      ).join('、');
+
+      const prompt = `你是农场游戏的对话生成器。请生成农夫们的闲聊对话。
+
+【参与者】
+${farmersInfo}
+
+【话题】${topic.content}
+
+【要求】
+1. 每人发言1-2句，总共2-4轮对话
+2. 符合各自的性格特点
+3. 自然、口语化，像真实聊天
+4. 可以互相回应对方的话
+5. 话题可以稍微延伸，不要太生硬
+
+返回JSON数组：
+[
+  {"speaker": "农夫名", "content": "说的话"},
+  {"speaker": "农夫名", "content": "说的话"}
+]
+
+只返回JSON，不要其他文字。`;
+
+      const response = await fetch(LLM_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${LLM_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: process.env.LLM_MODEL || 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.8,
+          max_tokens: 500
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
+
+      // 解析对话
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('无法解析对话内容');
+      }
+
+      const messages = JSON.parse(jsonMatch[0]);
+
+      // 创建闲聊记录
+      const chatSession = {
+        sessionId: `chat_${Date.now()}`,
+        participants: participants.map(f => f.fullName),
+        messages: messages.map(m => ({
+          speaker: m.speaker,
+          content: m.content,
+          time: Date.now()
+        })),
+        topic: topic.content,
+        timestamp: Date.now()
+      };
+
+      // 存储闲聊记录
+      this.farmerChats.push(chatSession);
+      if (this.farmerChats.length > 20) {
+        this.farmerChats.shift();
+      }
+
+      // 更新最后闲聊时间
+      this.lastChatTime = Date.now();
+
+      // 可能影响权重（达成共识）
+      this._applyChatConsensus(participants, topic);
+
+      console.log(`[Farmer Chat] 闲聊完成，${participants.length}名农夫参与`);
+
+    } catch (error) {
+      console.error('[Farmer Chat] 闲聊生成失败:', error.message);
+      this._generateFallbackChat(participants, topic);
+    }
+  }
+
+  // 生成预设对话（无LLM时的备用）
+  _generateFallbackChat(participants, topic) {
+    const fallbackDialogues = [
+      [
+        { speaker: participants[0]?.fullName, content: topic.content },
+        { speaker: participants[1]?.fullName, content: '是啊，最近农场挺忙的。' }
+      ],
+      [
+        { speaker: participants[0]?.fullName, content: '今天天气不错呢。' },
+        { speaker: participants[1]?.fullName, content: '嗯，适合干农活！' },
+        { speaker: participants[2]?.fullName || participants[0]?.fullName, content: '加油干！' }
+      ]
+    ];
+
+    const messages = fallbackDialogues[Math.floor(Math.random() * fallbackDialogues.length)];
+
+    const chatSession = {
+      sessionId: `chat_${Date.now()}`,
+      participants: participants.map(f => f.fullName),
+      messages: messages.map(m => ({
+        ...m,
+        time: Date.now()
+      })),
+      topic: topic.content,
+      timestamp: Date.now()
+    };
+
+    this.farmerChats.push(chatSession);
+    if (this.farmerChats.length > 20) {
+      this.farmerChats.shift();
+    }
+
+    this.lastChatTime = Date.now();
+  }
+
+  // 应用闲聊共识（可能影响权重）
+  _applyChatConsensus(participants, topic) {
+    // 20%概率达成共识，影响权重
+    if (Math.random() > 0.8) return;
+
+    // 根据话题类型决定影响的行为
+    const topicActionMap = {
+      'weather': ['浇水', '收获作物'],
+      'season': ['种植作物', '收获作物'],
+      'market': ['收获作物', '出售作物'],
+      'news': ['种植作物', '购买动物']
+    };
+
+    const actions = topicActionMap[topic.type] || ['收获作物'];
+    const action = actions[Math.floor(Math.random() * actions.length)];
+
+    // 对参与者的权重产生轻微影响
+    for (const farmer of participants) {
+      const behavior = farmer.behaviors.find(b => b.name === action);
+      if (behavior) {
+        // 轻微提升该行为的权重
+        behavior.weight = Math.min(100, behavior.weight * 1.1);
+      }
+    }
+
+    // 记录共识
+    if (this.farmerChats.length > 0) {
+      this.farmerChats[this.farmerChats.length - 1].consensus = {
+        action,
+        direction: 'more',
+        reason: '闲聊达成共识'
+      };
+    }
+  }
+
+  // 获取农夫闲聊记录
+  getFarmerChats() {
+    return this.farmerChats.slice(-10);
+  }
+
+  // 获取今日新闻
+  getDailyNews() {
+    return this.generateDailyNews();
+  }
+
   // 获取任务配置
   getTasksConfig() {
     return { DAILY_TASKS, ACHIEVEMENTS };
@@ -4243,6 +4574,10 @@ class FarmGame {
       animalPositions: this.animalPositions,
       // 农夫AI思考记录
       farmerThoughts: this.farmerThoughts,
+      // 农夫闲聊记录
+      farmerChats: this.getFarmerChats(),
+      // 今日新闻
+      dailyNews: this.getDailyNews(),
       // 工资和税收系统
       salary: this.getSalaryInfo(),
       tax: this.getEstimatedTax(),
