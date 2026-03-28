@@ -3326,12 +3326,14 @@ class FarmGame {
     }
 
     try {
-      // 构建群聊 prompt
+      // 构建群聊 prompt - 让农夫用农场语境讨论话题
       const farmersInfo = participants.map(f =>
         `${f.fullName}（性格：${f.personality.description}）`
       ).join('、');
 
-      const prompt = `你是农场游戏的对话生成器。请生成农夫们的闲聊对话。
+      const farmerNames = participants.map(f => f.fullName).join('、');
+
+      const prompt = `你是一个农场游戏的对话生成器。请生成农夫们闲聊的对话。
 
 【参与者】
 ${farmersInfo}
@@ -3339,19 +3341,23 @@ ${farmersInfo}
 【话题】${topic.content}
 
 【要求】
-1. 每人发言1-2句，总共2-4轮对话
-2. 符合各自的性格特点
-3. 自然、口语化，像真实聊天
-4. 可以互相回应对方的话
-5. 话题可以稍微延伸，不要太生硬
+1. 对话必须围绕话题展开，农夫们用自己的方式讨论这个话题
+2. 如果话题是新闻，农夫们可以聊聊新闻对农场的影响，或者纯粹八卦
+3. 每人发言1-2句，总共3-6条对话
+4. 语气要自然口语，像村口聊天的感觉
+5. 符合各自的性格特点
+6. speaker 必须是以下名字之一：${farmerNames}
 
 返回JSON数组：
 [
-  {"speaker": "农夫名", "content": "说的话"},
-  {"speaker": "农夫名", "content": "说的话"}
+  {"speaker": "农夫全名", "content": "说的话"},
+  {"speaker": "农夫全名", "content": "说的话"}
 ]
 
-只返回JSON，不要其他文字。`;
+只返回JSON数组，不要其他文字。`;
+
+      console.log('[Farmer Chat] 话题:', topic.content);
+      console.log('[Farmer Chat] 参与者:', farmerNames);
 
       const response = await fetch(LLM_API_URL, {
         method: 'POST',
@@ -3373,6 +3379,7 @@ ${farmersInfo}
 
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || '';
+      console.log('[Farmer Chat] LLM返回:', content.substring(0, 200));
 
       // 解析对话
       const jsonMatch = content.match(/\[[\s\S]*\]/);
@@ -3381,12 +3388,28 @@ ${farmersInfo}
       }
 
       const messages = JSON.parse(jsonMatch[0]);
+      console.log('[Farmer Chat] 解析的对话:', JSON.stringify(messages));
+
+      // 修正speaker名字（确保匹配参与者）
+      const validNames = participants.map(f => f.fullName);
+      const correctedMessages = messages.map(m => {
+        // 如果speaker不完整，尝试匹配
+        let speaker = m.speaker;
+        if (!validNames.includes(speaker)) {
+          // 尝试部分匹配
+          const matched = validNames.find(name =>
+            name.includes(speaker) || speaker.includes(name.replace('农夫', ''))
+          );
+          if (matched) speaker = matched;
+        }
+        return { ...m, speaker };
+      });
 
       // 创建闲聊记录
       const chatSession = {
         sessionId: `chat_${Date.now()}`,
         participants: participants.map(f => f.fullName),
-        messages: messages.map(m => ({
+        messages: correctedMessages.map(m => ({
           speaker: m.speaker,
           content: m.content,
           time: Date.now()
@@ -3417,19 +3440,41 @@ ${farmersInfo}
 
   // 生成预设对话（无LLM时的备用）
   _generateFallbackChat(participants, topic) {
-    const fallbackDialogues = [
-      [
-        { speaker: participants[0]?.fullName, content: topic.content },
-        { speaker: participants[1]?.fullName, content: '是啊，最近农场挺忙的。' }
-      ],
-      [
-        { speaker: participants[0]?.fullName, content: '今天天气不错呢。' },
-        { speaker: participants[1]?.fullName, content: '嗯，适合干农活！' },
-        { speaker: participants[2]?.fullName || participants[0]?.fullName, content: '加油干！' }
-      ]
-    ];
+    const p0 = participants[0]?.fullName || '农夫';
+    const p1 = participants[1]?.fullName || '农夫';
+    const p2 = participants[2]?.fullName;
 
-    const messages = fallbackDialogues[Math.floor(Math.random() * fallbackDialogues.length)];
+    // 根据话题生成相关对话
+    const topicStr = topic.content || '今天天气不错';
+
+    // 提取话题关键词
+    const isNews = topicStr.includes('📱') || topicStr.includes('🔥') || topicStr.includes('🌍');
+    const isWeather = topicStr.includes('天气') || topicStr.includes('雨') || topicStr.includes('雪');
+
+    let messages;
+
+    if (isNews) {
+      // 新闻话题
+      messages = [
+        { speaker: p0, content: `看到新闻了，${topicStr.replace(/^[📱🔥🌍]\s*/, '')}` },
+        { speaker: p1, content: '是吗？咱们农场以后会受影响吗？' },
+        { speaker: p0, content: '管他呢，先把地里的活干好再说！' }
+      ];
+    } else if (isWeather) {
+      // 天气话题
+      messages = [
+        { speaker: p0, content: topicStr },
+        { speaker: p1, content: '嗯，得根据天气调整农活安排。' },
+        { speaker: p2 || p0, content: '说得好，咱们加油干！' }
+      ];
+    } else {
+      // 其他话题
+      messages = [
+        { speaker: p0, content: topicStr },
+        { speaker: p1, content: '确实，咱们得注意点。' },
+        { speaker: p2 || p0, content: '好，我去干活了！' }
+      ];
+    }
 
     const chatSession = {
       sessionId: `chat_${Date.now()}`,
@@ -3448,6 +3493,7 @@ ${farmersInfo}
     }
 
     this.lastChatTime = Date.now();
+    console.log('[Farmer Chat] 使用fallback对话完成');
   }
 
   // 应用闲聊共识（可能影响权重）
