@@ -2,6 +2,22 @@
 const dataStore = require('./dataStore');
 const antiCheat = require('./antiCheat');
 const { Farmer } = require('./farmer');
+const Parser = require('rss-parser');
+
+// RSS解析器实例
+const rssParser = new Parser({
+  timeout: 8000,
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (compatible; FarmGameNews/1.0)'
+  }
+});
+
+// RSS新闻源配置
+const RSS_NEWS_SOURCES = [
+  { name: '知乎热榜', url: 'https://rsshub.app/zhihu/hotlist', weight: 1 },
+  { name: '微博热搜', url: 'https://rsshub.app/weibo/search/hot', weight: 1 },
+  { name: '澎湃新闻', url: 'https://rsshub.app/thepaper/featured', weight: 0.8 },
+];
 
 // ========== 天气系统 ==========
 const WEATHER_TYPES = {
@@ -3180,53 +3196,49 @@ class FarmGame {
     return news;
   }
 
-  // 获取真实世界新闻
+  // 获取真实世界新闻（通过RSS）
   async _fetchRealWorldNews() {
-    const NEWS_API_KEY = process.env.NEWS_API_KEY || '';
     const news = [];
 
-    // 如果没有配置新闻API，返回空
-    if (!NEWS_API_KEY) {
-      return news;
-    }
+    // 随机选择一个RSS源
+    const source = RSS_NEWS_SOURCES[Math.floor(Math.random() * RSS_NEWS_SOURCES.length)];
 
     try {
-      // 使用 NewsAPI 获取头条新闻
-      // 可以配置感兴趣的主题：农业、科技、经济等
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      console.log(`[RSS News] 正在获取 ${source.name} 新闻...`);
 
-      const response = await fetch(
-        `https://newsapi.org/v2/top-headlines?country=cn&category=technology&pageSize=3&apiKey=${NEWS_API_KEY}`,
-        { signal: controller.signal }
-      );
+      const feed = await rssParser.parseURL(source.url);
 
-      clearTimeout(timeoutId);
+      if (feed.items && feed.items.length > 0) {
+        // 随机取3-5条新闻
+        const count = Math.min(5, Math.floor(Math.random() * 3) + 3);
+        const shuffled = feed.items.sort(() => Math.random() - 0.5);
 
-      if (!response.ok) {
-        console.log('[News API] 请求失败:', response.status);
-        return news;
-      }
+        for (let i = 0; i < count && i < shuffled.length; i++) {
+          const item = shuffled[i];
+          if (item.title) {
+            // 清理标题
+            let title = item.title
+              .replace(/ - [^-]+$/, '')
+              .replace(/\[.*?\]/g, '')
+              .replace(/【.*?】/g, '')
+              .trim();
 
-      const data = await response.json();
-
-      if (data.articles && data.articles.length > 0) {
-        for (const article of data.articles) {
-          if (article.title) {
-            // 清理标题，移除来源后缀
-            let title = article.title.replace(/ - [^-]+$/, '').replace(/\[.*?\]/g, '');
             // 截断过长的标题
-            if (title.length > 50) {
-              title = title.substring(0, 47) + '...';
+            if (title.length > 45) {
+              title = title.substring(0, 42) + '...';
             }
-            news.push('🌍 ' + title);
+
+            // 添加来源标识
+            const emoji = source.name.includes('知乎') ? '📱' :
+                          source.name.includes('微博') ? '🔥' : '🌍';
+            news.push(`${emoji} ${title}`);
           }
         }
       }
 
-      console.log('[News API] 获取到', news.length, '条真实新闻');
+      console.log(`[RSS News] 从 ${source.name} 获取到 ${news.length} 条新闻`);
     } catch (error) {
-      console.log('[News API] 获取新闻失败:', error.message);
+      console.log(`[RSS News] 获取 ${source.name} 失败:`, error.message);
     }
 
     return news;
@@ -3241,10 +3253,6 @@ class FarmGame {
     // 异步生成，先返回模板
     this.generateDailyNews();
     return this.dailyNews.length > 0 ? this.dailyNews : ['📰 正在获取新闻...'];
-  }
-    this.newsGeneratedDate = today;
-    console.log('[Farm News] 生成每日新闻:', news.length, '条');
-    return news;
   }
 
   // 启动农夫闲聊循环
