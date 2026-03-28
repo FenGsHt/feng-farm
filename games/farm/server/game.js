@@ -3935,14 +3935,6 @@ class FarmGame {
     const pen = this.animalPens[penIndex];
     if (!pen) return { success: false, message: '栏位不存在' };
 
-    // 距离验证（曼哈顿距离 <= 2）
-    if (animalPos && player.position) {
-      const dist = Math.abs(player.position.x - animalPos.x) + Math.abs(player.position.y - animalPos.y);
-      if (dist > 2) {
-        return { success: false, message: '距离太远，请靠近动物' };
-      }
-    }
-
     if (!pen.animal) return { success: false, message: '栏位没有动物' };
 
     // 检查成长阶段
@@ -4046,14 +4038,6 @@ class FarmGame {
     const pen = this.animalPens[penIndex];
     if (!pen) return { success: false, message: '栏位不存在' };
 
-    // 距离验证（曼哈顿距离 <= 2）
-    if (animalPos && player.position) {
-      const dist = Math.abs(player.position.x - animalPos.x) + Math.abs(player.position.y - animalPos.y);
-      if (dist > 2) {
-        return { success: false, message: '距离太远，请靠近动物' };
-      }
-    }
-
     const result = pen.sell();
     if (result.success) {
       // 加金币
@@ -4093,14 +4077,6 @@ class FarmGame {
     const pen = this.animalPens[penIndex];
     if (!pen) return { success: false, message: '栏位不存在' };
     if (!pen.animal) return { success: false, message: '栏位没有动物' };
-
-    // 距离验证
-    if (animalPos && player.position) {
-      const dist = Math.abs(player.position.x - animalPos.x) + Math.abs(player.position.y - animalPos.y);
-      if (dist > 2) {
-        return { success: false, message: '距离太远，请靠近动物' };
-      }
-    }
 
     const feed = SHOP_ITEMS[feedId];
     if (!feed || feed.type !== 'animal-feed') {
