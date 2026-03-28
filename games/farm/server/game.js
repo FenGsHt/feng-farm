@@ -3001,32 +3001,38 @@ class FarmGame {
       return;
     }
 
-    // 只有头号农夫进行深度思考，生成共享策略
-    const leadFarmer = this.farmers.find(f => !f.isDead);
-    if (!leadFarmer) return;
+    // 所有农夫都进行独立思考
+    const aliveFarmers = this.farmers.filter(f => !f.isDead);
+    if (aliveFarmers.length === 0) return;
 
-    try {
-      const thought = await leadFarmer.thinkWithAI();
-      if (thought) {
-        // 更新共享策略
-        this.sharedStrategy = {
-          timestamp: Date.now(),
-          weights: thought.weights || {},
-          thinking: thought.thinking || '',
-          updatedBy: leadFarmer.fullName,
-          version: ++this.strategyVersion
-        };
-
-        // 其他农夫应用共享策略（只更新权重，不重复思考）
-        for (const farmer of this.farmers) {
-          if (farmer !== leadFarmer && !farmer.isDead) {
-            farmer.applySharedStrategy(this.sharedStrategy);
-          }
+    // 并行让所有农夫思考
+    const thoughts = await Promise.all(
+      aliveFarmers.map(async (farmer) => {
+        try {
+          const thought = await farmer.thinkWithAI();
+          return { farmer, thought };
+        } catch (err) {
+          console.error(`[Farmer AI] ${farmer.fullName} 思考失败:`, err.message);
+          return { farmer, thought: null };
         }
-      }
-    } catch (err) {
-      console.error(`[Farmer AI] ${leadFarmer.fullName} 思考失败:`, err.message);
+      })
+    );
+
+    // 头号农夫的策略作为团队共享策略（其他农夫可以参考但不强制执行）
+    const leadFarmer = aliveFarmers[0];
+    const leadThought = thoughts.find(t => t.farmer === leadFarmer)?.thought;
+
+    if (leadThought) {
+      this.sharedStrategy = {
+        timestamp: Date.now(),
+        weights: leadThought.weights || {},
+        thinking: leadThought.thinking || '',
+        updatedBy: leadFarmer.fullName,
+        version: ++this.strategyVersion
+      };
     }
+
+    console.log(`[Farmer AI] ${thoughts.filter(t => t.thought).length}/${aliveFarmers.length} 农夫完成了思考`);
   }
 
   // 获取共享策略

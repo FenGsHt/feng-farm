@@ -2023,17 +2023,6 @@ class Farmer {
   // ---------- LLM 预留接口 ----------
 
   async thinkWithAI() {
-    // 检查是否是头号农夫（只有头号农夫应该深度思考）
-    const isLeadFarmer = this.game.farmers?.[0] === this;
-    if (!isLeadFarmer) {
-      // 非头号农夫，检查是否有共享策略需要应用
-      const strategy = this.game.getSharedStrategy?.();
-      if (strategy && strategy.version !== this._lastStrategyVersion) {
-        return this.applySharedStrategy(strategy);
-      }
-      return null;
-    }
-
     // 检查环境变量配置
     const LLM_API_URL = process.env.LLM_API_URL || '';
     const LLM_API_KEY = process.env.LLM_API_KEY || '';
@@ -2044,19 +2033,22 @@ class Farmer {
       return null;
     }
 
+    // 检查是否是头号农夫
+    const isLeadFarmer = this.game.farmers?.[0] === this;
+
     try {
       // 构建当前农场状态描述
       const farmState = this._buildFarmStateDescription();
 
-      // 获取之前的策略历史（用于连续性）
-      const previousStrategy = this.game.sharedStrategy;
-      const strategyContext = previousStrategy
-        ? `\n\n上次想法（${Math.round((Date.now() - previousStrategy.timestamp) / 60000)}分钟前）：
-"${previousStrategy.thinking}"
-重点: ${previousStrategy.focus || '无'}`
+      // 获取团队策略作为参考（所有农夫都可以参考）
+      const teamStrategy = this.game.sharedStrategy;
+      const strategyContext = teamStrategy
+        ? `\n\n团队策略（${Math.round((Date.now() - teamStrategy.timestamp) / 60000)}分钟前）：
+"${teamStrategy.thinking}"
+重点: ${teamStrategy.focus || '无'}`
         : '';
 
-      const prompt = `你是一名真实的农夫，性格${this.personality.description}。请以农夫的口吻进行内心独白，思考接下来该做什么。
+      const prompt = `你是一名真实的农夫，叫${this.fullName}，性格${this.personality.description}。请以农夫的口吻进行内心独白，思考接下来该做什么。
 
 当前农场状态：
 ${farmState}
@@ -2068,6 +2060,7 @@ ${strategyContext}
 3. 关注实际农场事务：作物、动物、天气、金币
 4. 表达对未来的期望和对过去的反思
 5. 语气要符合农夫身份，可以有点唠叨
+6. ${isLeadFarmer ? '你是领队农夫，可以制定团队策略' : '你可以参考团队策略，但有自己的想法'}
 
 返回JSON：
 {
@@ -2139,7 +2132,17 @@ ${strategyContext}
         this.game.addFarmerThought(thoughtRecord);
       }
 
-      this._log(`🧠 团队策略: ${result.thinking?.substring(0, 40)}...`, '🧠', 'ai-thought');
+      // 头号农夫广播团队策略供其他农夫参考
+      if (isLeadFarmer && this.game.setSharedStrategy) {
+        this.game.setSharedStrategy({
+          version: Date.now(),
+          thinking: result.thinking,
+          weights: result.weights,
+          focus: result.focus || ''
+        });
+      }
+
+      this._log(`🧠 ${this.fullName}的思考: ${result.thinking?.substring(0, 40)}...`, '🧠', 'ai-thought');
 
       return thoughtRecord;
 
