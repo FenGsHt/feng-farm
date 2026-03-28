@@ -1863,8 +1863,8 @@ class Farmer {
     // ====== 策略同步 ======
     this._lastStrategyVersion = 0; // 用于追踪已应用的策略版本
 
-    this.tickIntervalMs = options.tickInterval || 5000;  // 决策间隔：5秒
-    this.moveIntervalMs = options.moveInterval || 800;   // 移动间隔：0.8秒
+    this.tickIntervalMs = options.tickInterval || 5000;   // 决策间隔：5秒
+    this.moveIntervalMs = options.moveInterval || 2000;   // 移动间隔：2秒（和服务端同步频率一致）
 
     this._tickIntervalId = null;
     this._moveIntervalId = null;
