@@ -33,7 +33,8 @@ const DECISION_CONFIG = {
     },
     money: {
       low:      100,   // 资金紧张
-      critical: 50     // 资金危急
+      critical: 50,    // 资金危急
+      reserve:  300    // 安全保证金，低于此值不应大额消费（避免触发解雇）
     }
   },
 
@@ -297,6 +298,23 @@ class FarmerBehavior {
     this._earnedTotal = 0;
     this._callCount   = 0;
     this._lastExecuteTime = 0;
+  }
+
+  /** 检查购买后是否会触发资金危机（保证金意识） */
+  static canAffordSafely(game, cost, isEssential = false) {
+    const afterPurchase = game.sharedMoney - cost;
+    const farmerCount = game.farmers?.length || 1;
+
+    // 非必要消费（买动物、投资等）：保留解雇阈值+工资缓冲
+    // 解雇阈值300 + 每个农夫50金币缓冲
+    const reserve = DECISION_CONFIG.thresholds.money.reserve;
+    const minReserve = Math.max(reserve, farmerCount * 80);
+
+    // 必要消费（吃东西、杀虫剂）：只保留最低临界值
+    const criticalReserve = DECISION_CONFIG.thresholds.money.critical;
+
+    const threshold = isEssential ? criticalReserve : minReserve;
+    return afterPurchase >= threshold;
   }
 
   /** 执行后记录收益，重新计算动态权重 */
@@ -1001,6 +1019,11 @@ class BuyAnimalBehavior extends FarmerBehavior {
     const pen = game.animalPens.find(p => !p.animal);
     if (!pen) return { log: '', acted: false, earned: 0 };
 
+    // 保证金检查：购买后保留足够资金避免触发解雇
+    if (!FarmerBehavior.canAffordSafely(game, animal.buyPrice)) {
+      return { log: '', acted: false, earned: 0 };
+    }
+
     // AnimalPen.place() 方法
     const result = pen.place(animalType, farmer.fullName);
     if (!result.success) return { log: '', acted: false, earned: 0 };
@@ -1223,7 +1246,8 @@ class BuySeedsBehavior extends FarmerBehavior {
       const price = SEED_PRICES[crop];
       const buyCost = price * 5;
 
-      if ((farmer.seeds[crop] || 0) < 5 && game.sharedMoney >= buyCost + 30) {
+      // 保证金检查：购买后保留足够资金
+      if ((farmer.seeds[crop] || 0) < 5 && FarmerBehavior.canAffordSafely(game, buyCost)) {
         farmer.seeds[crop] = (farmer.seeds[crop] || 0) + 5;
         game.sharedMoney -= buyCost;
         bought++;
@@ -1256,7 +1280,10 @@ class BuyPesticideBehavior extends FarmerBehavior {
 
   execute(farmer, game) {
     const cost = 40;
-    if (game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
+    // 杀虫剂是战斗必需品，使用较低的保证金阈值
+    if (!FarmerBehavior.canAffordSafely(game, cost, true)) {
+      return { log: '', acted: false, earned: 0 };
+    }
 
     farmer.items.pesticide = (farmer.items.pesticide || 0) + 2;
     game.sharedMoney -= cost;
@@ -1293,7 +1320,10 @@ class BuyWeaponBehavior extends FarmerBehavior {
   execute(farmer, game) {
     const cost = 50;  // 武器价格
     const uses = 5;   // 每把武器可使用5次
-    if (game.sharedMoney < cost) return { log: '', acted: false, earned: 0 };
+    // 武器是战斗必需品，使用较低的保证金阈值
+    if (!FarmerBehavior.canAffordSafely(game, cost, true)) {
+      return { log: '', acted: false, earned: 0 };
+    }
 
     farmer.items.weapon = (farmer.items.weapon || 0) + uses;
     game.sharedMoney -= cost;
@@ -1381,8 +1411,15 @@ class InvestGoldBehavior extends FarmerBehavior {
     if (priceRatio < threshold && game.sharedMoney > 300) {
       // 计算买入量：根据性格和资金
       const investRatio = 0.2 + (1 - cautiousness) * 0.1; // 投资20%-30%资金
+      const potentialCost = game.sharedMoney * investRatio;
+
+      // 保证金检查：投资后保留足够资金避免触发解雇
+      if (!FarmerBehavior.canAffordSafely(game, potentialCost)) {
+        return null; // 资金不足，放弃投资
+      }
+
       const buyAmount = Math.min(
-        (game.sharedMoney * investRatio) / currentPrice,
+        potentialCost / currentPrice,
         10 // 最多买10克
       );
       if (buyAmount >= 0.1) {
