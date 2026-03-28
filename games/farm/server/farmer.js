@@ -1863,8 +1863,8 @@ class Farmer {
     // ====== 策略同步 ======
     this._lastStrategyVersion = 0; // 用于追踪已应用的策略版本
 
-    this.tickIntervalMs = options.tickInterval || 28000;
-    this.moveIntervalMs = options.moveInterval || 1600;
+    this.tickIntervalMs = options.tickInterval || 5000;  // 决策间隔：5秒
+    this.moveIntervalMs = options.moveInterval || 800;   // 移动间隔：0.8秒
 
     this._tickIntervalId = null;
     this._moveIntervalId = null;
@@ -2541,6 +2541,13 @@ ${chatContext || '暂无聊天记录'}
 
       if (log) this._log(log, beh.emoji, 'farmer');
     }
+
+    // 执行完后延迟一小会儿进行下一次决策（避免连续执行太快）
+    setTimeout(() => {
+      if (!this.isDead && !this.walkTarget) {
+        this.tick();
+      }
+    }, 500);
   }
 
   // ---------- 深度思考 ----------
