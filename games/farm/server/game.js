@@ -1151,6 +1151,18 @@ class FarmGame {
       this.weatherChangeTimer = saved.weatherChangeTimer || 0;
     }
 
+    // 游戏开始时间（天数计算）
+    if (typeof saved.startTime === 'number') {
+      this.startTime = saved.startTime;
+    }
+
+    // 季节系统
+    if (saved.season && SEASONS[saved.season]) {
+      this.season = saved.season;
+      this.seasonTimer = saved.seasonTimer || 0;
+      this.seasonDuration = SEASONS[saved.season].duration;
+    }
+
     // 地块
     if (Array.isArray(saved.plots)) {
       for (let y = 0; y < Math.min(saved.plots.length, this.height); y++) {
@@ -1303,9 +1315,13 @@ class FarmGame {
   _saveState() {
     const state = {
       savedAt:            Date.now(),
+      startTime:          this.startTime,  // 游戏开始时间（天数计算用）
       sharedMoney:        this.sharedMoney,
       weather:            this.weather,
       weatherChangeTimer: this.weatherChangeTimer,
+      // 季节系统
+      season:             this.season,
+      seasonTimer:        this.seasonTimer,
       plots: this.plots.map(row => row.map(plot => ({
         crop:         plot.crop,
         plantedAt:    plot.plantedAt,
