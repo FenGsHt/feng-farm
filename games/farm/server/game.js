@@ -73,6 +73,7 @@ const WEATHER_TYPES = {
 };
 
 // ========== 季节系统 ==========
+// 农夫行动加快后，季节缩短至10分钟/季，40分钟体验完整年度循环
 const SEASONS = {
   spring: {
     name: '春天',
@@ -84,7 +85,7 @@ const SEASONS = {
       tomato: 1.3,           // 番茄+30%
       carrot: 1.2
     },
-    duration: 1800,          // 30分钟
+    duration: 600,           // 10分钟
     color: '#FFB7C5'
   },
   summer: {
@@ -98,7 +99,7 @@ const SEASONS = {
       corn: 1.3,
       cucumber: 1.2
     },
-    duration: 1800,
+    duration: 600,
     color: '#FFD700'
   },
   autumn: {
@@ -113,7 +114,7 @@ const SEASONS = {
       wheat: 1.3,
       cotton: 1.3
     },
-    duration: 1800,
+    duration: 600,
     color: '#D2691E'
   },
   winter: {
@@ -130,7 +131,7 @@ const SEASONS = {
       strawberry: 0.4,
       tomato: 0.5
     },
-    duration: 1800,
+    duration: 600,
     color: '#ADD8E6'
   }
 };
@@ -174,13 +175,14 @@ const ANTI_PEST_ITEMS = {
 };
 
 // ========== 市场供需系统 ==========
+// 农夫行动加快后，事件持续时间缩短
 const MARKET_EVENT_TYPES = {
   demand_surge: {
     name: '需求暴涨',
     emoji: '📈',
     description: '市场对该作物需求激增！',
     priceMultiplier: 1.3,  // +30%
-    duration: 600,  // 10分钟
+    duration: 300,  // 5分钟
     category: 'all'  // 适用于所有作物
   },
   oversupply: {
@@ -188,7 +190,7 @@ const MARKET_EVENT_TYPES = {
     emoji: '📉',
     description: '市场供应过剩，价格下跌...',
     priceMultiplier: 0.8,  // -20%
-    duration: 600,
+    duration: 300,  // 5分钟
     category: 'all'
   },
   festival: {
@@ -196,7 +198,7 @@ const MARKET_EVENT_TYPES = {
     emoji: '🎉',
     description: '节日庆典，农产品价格上涨！',
     priceMultiplier: 1.2,  // +20%
-    duration: 1800,  // 30分钟
+    duration: 900,  // 15分钟
     category: 'all'
   },
   special_order: {
@@ -204,7 +206,7 @@ const MARKET_EVENT_TYPES = {
     emoji: '📋',
     description: '收到一笔特殊订单，高价收购！',
     priceMultiplier: 1.5,  // +50%
-    duration: 300,  // 5分钟
+    duration: 180,  // 3分钟
     category: 'all'
   }
 };
@@ -285,26 +287,26 @@ function getCoinBonusMultiplier(level) {
 
 // 作物配置
 // ROI设计原则：长周期作物风险高，给予更高回报
-// 短周期(<5min): ROI ~280-320% | 中短(5-10min): ROI ~360-400% | 中(10-20min): ROI ~430-480% | 长周期(>20min): ROI ~500-600%
+// 农夫行动加快后，生长时间缩短至65-70%
 const CROPS = {
   // 谷物（growthTime 单位：秒，浇水后速度 ×1.5）
-  wheat:      { name: '小麦',   growthTime: 180,  sellPrice: 8,   seedPrice: 2,  emoji: '🌾', category: 'grain' },      // 3 min, ROI 300%
-  corn:       { name: '玉米',   growthTime: 900,  sellPrice: 70,  seedPrice: 12, emoji: '🌽', category: 'grain' },      // 15 min, ROI 483%
-  rice:       { name: '水稻',   growthTime: 600,  sellPrice: 46,  seedPrice: 8,  emoji: '🍚', category: 'grain' },      // 10 min, ROI 475%
+  wheat:      { name: '小麦',   growthTime: 120,  sellPrice: 8,   seedPrice: 2,  emoji: '🌾', category: 'grain' },      // 2 min
+  corn:       { name: '玉米',   growthTime: 600,  sellPrice: 70,  seedPrice: 12, emoji: '🌽', category: 'grain' },      // 10 min
+  rice:       { name: '水稻',   growthTime: 400,  sellPrice: 46,  seedPrice: 8,  emoji: '🍚', category: 'grain' },      // 6.7 min
   // 蔬菜
-  tomato:     { name: '番茄',   growthTime: 420,  sellPrice: 27,  seedPrice: 5,  emoji: '🍅', category: 'vegetable' },  // 7 min, ROI 440%
-  carrot:     { name: '胡萝卜', growthTime: 150,  sellPrice: 12,  seedPrice: 3,  emoji: '🥕', category: 'vegetable' },  // 2.5 min, ROI 300%
-  eggplant:   { name: '茄子',   growthTime: 480,  sellPrice: 33,  seedPrice: 6,  emoji: '🍆', category: 'vegetable' },  // 8 min, ROI 450%
-  cucumber:   { name: '黄瓜',   growthTime: 300,  sellPrice: 20,  seedPrice: 4,  emoji: '🥒', category: 'vegetable' },  // 5 min, ROI 400%
-  pumpkin:    { name: '南瓜',   growthTime: 1200, sellPrice: 100, seedPrice: 15, emoji: '🎃', category: 'vegetable' },  // 20 min, ROI 567%
+  tomato:     { name: '番茄',   growthTime: 280,  sellPrice: 27,  seedPrice: 5,  emoji: '🍅', category: 'vegetable' },  // 4.7 min
+  carrot:     { name: '胡萝卜', growthTime: 100,  sellPrice: 12,  seedPrice: 3,  emoji: '🥕', category: 'vegetable' },  // 1.7 min
+  eggplant:   { name: '茄子',   growthTime: 320,  sellPrice: 33,  seedPrice: 6,  emoji: '🍆', category: 'vegetable' },  // 5.3 min
+  cucumber:   { name: '黄瓜',   growthTime: 200,  sellPrice: 20,  seedPrice: 4,  emoji: '🥒', category: 'vegetable' },  // 3.3 min
+  pumpkin:    { name: '南瓜',   growthTime: 800,  sellPrice: 100, seedPrice: 15, emoji: '🎃', category: 'vegetable' },  // 13.3 min
   // 水果
-  strawberry: { name: '草莓',   growthTime: 240,  sellPrice: 18,  seedPrice: 4,  emoji: '🍓', category: 'fruit' },     // 4 min, ROI 350%
-  watermelon: { name: '西瓜',   growthTime: 900,  sellPrice: 58,  seedPrice: 10, emoji: '🍉', category: 'fruit' },     // 15 min, ROI 480%
-  grape:      { name: '葡萄',   growthTime: 1800, sellPrice: 130, seedPrice: 20, emoji: '🍇', category: 'fruit' },     // 30 min, ROI 550%
-  apple:      { name: '苹果',   growthTime: 3600, sellPrice: 220, seedPrice: 30, emoji: '🍎', category: 'fruit' },     // 60 min, ROI 633%
+  strawberry: { name: '草莓',   growthTime: 160,  sellPrice: 18,  seedPrice: 4,  emoji: '🍓', category: 'fruit' },     // 2.7 min
+  watermelon: { name: '西瓜',   growthTime: 600,  sellPrice: 58,  seedPrice: 10, emoji: '🍉', category: 'fruit' },     // 10 min
+  grape:      { name: '葡萄',   growthTime: 1200, sellPrice: 130, seedPrice: 20, emoji: '🍇', category: 'fruit' },     // 20 min
+  apple:      { name: '苹果',   growthTime: 2400, sellPrice: 220, seedPrice: 30, emoji: '🍎', category: 'fruit' },     // 40 min
   // 经济作物
-  cotton:     { name: '棉花',   growthTime: 1500, sellPrice: 95,  seedPrice: 14, emoji: '☁️', category: 'cash' },     // 25 min, ROI 579%
-  tea:        { name: '茶叶',   growthTime: 2400, sellPrice: 165, seedPrice: 18, emoji: '🍵', category: 'cash' }       // 40 min, ROI 817%
+  cotton:     { name: '棉花',   growthTime: 1000, sellPrice: 95,  seedPrice: 14, emoji: '☁️', category: 'cash' },     // 16.7 min
+  tea:        { name: '茶叶',   growthTime: 1600, sellPrice: 165, seedPrice: 18, emoji: '🍵', category: 'cash' }       // 26.7 min
 };
 
 // 动物成长阶段配置
@@ -999,9 +1001,9 @@ class FarmGame {
     // ========== 天气系统 ==========
     this.weather = 'sunny'; // 当前天气
     this.weatherChangeTimer = 0; // 天气变化计时器
-    this.weatherDuration = 300; // 天气持续时间（秒）
+    this.weatherDuration = 180; // 天气持续时间（秒）- 3分钟
     this.lastDisasterTime = 0; // 上次灾害天气时间
-    this.DISASTER_COOLDOWN = 180; // 灾害冷却时间（秒）
+    this.DISASTER_COOLDOWN = 120; // 灾害冷却时间（秒）- 2分钟
 
     // ========== 季节系统 ==========
     this.season = 'spring'; // 当前季节
@@ -2020,19 +2022,19 @@ class FarmGame {
   startPestLoop() {
     this._intervals.push(setInterval(() => {
       this.updatePests();
-    }, 10000)); // 每10秒更新一次害虫
+    }, 5000)); // 每5秒更新一次害虫（加快）
 
     // 启动野生动物循环
     this._intervals.push(setInterval(() => {
       this.updateWildAnimals();
-    }, 15000)); // 每15秒更新一次野生动物
+    }, 8000)); // 每8秒更新一次野生动物（加快）
 
     // 定期生成野生动物
     this._intervals.push(setInterval(() => {
-      if (this.wildAnimals.length < 3 && Math.random() < 0.3) {
+      if (this.wildAnimals.length < 3 && Math.random() < 0.4) { // 提高概率
         this.spawnWildAnimal();
       }
-    }, 60000)); // 每分钟检查是否生成新野兽
+    }, 30000)); // 每30秒检查是否生成新野兽（加快）
   }
 
 // ========== 市场供需系统方法 ==========
@@ -2527,8 +2529,8 @@ class FarmGame {
 
       // 攻击动物（需要多次攻击）
       if (wild.nearPen && nearestPen.pen.animal) {
-        // 攻击间隔至少30秒，给农夫反应时间
-        if (now - wild.lastAttackTime < 30000) {
+        // 攻击间隔至少20秒，给农夫反应时间
+        if (now - wild.lastAttackTime < 20000) {
           continue;
         }
 
