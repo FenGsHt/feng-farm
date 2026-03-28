@@ -1955,6 +1955,19 @@ class Farmer {
     // 从 game.farmers 移除自身
     if (this.game && Array.isArray(this.game.farmers)) {
       this.game.farmers = this.game.farmers.filter(f => f !== this);
+
+      // 如果所有农夫都死亡，自动创建新农夫并重置金币
+      if (this.game.farmers.length === 0) {
+        this.game.sharedMoney = 1000; // 重置金币
+        const FarmerClass = this.constructor;
+        const newFarmer = new FarmerClass(this.game, (msg, emoji, type) => this.game.addFarmLog(msg, emoji, type), {
+          name: '阿明',
+          hunger: 0,
+          startDelay: 3000
+        });
+        this.game.farmers.push(newFarmer);
+        this.game.addFarmLog(`🎉 所有农夫饿死后，农场自动雇佣了新农夫阿明，并注入1000启动资金！`, '🌟', 'system');
+      }
     }
   }
 
@@ -2449,7 +2462,7 @@ ${chatContext || '暂无聊天记录'}
 
     try {
       // ====== 饥饿增加（睡觉时代谢较慢）======
-      const hungerRate = this.state === 'sleeping' ? 0.2 : 0.4;
+      const hungerRate = this.state === 'sleeping' ? 0.1 : 0.2; // 降低饥饿速度
       this.hunger = Math.min(100, this.hunger + hungerRate);
 
       // 死亡检查
