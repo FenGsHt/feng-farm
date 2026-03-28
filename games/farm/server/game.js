@@ -12,11 +12,14 @@ const rssParser = new Parser({
   }
 });
 
-// RSS新闻源配置
+// RSS新闻源配置（优先国内可访问的源）
 const RSS_NEWS_SOURCES = [
-  { name: '知乎热榜', url: 'https://rsshub.app/zhihu/hotlist', weight: 1 },
-  { name: '微博热搜', url: 'https://rsshub.app/weibo/search/hot', weight: 1 },
-  { name: '澎湃新闻', url: 'https://rsshub.app/thepaper/featured', weight: 0.8 },
+  // 官方RSS源（更稳定，国内可访问）
+  { name: '新华网', url: 'http://www.news.cn/politics/news_rss.xml', weight: 1 },
+  { name: '人民网', url: 'http://www.people.com.cn/rss/politics.xml', weight: 1 },
+  // RSSHub公共实例（可能被屏蔽，作为备用）
+  { name: '知乎热榜', url: 'https://rsshub.app/zhihu/hotlist', weight: 0.7 },
+  { name: '微博热搜', url: 'https://rsshub.app/weibo/search/hot', weight: 0.7 },
 ];
 
 // ========== 天气系统 ==========
@@ -3200,47 +3203,53 @@ class FarmGame {
   async _fetchRealWorldNews() {
     const news = [];
 
-    // 随机选择一个RSS源
-    const source = RSS_NEWS_SOURCES[Math.floor(Math.random() * RSS_NEWS_SOURCES.length)];
+    // 按权重排序，优先尝试高权重源
+    const sortedSources = [...RSS_NEWS_SOURCES].sort((a, b) => b.weight - a.weight);
 
-    try {
-      console.log(`[RSS News] 正在获取 ${source.name} 新闻...`);
+    // 尝试多个源，直到成功获取到新闻
+    for (const source of sortedSources) {
+      if (news.length >= 3) break; // 已获取足够的新闻
 
-      const feed = await rssParser.parseURL(source.url);
+      try {
+        console.log(`[RSS News] 正在获取 ${source.name} 新闻...`);
 
-      if (feed.items && feed.items.length > 0) {
-        // 随机取3-5条新闻
-        const count = Math.min(5, Math.floor(Math.random() * 3) + 3);
-        const shuffled = feed.items.sort(() => Math.random() - 0.5);
+        const feed = await rssParser.parseURL(source.url);
 
-        for (let i = 0; i < count && i < shuffled.length; i++) {
-          const item = shuffled[i];
-          if (item.title) {
-            // 清理标题
-            let title = item.title
-              .replace(/ - [^-]+$/, '')
-              .replace(/\[.*?\]/g, '')
-              .replace(/【.*?】/g, '')
-              .trim();
+        if (feed.items && feed.items.length > 0) {
+          // 随机取2-3条新闻
+          const count = Math.min(3, Math.floor(Math.random() * 2) + 2);
+          const shuffled = feed.items.sort(() => Math.random() - 0.5);
 
-            // 截断过长的标题
-            if (title.length > 45) {
-              title = title.substring(0, 42) + '...';
+          for (let i = 0; i < count && i < shuffled.length; i++) {
+            const item = shuffled[i];
+            if (item.title) {
+              // 清理标题
+              let title = item.title
+                .replace(/ - [^-]+$/, '')
+                .replace(/\[.*?\]/g, '')
+                .replace(/【.*?】/g, '')
+                .trim();
+
+              // 截断过长的标题
+              if (title.length > 45) {
+                title = title.substring(0, 42) + '...';
+              }
+
+              // 添加来源标识
+              const emoji = source.name.includes('知乎') ? '📱' :
+                            source.name.includes('微博') ? '🔥' : '🌍';
+              news.push(`${emoji} ${title}`);
             }
-
-            // 添加来源标识
-            const emoji = source.name.includes('知乎') ? '📱' :
-                          source.name.includes('微博') ? '🔥' : '🌍';
-            news.push(`${emoji} ${title}`);
           }
-        }
-      }
 
-      console.log(`[RSS News] 从 ${source.name} 获取到 ${news.length} 条新闻`);
-    } catch (error) {
-      console.log(`[RSS News] 获取 ${source.name} 失败:`, error.message);
+          console.log(`[RSS News] 从 ${source.name} 获取到 ${Math.min(count, shuffled.length)} 条新闻`);
+        }
+      } catch (error) {
+        console.log(`[RSS News] 获取 ${source.name} 失败:`, error.message);
+      }
     }
 
+    console.log(`[RSS News] 总共获取 ${news.length} 条真实新闻`);
     return news;
   }
 
