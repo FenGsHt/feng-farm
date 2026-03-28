@@ -697,6 +697,13 @@ class AnimalPen {
     this.harvestCount = 0; // 收获次数（用于追踪）
   }
 
+  // 是否可以收获动物产品
+  get isReady() {
+    return this.animal &&
+           (this.currentStage === 'adult' || this.currentStage === 'old') &&
+           this.productReady;
+  }
+
   // 检查动物是否进入老年期
   isOld() {
     if (!this.animal || !this.adultAt) return false;
@@ -783,10 +790,21 @@ class AnimalPen {
       }
     }
 
-    // 成年后才能收获产品
-    if ((this.currentStage === 'adult' || this.currentStage === 'old') && !this.productReady) {
-      // 检查产品是否准备好
+    // 成年后才能收获产品（首次成年时自动准备好，收获后需等待冷却）
+    if ((this.currentStage === 'adult' || this.currentStage === 'old') && !this.productReady && !this._productCooldownStart) {
+      // 首次成年，产品自动准备好
       this.productReady = true;
+    } else if ((this.currentStage === 'adult' || this.currentStage === 'old') && this._productCooldownStart && !this.productReady) {
+      // 冷却中，检查是否完成冷却
+      let cooldownTime = 30; // 30秒冷却
+      if (this.currentStage === 'old') {
+        cooldownTime *= ANIMAL_AGING.productCooldownMultiplier;
+      }
+      const cooldownElapsed = (Date.now() - this._productCooldownStart) / 1000;
+      if (cooldownElapsed >= cooldownTime) {
+        this.productReady = true;
+        this._productCooldownStart = null;
+      }
     }
 
     // 饥饿增加（每20s +4，约500s=8分钟到达饥饿阈值60）
