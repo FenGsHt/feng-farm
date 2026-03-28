@@ -309,141 +309,149 @@ const CROPS = {
   tea:        { name: '茶叶',   growthTime: 3600, sellPrice: 165, seedPrice: 18, emoji: '🍵', category: 'cash' }       // 60 min
 };
 
-// 动物成长阶段配置
+// 动物成长阶段配置（延长各阶段时间）
 const ANIMAL_STAGES = {
-  baby: { name: '幼年期', durationRatio: 0.15 },   // 占总成长时间的15%
-  young: { name: '青年期', durationRatio: 0.15 },  // 占总成长时间的15%
-  adult: { name: '成年期', durationRatio: 0.55 },  // 占总成长时间的55%（黄金产出期）
-  old: { name: '老年期', durationRatio: 0.15 }     // 占总成长时间的15%（产量下降）
+  baby: { name: '幼年期', durationRatio: 0.20 },   // 占总成长时间的20%
+  young: { name: '青年期', durationRatio: 0.20 },  // 占总成长时间的20%
+  adult: { name: '成年期', durationRatio: 0.60 },  // 占总成长时间的60%（黄金产出期）
 };
 
 // 动物衰老配置
-// 农夫行动加快后，延长动物寿命让农夫有喘息空间
+// 延长动物寿命，让收益分散到长期
 const ANIMAL_AGING = {
   // 成年后开始计算老化时间（相对于growthTime的倍数）
-  oldAgeStart: 5,        // 成年后过5倍growthTime进入老年（大幅延长成年期）
-  oldAgeYieldMultiplier: 0.2,  // 老年后产量只有20%
-  oldAgeSellMultiplier: 0.6,   // 老年后卖价60%
-  productCooldownMultiplier: 2.5, // 老年后产出冷却延长2.5倍
+  oldAgeStart: 8,        // 成年后过8倍growthTime进入老年（大幅延长成年期）
+  oldAgeYieldMultiplier: 0.5,  // 老年后产量50%（略微下降而非大幅）
+  oldAgeSellMultiplier: 0.7,   // 老年后卖价70%
+  productCooldownMultiplier: 1.5, // 老年后产出冷却延长1.5倍（而非2.5倍）
 };
 
 // 动物配置
-// 优化原则：降低购买成本，提高产品收益，让动物约5-7次产品收获即可回本
+// 优化原则：延长寿命、降低单次收益、增加收获间隔，使收益分散到长期
+// 目标：动物寿命约10-15分钟，成年期收获10-15次回本
 const ANIMALS = {
   // 家禽
   chicken: {
     name: '鸡',
-    growthTime: 45,   // 缩短成长时间
-    sellPrice: 35,
-    buyPrice: 40,     // 降低购买价
+    growthTime: 120,  // 成长时间延长（约2分钟幼年+青年）
+    sellPrice: 40,
+    buyPrice: 50,     // 购买价略提高
     emoji: '🐔',
     product: '鸡蛋',
-    productPrice: 8,  // 提高产品价
+    productPrice: 5,  // 单次收益降低
+    harvestCooldown: 45, // 收获间隔45秒
     stages: {
       baby: { emoji: '🐤', name: '小鸡' },
       young: { emoji: '🐥', name: '青年鸡' },
-      adult: { emoji: '🐔', name: '成年鸡', sellPrice: 35 }
+      adult: { emoji: '🐔', name: '成年鸡', sellPrice: 40 }
     }
   },
   duck: {
     name: '鸭',
-    growthTime: 60,
-    sellPrice: 50,
-    buyPrice: 55,
+    growthTime: 150,
+    sellPrice: 55,
+    buyPrice: 65,
     emoji: '🦆',
     product: '鸭蛋',
-    productPrice: 12,
+    productPrice: 7,
+    harvestCooldown: 50,
     stages: {
       baby: { emoji: '🐣', name: '小鸭' },
       young: { emoji: '🐥', name: '青年鸭' },
-      adult: { emoji: '🦆', name: '成年鸭', sellPrice: 50 }
+      adult: { emoji: '🦆', name: '成年鸭', sellPrice: 55 }
     }
   },
   // 畜牧
   sheep: {
     name: '羊',
-    growthTime: 90,
-    sellPrice: 120,
-    buyPrice: 140,
+    growthTime: 200,
+    sellPrice: 100,
+    buyPrice: 120,
     emoji: '🐑',
     product: '羊毛',
-    productPrice: 28,
+    productPrice: 12,
+    harvestCooldown: 60,
     stages: {
       baby: { emoji: '🐑', name: '小羊' },
       young: { emoji: '🐑', name: '青年羊' },
-      adult: { emoji: '🐑', name: '成年羊', sellPrice: 120 }
+      adult: { emoji: '🐑', name: '成年羊', sellPrice: 100 }
     }
   },
   cow: {
     name: '牛',
-    growthTime: 120,
-    sellPrice: 240,
-    buyPrice: 280,
+    growthTime: 280,
+    sellPrice: 180,
+    buyPrice: 220,
     emoji: '🐄',
     product: '牛奶',
-    productPrice: 45,
+    productPrice: 20,
+    harvestCooldown: 70,
     stages: {
       baby: { emoji: '🐄', name: '小牛' },
       young: { emoji: '🐄', name: '青年牛' },
-      adult: { emoji: '🐄', name: '成年牛', sellPrice: 240 }
+      adult: { emoji: '🐄', name: '成年牛', sellPrice: 180 }
     }
   },
   pig: {
     name: '猪',
-    growthTime: 100,
-    sellPrice: 200,
-    buyPrice: 180,    // 猪有特殊能力，性价比高
+    growthTime: 240,
+    sellPrice: 150,
+    buyPrice: 160,    // 猪有特殊能力，性价比略高
     emoji: '🐖',
     product: '有机肥',
-    productPrice: 25,
+    productPrice: 15,
+    harvestCooldown: 65,
     specialAbility: 'fertilize',
     stages: {
       baby: { emoji: '🐷', name: '小猪' },
       young: { emoji: '🐽', name: '青年猪' },
-      adult: { emoji: '🐖', name: '成年猪', sellPrice: 280 }
+      adult: { emoji: '🐖', name: '成年猪', sellPrice: 180 }
     }
   },
   horse: {
     name: '马',
-    growthTime: 150,
-    sellPrice: 400,
-    buyPrice: 450,
+    growthTime: 350,
+    sellPrice: 280,
+    buyPrice: 350,
     emoji: '🐴',
     product: '马奶',
-    productPrice: 70,
+    productPrice: 35,
+    harvestCooldown: 80,
     stages: {
       baby: { emoji: '🐴', name: '小马' },
       young: { emoji: '🐴', name: '青年马' },
-      adult: { emoji: '🐴', name: '成年马', sellPrice: 400 }
+      adult: { emoji: '🐴', name: '成年马', sellPrice: 280 }
     }
   },
   // 特殊
   rabbit: {
     name: '兔子',
-    growthTime: 70,
-    sellPrice: 70,
-    buyPrice: 80,
+    growthTime: 180,
+    sellPrice: 60,
+    buyPrice: 75,
     emoji: '🐰',
     product: '兔毛',
-    productPrice: 18,
+    productPrice: 8,
+    harvestCooldown: 55,
     stages: {
       baby: { emoji: '🐰', name: '小兔' },
       young: { emoji: '🐰', name: '青年兔' },
-      adult: { emoji: '🐰', name: '成年兔', sellPrice: 70 }
+      adult: { emoji: '🐰', name: '成年兔', sellPrice: 60 }
     }
   },
   bee: {
     name: '蜜蜂',
-    growthTime: 80,
-    sellPrice: 50,
-    buyPrice: 50,
+    growthTime: 200,
+    sellPrice: 45,
+    buyPrice: 55,
     emoji: '🐝',
     product: '蜂蜜',
-    productPrice: 10,
+    productPrice: 6,
+    harvestCooldown: 40,
     stages: {
       baby: { emoji: '🐝', name: '蜂群' },
       young: { emoji: '🐝', name: '壮年蜂群' },
-      adult: { emoji: '🐝', name: '成熟蜂群', sellPrice: 50 }
+      adult: { emoji: '🐝', name: '成熟蜂群', sellPrice: 45 }
     }
   }
 };
@@ -796,7 +804,8 @@ class AnimalPen {
       this.productReady = true;
     } else if ((this.currentStage === 'adult' || this.currentStage === 'old') && this._productCooldownStart && !this.productReady) {
       // 冷却中，检查是否完成冷却
-      let cooldownTime = 30; // 30秒冷却
+      const animal = ANIMALS[this.animal];
+      let cooldownTime = animal?.harvestCooldown || 45; // 使用动物配置的冷却时间
       if (this.currentStage === 'old') {
         cooldownTime *= ANIMAL_AGING.productCooldownMultiplier;
       }
@@ -927,7 +936,7 @@ class AnimalPen {
     if (this.currentStage === 'adult' || this.currentStage === 'old') {
       // 成年/老年后显示产品冷却进度
       if (this._productCooldownStart) {
-        let cooldownTime = 30; // 30秒冷却
+        let cooldownTime = animal?.harvestCooldown || 45; // 使用动物配置的冷却时间
         // 老年后冷却延长
         if (this.currentStage === 'old') {
           cooldownTime *= ANIMAL_AGING.productCooldownMultiplier;
