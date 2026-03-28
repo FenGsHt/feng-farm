@@ -12,14 +12,14 @@ const rssParser = new Parser({
   }
 });
 
-// RSS新闻源配置（优先国内可访问的源）
+// RSS新闻源配置（国内可访问的人民网多分类）
 const RSS_NEWS_SOURCES = [
-  // 官方RSS源（更稳定，国内可访问）
-  { name: '新华网', url: 'http://www.news.cn/politics/news_rss.xml', weight: 1 },
-  { name: '人民网', url: 'http://www.people.com.cn/rss/politics.xml', weight: 1 },
+  // 人民网官方RSS源（稳定可靠）
+  { name: '人民网-时政', url: 'http://www.people.com.cn/rss/politics.xml', weight: 1 },
+  { name: '人民网-社会', url: 'http://www.people.com.cn/rss/society.xml', weight: 1 },
+  { name: '人民网-国际', url: 'http://www.people.com.cn/rss/world.xml', weight: 1 },
   // RSSHub公共实例（可能被屏蔽，作为备用）
-  { name: '知乎热榜', url: 'https://rsshub.app/zhihu/hotlist', weight: 0.7 },
-  { name: '微博热搜', url: 'https://rsshub.app/weibo/search/hot', weight: 0.7 },
+  { name: '知乎热榜', url: 'https://rsshub.app/zhihu/hotlist', weight: 0.5 },
 ];
 
 // ========== 天气系统 ==========
@@ -3236,8 +3236,10 @@ class FarmGame {
               }
 
               // 添加来源标识
-              const emoji = source.name.includes('知乎') ? '📱' :
-                            source.name.includes('微博') ? '🔥' : '🌍';
+              const emoji = source.name.includes('时政') ? '🏛️' :
+                            source.name.includes('社会') ? '📰' :
+                            source.name.includes('国际') ? '🌍' :
+                            source.name.includes('知乎') ? '📱' : '📰';
               news.push(`${emoji} ${title}`);
             }
           }
