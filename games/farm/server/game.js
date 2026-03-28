@@ -3057,20 +3057,41 @@ class FarmGame {
     const aliveFarmers = this.farmers.filter(f => !f.isDead);
     if (aliveFarmers.length === 0) return;
 
-    // 并行让所有农夫思考
-    const thoughts = await Promise.all(
-      aliveFarmers.map(async (farmer) => {
-        try {
-          const thought = await farmer.thinkWithAI();
-          return { farmer, thought };
-        } catch (err) {
-          console.error(`[Farmer AI] ${farmer.fullName} 思考失败:`, err.message);
-          return { farmer, thought: null };
-        }
-      })
-    );
+    // 记录本轮思考的决策（用于避免扎堆）
+    const roundDecisions = [];
 
-    // 头号农夫的策略作为团队共享策略（其他农夫可以参考但不强制执行）
+    // 串行思考，让后续农夫能看到之前农夫的决策
+    const thoughts = [];
+    for (let i = 0; i < aliveFarmers.length; i++) {
+      const farmer = aliveFarmers[i];
+
+      // 构建其他农夫的决策上下文
+      const otherDecisions = roundDecisions.slice(-3); // 最多看前3个农夫的决策
+
+      try {
+        const thought = await farmer.thinkWithAI(otherDecisions);
+        thoughts.push({ farmer, thought });
+
+        // 记录决策
+        if (thought && thought.focus) {
+          roundDecisions.push({
+            name: farmer.fullName,
+            focus: thought.focus,
+            weights: thought.weights
+          });
+        }
+
+        // 错开思考，间隔2秒
+        if (i < aliveFarmers.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      } catch (err) {
+        console.error(`[Farmer AI] ${farmer.fullName} 思考失败:`, err.message);
+        thoughts.push({ farmer, thought: null });
+      }
+    }
+
+    // 头号农夫的策略作为团队共享策略
     const leadFarmer = aliveFarmers[0];
     const leadThought = thoughts.find(t => t.farmer === leadFarmer)?.thought;
 
@@ -3080,7 +3101,8 @@ class FarmGame {
         weights: leadThought.weights || {},
         thinking: leadThought.thinking || '',
         updatedBy: leadFarmer.fullName,
-        version: ++this.strategyVersion
+        version: ++this.strategyVersion,
+        roundDecisions // 包含本轮所有决策
       };
     }
 

@@ -2022,7 +2022,7 @@ class Farmer {
 
   // ---------- LLM 预留接口 ----------
 
-  async thinkWithAI() {
+  async thinkWithAI(otherDecisions = []) {
     // 检查环境变量配置
     const LLM_API_URL = process.env.LLM_API_URL || '';
     const LLM_API_KEY = process.env.LLM_API_KEY || '';
@@ -2040,7 +2040,7 @@ class Farmer {
       // 构建当前农场状态描述
       const farmState = this._buildFarmStateDescription();
 
-      // 获取团队策略作为参考（所有农夫都可以参考）
+      // 获取团队策略作为参考
       const teamStrategy = this.game.sharedStrategy;
       const strategyContext = teamStrategy
         ? `\n\n团队策略（${Math.round((Date.now() - teamStrategy.timestamp) / 60000)}分钟前）：
@@ -2048,11 +2048,18 @@ class Farmer {
 重点: ${teamStrategy.focus || '无'}`
         : '';
 
+      // 其他农夫的决策（避免扎堆）
+      const otherDecisionsContext = otherDecisions.length > 0
+        ? `\n\n【其他农夫的决定】（避免和他们做同样的事，合理分工）：
+${otherDecisions.map(d => `- ${d.name} 决定重点做: ${d.focus}`).join('\n')}`
+        : '';
+
       const prompt = `你是一名真实的农夫，叫${this.fullName}，性格${this.personality.description}。请以农夫的口吻进行内心独白，思考接下来该做什么。
 
 当前农场状态：
 ${farmState}
 ${strategyContext}
+${otherDecisionsContext}
 
 要求：
 1. 用第一人称，像自言自语一样自然
@@ -2061,6 +2068,7 @@ ${strategyContext}
 4. 表达对未来的期望和对过去的反思
 5. 语气要符合农夫身份，可以有点唠叨
 6. ${isLeadFarmer ? '你是领队农夫，可以制定团队策略' : '你可以参考团队策略，但有自己的想法'}
+7. ${otherDecisions.length > 0 ? '注意分工：其他农夫已经在做某些事，你应该选择不同的重点，避免大家都做同一件事' : ''}
 
 返回JSON：
 {
