@@ -311,32 +311,66 @@ function createRainDrop(container) {
 function startSnow() {
   clearWeatherParticles();
   const container = createWeatherParticles();
-  
+
   // 创建初始雪花
-  for (let i = 0; i < 30; i++) {
-    createSnowFlake(container);
+  for (let i = 0; i < 40; i++) {
+    setTimeout(() => createSnowFlake(container), i * 50);
   }
-  
+
   // 持续生成雪花
   weatherInterval = setInterval(() => {
-    if (document.querySelectorAll('.snow-flake').length < 60) {
-      createSnowFlake(container);
+    const currentCount = document.querySelectorAll('.snow-flake').length;
+    if (currentCount < 80) {
+      // 随机创建1-3个雪花
+      const count = Math.floor(Math.random() * 3) + 1;
+      for (let i = 0; i < count; i++) {
+        createSnowFlake(container);
+      }
     }
-  }, 100);
+  }, 150);
 }
 
 function createSnowFlake(container) {
   const flake = document.createElement('div');
-  flake.className = 'snow-flake';
-  flake.style.left = Math.random() * 100 + 'vw';
-  flake.style.setProperty('--snow-duration', (3 + Math.random() * 4) + 's');
-  flake.style.animationDelay = Math.random() * 3 + 's';
-  flake.style.width = (4 + Math.random() * 6) + 'px';
-  flake.style.height = flake.style.width;
+
+  // 随机雪花类型
+  const type = Math.random();
+  if (type < 0.1) {
+    flake.className = 'snow-flake star';  // 10% 星形雪花
+  } else if (type < 0.3) {
+    flake.className = 'snow-flake large'; // 20% 大雪花
+  } else if (type > 0.85) {
+    flake.className = 'snow-flake small'; // 15% 小雪花
+  } else {
+    flake.className = 'snow-flake';       // 55% 普通雪花
+  }
+
+  // 随机位置（屏幕宽度的 -10% 到 110%）
+  flake.style.left = (-10 + Math.random() * 120) + 'vw';
+
+  // 下落时间 (3-7秒)
+  const fallDuration = 3 + Math.random() * 4;
+  flake.style.setProperty('--snow-duration', fallDuration + 's');
+
+  // 飘动时间 (2-5秒)
+  flake.style.setProperty('--sway-duration', (2 + Math.random() * 3) + 's');
+
+  // 飘动幅度 (10-30px)
+  flake.style.setProperty('--sway-amount', (10 + Math.random() * 20) + 'px');
+
+  // 漂移距离 (下落过程中的水平漂移)
+  flake.style.setProperty('--snow-drift', (Math.random() * 60 - 30) + 'px');
+
+  // 透明度
+  flake.style.setProperty('--snow-opacity', (0.6 + Math.random() * 0.3).toFixed(2));
+
+  // 动画延迟
+  flake.style.animationDelay = Math.random() * 0.5 + 's';
+
   container.appendChild(flake);
-  
+
   // 动画结束后移除
-  setTimeout(() => flake.remove(), 7000);
+  setTimeout(() => flake.remove(), (fallDuration + 1) * 1000);
 }
 
 function triggerLightning() {

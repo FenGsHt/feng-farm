@@ -3262,10 +3262,10 @@ class FarmGame {
       this.checkFarmerChat();
     }, 600000));
 
-    // 启动后15分钟首次检查（和思考时间错开）
+    // 启动后2分钟首次检查（和思考时间错开）
     setTimeout(() => {
       this.checkFarmerChat();
-    }, 900000);
+    }, 120000);
   }
 
   // 检查是否可以触发农夫闲聊
