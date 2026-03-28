@@ -1632,7 +1632,8 @@ class FarmGame {
     const now = Date.now();
     const farmerCount = this.farmers.filter(f => !f.isDead).length;
 
-    if (farmerCount === 0) return { settled: false, reason: '没有农夫' };
+    // 只有一个农夫时不结算工资（免费劳动力）
+    if (farmerCount < 2) return { settled: false, reason: '农夫数量不足2人，无需结算工资' };
 
     // 计算距离上次结算过了多少整小时
     const hoursPassed = Math.floor((now - this.lastSalaryTime) / (1000 * 60 * 60));
