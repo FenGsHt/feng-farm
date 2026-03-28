@@ -1196,6 +1196,9 @@ class FarmGame {
     // 启动农夫闲聊循环（每小时最多一次）
     this.startFarmerChatLoop();
 
+    // 启动时获取今日新闻
+    this.generateDailyNews();
+
     // 启动农夫工资结算循环（每分钟检查一次整点结算）
     this.startSalaryLoop();
 
@@ -3132,13 +3135,19 @@ class FarmGame {
   // ========== 农夫闲聊系统 ==========
 
   // 生成每日新闻头条
-  generateDailyNews() {
+  async generateDailyNews() {
     const today = new Date().toDateString();
     if (this.newsGeneratedDate === today) {
       return this.dailyNews; // 已生成过，直接返回
     }
 
     const news = [];
+
+    // 尝试获取真实世界新闻
+    const realNews = await this._fetchRealWorldNews();
+    if (realNews.length > 0) {
+      news.push(...realNews.slice(0, 3)); // 最多3条真实新闻
+    }
 
     // 天气相关新闻
     const weatherNews = FARM_NEWS_TEMPLATES.weather[this.weather];
@@ -3149,20 +3158,90 @@ class FarmGame {
     // 季节相关新闻
     news.push('🗓️ ' + FARM_NEWS_TEMPLATES.season[this.season]);
 
-    // 市场新闻（随机1条）
-    const marketNews = FARM_NEWS_TEMPLATES.market;
-    news.push('📈 ' + marketNews[Math.floor(Math.random() * marketNews.length)]);
+    // 如果真实新闻较少，补充一些模板新闻
+    if (news.length < 4) {
+      // 市场新闻
+      const marketNews = FARM_NEWS_TEMPLATES.market;
+      news.push('📈 ' + marketNews[Math.floor(Math.random() * marketNews.length)]);
 
-    // 八卦新闻（随机1-2条）
-    const gossipPool = [...FARM_NEWS_TEMPLATES.gossip];
-    const gossipCount = Math.floor(Math.random() * 2) + 1;
-    for (let i = 0; i < gossipCount && gossipPool.length > 0; i++) {
-      const idx = Math.floor(Math.random() * gossipPool.length);
-      news.push('🗣️ ' + gossipPool[idx]);
-      gossipPool.splice(idx, 1);
+      // 八卦新闻
+      const gossipPool = [...FARM_NEWS_TEMPLATES.gossip];
+      const gossipCount = Math.min(2, 4 - news.length);
+      for (let i = 0; i < gossipCount && gossipPool.length > 0; i++) {
+        const idx = Math.floor(Math.random() * gossipPool.length);
+        news.push('🗣️ ' + gossipPool[idx]);
+        gossipPool.splice(idx, 1);
+      }
     }
 
     this.dailyNews = news;
+    this.newsGeneratedDate = today;
+    console.log('[Farm News] 生成每日新闻:', news.length, '条');
+    return news;
+  }
+
+  // 获取真实世界新闻
+  async _fetchRealWorldNews() {
+    const NEWS_API_KEY = process.env.NEWS_API_KEY || '';
+    const news = [];
+
+    // 如果没有配置新闻API，返回空
+    if (!NEWS_API_KEY) {
+      return news;
+    }
+
+    try {
+      // 使用 NewsAPI 获取头条新闻
+      // 可以配置感兴趣的主题：农业、科技、经济等
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(
+        `https://newsapi.org/v2/top-headlines?country=cn&category=technology&pageSize=3&apiKey=${NEWS_API_KEY}`,
+        { signal: controller.signal }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.log('[News API] 请求失败:', response.status);
+        return news;
+      }
+
+      const data = await response.json();
+
+      if (data.articles && data.articles.length > 0) {
+        for (const article of data.articles) {
+          if (article.title) {
+            // 清理标题，移除来源后缀
+            let title = article.title.replace(/ - [^-]+$/, '').replace(/\[.*?\]/g, '');
+            // 截断过长的标题
+            if (title.length > 50) {
+              title = title.substring(0, 47) + '...';
+            }
+            news.push('🌍 ' + title);
+          }
+        }
+      }
+
+      console.log('[News API] 获取到', news.length, '条真实新闻');
+    } catch (error) {
+      console.log('[News API] 获取新闻失败:', error.message);
+    }
+
+    return news;
+  }
+
+  // 同步版本（用于已有缓存的情况）
+  getDailyNews() {
+    const today = new Date().toDateString();
+    if (this.newsGeneratedDate === today && this.dailyNews.length > 0) {
+      return this.dailyNews;
+    }
+    // 异步生成，先返回模板
+    this.generateDailyNews();
+    return this.dailyNews.length > 0 ? this.dailyNews : ['📰 正在获取新闻...'];
+  }
     this.newsGeneratedDate = today;
     console.log('[Farm News] 生成每日新闻:', news.length, '条');
     return news;
@@ -3214,7 +3293,7 @@ class FarmGame {
     const LLM_API_KEY = process.env.LLM_API_KEY || '';
 
     // 生成/获取今日新闻
-    const news = this.generateDailyNews();
+    const news = await this.generateDailyNews();
 
     // 选择2-3名农夫参与闲聊
     const aliveFarmers = this.farmers.filter(f => !f.isDead);
@@ -3401,11 +3480,6 @@ ${farmersInfo}
   // 获取农夫闲聊记录
   getFarmerChats() {
     return this.farmerChats.slice(-10);
-  }
-
-  // 获取今日新闻
-  getDailyNews() {
-    return this.generateDailyNews();
   }
 
   // 获取任务配置
