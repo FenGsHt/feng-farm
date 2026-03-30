@@ -158,15 +158,83 @@ io.on('connection', (socket) => {
     if (!currentRoomId) return;
     const room = roomManager.getRoom(currentRoomId);
     if (!room) return;
-    
+
     const result = room.game.sellItem(socket.id, cropType, quantity);
     socket.emit('shop-result', result);
-    
+
     if (result.success) {
       io.to(currentRoomId).emit('game-state', room.game.getState());
     }
   });
-  
+
+  // ========== 建筑和加工系统 ==========
+
+  // 购买建筑
+  socket.on('buy-building', ({ buildingId }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.buyBuilding(socket.id, buildingId);
+    socket.emit('shop-result', result);
+
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 扩建农场
+  socket.on('expand-farm', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.expandFarm(socket.id);
+    socket.emit('shop-result', result);
+
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 扩建动物栏
+  socket.on('expand-pen', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.expandAnimalPen(socket.id);
+    socket.emit('shop-result', result);
+
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 开始加工
+  socket.on('start-process', ({ recipeId, quantity = 1 }) => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const result = room.game.startProcessing(socket.id, recipeId, quantity);
+    socket.emit('process-result', result);
+
+    if (result.success) {
+      io.to(currentRoomId).emit('game-state', room.game.getState());
+    }
+  });
+
+  // 获取加工状态
+  socket.on('get-processing-status', () => {
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+
+    const status = room.game.getProcessingStatus();
+    socket.emit('processing-status', status);
+  });
+
   // Use item
   socket.on('use-item', ({ itemId }) => {
     if (!currentRoomId) return;

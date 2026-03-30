@@ -2593,13 +2593,25 @@ function renderShopItems(shopItems) {
   let itemsToShow = [];
 
   if (currentShopTab === 'seeds') {
-    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'seed');
+    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'seed' && !item.isRare);
   } else if (currentShopTab === 'items') {
     itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'item' || item.type === 'animal-feed');
   } else if (currentShopTab === 'animals') {
-    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'animal');
+    itemsToShow = Object.entries(shopItems).filter(([id, item]) => item.type === 'animal' && !item.isLegendary);
   } else if (currentShopTab === 'farmers') {
     renderFarmerTab(shopItemsContainer);
+    return;
+  } else if (currentShopTab === 'buildings') {
+    renderBuildingsTab(shopItemsContainer);
+    return;
+  } else if (currentShopTab === 'rare') {
+    renderRareCropsTab(shopItemsContainer);
+    return;
+  } else if (currentShopTab === 'legendary') {
+    renderLegendaryAnimalsTab(shopItemsContainer);
+    return;
+  } else if (currentShopTab === 'process') {
+    renderProcessTab(shopItemsContainer);
     return;
   } else if (currentShopTab === 'gold') {
     // 先刷新金价再渲染
@@ -2838,6 +2850,294 @@ function renderSellTab(container) {
       });
     });
   });
+}
+
+// ========== 建筑标签页 ==========
+function renderBuildingsTab(container) {
+  if (!gameState) {
+    container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
+    return;
+  }
+
+  const buildings = gameState.buildings || {};
+  const ownedBuildings = gameState.buildings || {};
+  const sharedMoney = gameState.sharedMoney || 0;
+
+  container.innerHTML = '';
+
+  // 已有建筑
+  const ownedSection = document.createElement('div');
+  ownedSection.className = 'farmer-mgmt-section';
+  ownedSection.innerHTML = '<div class="farmer-mgmt-title">🏗️ 已有建筑</div>';
+
+  if (Object.keys(ownedBuildings).length === 0) {
+    ownedSection.innerHTML += '<div class="inventory-empty">暂无建筑</div>';
+  } else {
+    for (const [buildingId, data] of Object.entries(ownedBuildings)) {
+      const card = document.createElement('div');
+      card.className = 'shop-item-large';
+      card.innerHTML = `
+        <span class="item-emoji">${data.emoji}</span>
+        <div class="item-info">
+          <span class="item-name">${data.name}</span>
+          <span class="item-desc">${data.description || ''}</span>
+        </div>
+      `;
+      ownedSection.appendChild(card);
+    }
+  }
+  container.appendChild(ownedSection);
+
+  // 可购买建筑
+  const shopSection = document.createElement('div');
+  shopSection.className = 'farmer-mgmt-section';
+  shopSection.innerHTML = '<div class="farmer-mgmt-title">🛒 可购买建筑</div>';
+
+  const buildingItems = {
+    'building-winery': { name: '酿酒厂', price: 50000, emoji: '🏭', desc: '加工葡萄、苹果为酒类' },
+    'building-cheese_factory': { name: '奶酪工坊', price: 30000, emoji: '🧀', desc: '加工牛奶为奶酪、黄油' },
+    'building-bakery': { name: '面包房', price: 20000, emoji: '🍞', desc: '加工谷物为面包、米饭' },
+    'building-luxury_shop': { name: '精品工坊', price: 80000, emoji: '✨', desc: '制作高端礼品' },
+    'building-auto_harvester': { name: '自动收割机', price: 150000, emoji: '🤖', desc: '自动收获成熟作物' },
+    'building-auto_feeder': { name: '自动喂食器', price: 100000, emoji: '🥘', desc: '自动喂养动物' }
+  };
+
+  for (const [itemId, item] of Object.entries(buildingItems)) {
+    if (ownedBuildings[item.building]) continue; // 已拥有则跳过
+
+    const canAfford = sharedMoney >= item.price;
+    const card = document.createElement('div');
+    card.className = 'shop-item-large';
+    card.innerHTML = `
+      <span class="item-emoji">${item.emoji}</span>
+      <div class="item-info">
+        <span class="item-name">${item.name}</span>
+        <span class="item-desc">${item.desc}</span>
+        <span class="item-price">${item.price} 💰</span>
+      </div>
+      <button class="buy-btn ${canAfford ? '' : 'disabled'}" ${canAfford ? '' : 'disabled'}>购买</button>
+    `;
+    card.querySelector('.buy-btn').addEventListener('click', () => {
+      if (confirm(`确定购买 ${item.name} 吗？花费 ${item.price} 金币`)) {
+        socket.emit('buy-item', { itemId, quantity: 1 });
+        playSound('buy');
+      }
+    });
+    shopSection.appendChild(card);
+  }
+  container.appendChild(shopSection);
+
+  // 农场扩建
+  const expandSection = document.createElement('div');
+  expandSection.className = 'farmer-mgmt-section';
+  expandSection.innerHTML = '<div class="farmer-mgmt-title">📐 扩建农场</div>';
+
+  const expandItems = [
+    { id: 'expand-farm', name: '扩建农场', price: 200000, emoji: '📐', desc: `当前 ${gameState.width}x${gameState.height}，扩建后 +2x+2` },
+    { id: 'expand-pen', name: '扩建动物栏', price: 50000, emoji: '🏠', desc: `当前 ${gameState.animalPens?.length || 12} 栏，扩建后 +6 栏` }
+  ];
+
+  expandItems.forEach(item => {
+    const canAfford = sharedMoney >= item.price;
+    const card = document.createElement('div');
+    card.className = 'shop-item-large';
+    card.innerHTML = `
+      <span class="item-emoji">${item.emoji}</span>
+      <div class="item-info">
+        <span class="item-name">${item.name}</span>
+        <span class="item-desc">${item.desc}</span>
+        <span class="item-price">${item.price} 💰</span>
+      </div>
+      <button class="buy-btn ${canAfford ? '' : 'disabled'}" ${canAfford ? '' : 'disabled'}>扩建</button>
+    `;
+    card.querySelector('.buy-btn').addEventListener('click', () => {
+      if (confirm(`确定${item.name}吗？花费 ${item.price} 金币`)) {
+        socket.emit('buy-item', { itemId: item.id, quantity: 1 });
+        playSound('buy');
+      }
+    });
+    expandSection.appendChild(card);
+  });
+  container.appendChild(expandSection);
+}
+
+// ========== 稀有作物标签页 ==========
+function renderRareCropsTab(container) {
+  if (!gameState) {
+    container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
+    return;
+  }
+
+  const rareCrops = gameState.rareCrops || {};
+  const sharedMoney = gameState.sharedMoney || 0;
+  const playerLevel = currentPlayer?.level || 1;
+
+  container.innerHTML = '<div class="farmer-mgmt-title">✨ 稀有作物种子</div>';
+
+  if (Object.keys(rareCrops).length === 0) {
+    container.innerHTML += '<div class="inventory-empty">暂无稀有作物</div>';
+    return;
+  }
+
+  for (const [cropId, crop] of Object.entries(rareCrops)) {
+    const itemId = `seed-${cropId}`;
+    const unlocked = playerLevel >= (crop.unlockLevel || 1) && sharedMoney >= (crop.unlockMoney || 0);
+    const canBuy = unlocked && sharedMoney >= crop.seedPrice;
+
+    const card = document.createElement('div');
+    card.className = 'shop-item-large';
+    card.innerHTML = `
+      <span class="item-emoji">${crop.emoji}</span>
+      <div class="item-info">
+        <span class="item-name">${crop.name}</span>
+        <span class="item-desc">售价 ${crop.sellPrice}💰 | 生长 ${crop.growthTime}秒</span>
+        ${!unlocked ? `<span class="item-locked">🔒 Lv.${crop.unlockLevel} 资产 ${crop.unlockMoney}💰</span>` : ''}
+        <span class="item-price">${crop.seedPrice} 💰</span>
+      </div>
+      ${unlocked ? `<button class="buy-btn ${canBuy ? '' : 'disabled'}" ${canBuy ? '' : 'disabled'}>购买</button>` : ''}
+    `;
+
+    if (unlocked) {
+      card.querySelector('.buy-btn').addEventListener('click', () => {
+        socket.emit('buy-item', { itemId, quantity: 1 });
+        playSound('buy');
+      });
+    }
+    container.appendChild(card);
+  }
+}
+
+// ========== 神兽动物标签页 ==========
+function renderLegendaryAnimalsTab(container) {
+  if (!gameState) {
+    container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
+    return;
+  }
+
+  const legendaryAnimals = gameState.legendaryAnimals || {};
+  const sharedMoney = gameState.sharedMoney || 0;
+  const playerLevel = currentPlayer?.level || 1;
+
+  container.innerHTML = '<div class="farmer-mgmt-title">🔥 神兽动物</div>';
+
+  if (Object.keys(legendaryAnimals).length === 0) {
+    container.innerHTML += '<div class="inventory-empty">暂无神兽</div>';
+    return;
+  }
+
+  for (const [animalId, animal] of Object.entries(legendaryAnimals)) {
+    const itemId = `animal-${animalId}`;
+    const unlocked = playerLevel >= (animal.unlockLevel || 1) && sharedMoney >= (animal.unlockMoney || 0);
+    const canBuy = unlocked && sharedMoney >= animal.buyPrice;
+
+    const card = document.createElement('div');
+    card.className = 'shop-item-large';
+    card.innerHTML = `
+      <span class="item-emoji">${animal.emoji}</span>
+      <div class="item-info">
+        <span class="item-name">${animal.name}</span>
+        <span class="item-desc">产出 ${animal.product} (${animal.productPrice}💰)</span>
+        ${!unlocked ? `<span class="item-locked">🔒 Lv.${animal.unlockLevel} 资产 ${animal.unlockMoney}💰</span>` : ''}
+        <span class="item-price">${animal.buyPrice} 💰</span>
+      </div>
+      ${unlocked ? `<button class="buy-btn ${canBuy ? '' : 'disabled'}" ${canBuy ? '' : 'disabled'}>购买</button>` : ''}
+    `;
+
+    if (unlocked) {
+      card.querySelector('.buy-btn').addEventListener('click', () => {
+        socket.emit('buy-item', { itemId, quantity: 1 });
+        playSound('buy');
+      });
+    }
+    container.appendChild(card);
+  }
+}
+
+// ========== 加工标签页 ==========
+function renderProcessTab(container) {
+  if (!gameState) {
+    container.innerHTML = '<div class="inventory-empty">请先加入游戏</div>';
+    return;
+  }
+
+  const buildings = gameState.buildings || {};
+  const recipes = gameState.recipes || {};
+  const processingQueue = gameState.processingQueue || [];
+  const inventory = currentPlayer?.inventory || {};
+
+  container.innerHTML = '';
+
+  // 加工队列
+  if (processingQueue.length > 0) {
+    const queueSection = document.createElement('div');
+    queueSection.className = 'farmer-mgmt-section';
+    queueSection.innerHTML = '<div class="farmer-mgmt-title">⏳ 加工中...</div>';
+
+    processingQueue.forEach(process => {
+      const card = document.createElement('div');
+      card.className = 'process-item';
+      card.innerHTML = `
+        <span class="item-emoji">${process.emoji}</span>
+        <div class="item-info">
+          <span class="item-name">${process.name} x${process.quantity}</span>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${process.progress}%"></div>
+          </div>
+          <span class="item-time">剩余 ${process.remainingTime}秒</span>
+        </div>
+      `;
+      queueSection.appendChild(card);
+    });
+    container.appendChild(queueSection);
+  }
+
+  // 可用配方（需要有对应建筑）
+  const recipeSection = document.createElement('div');
+  recipeSection.className = 'farmer-mgmt-section';
+  recipeSection.innerHTML = '<div class="farmer-mgmt-title">📋 可用配方</div>';
+
+  let hasRecipe = false;
+  for (const [recipeId, recipe] of Object.entries(recipes)) {
+    // 检查是否有对应建筑
+    if (!buildings[recipe.building]) continue;
+
+    // 检查原料是否足够
+    let canCraft = true;
+    let inputText = [];
+    for (const [inputItem, qty] of Object.entries(recipe.input)) {
+      const have = inventory[inputItem] || 0;
+      const itemName = gameState.crops?.[inputItem]?.name || gameState.processedItems?.[inputItem]?.name || inputItem;
+      inputText.push(`${itemName} ${have}/${qty}`);
+      if (have < qty) canCraft = false;
+    }
+
+    hasRecipe = true;
+    const card = document.createElement('div');
+    card.className = 'shop-item-large';
+    card.innerHTML = `
+      <span class="item-emoji">${recipe.emoji}</span>
+      <div class="item-info">
+        <span class="item-name">${recipe.name}</span>
+        <span class="item-desc">原料: ${inputText.join(', ')}</span>
+        <span class="item-desc">产出: ${recipe.output}个 | 耗时: ${recipe.time}秒</span>
+        <span class="item-price">售价 ${recipe.sellPrice}💰/个</span>
+      </div>
+      <button class="buy-btn ${canCraft ? '' : 'disabled'}" ${canCraft ? '' : 'disabled'}>加工</button>
+    `;
+
+    if (canCraft) {
+      card.querySelector('.buy-btn').addEventListener('click', () => {
+        socket.emit('start-process', { recipeId, quantity: 1 });
+        playSound('craft');
+      });
+    }
+    recipeSection.appendChild(card);
+  }
+
+  if (!hasRecipe) {
+    recipeSection.innerHTML += '<div class="inventory-empty">需要先建造加工建筑</div>';
+  }
+  container.appendChild(recipeSection);
 }
 
 // 渲染黄金交易标签页

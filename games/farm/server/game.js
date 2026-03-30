@@ -475,6 +475,79 @@ const ANIMALS = {
   }
 };
 
+// ========== 稀有作物系统 ==========
+// 稀有作物（需要解锁条件）
+const RARE_CROPS = {
+  'truffle': { name: '松露', growthTime: 7200, sellPrice: 800, seedPrice: 200, emoji: '🍄', category: 'legendary', unlockLevel: 20, unlockMoney: 100000 },
+  'ganoderma': { name: '灵芝', growthTime: 14400, sellPrice: 500, seedPrice: 100, emoji: '🍄', category: 'legendary', unlockLevel: 15, unlockMoney: 50000 },
+  'golden-wheat': { name: '黄金麦', growthTime: 600, sellPrice: 100, seedPrice: 30, emoji: '✨', category: 'rare', unlockLevel: 10, unlockMoney: 20000 },
+  'diamond-strawberry': { name: '钻石草莓', growthTime: 400, sellPrice: 150, seedPrice: 40, emoji: '💎', category: 'rare', unlockLevel: 12, unlockMoney: 30000 }
+};
+
+// ========== 神兽动物系统 ==========
+// 神兽动物（需要解锁）
+const LEGENDARY_ANIMALS = {
+  'golden-chicken': {
+    name: '金鸡', growthTime: 180, sellPrice: 500, buyPrice: 50000, emoji: '🐔',
+    product: '金蛋', productPrice: 100, harvestCooldown: 60,
+    stages: { baby: { emoji: '🐤', name: '金雏' }, young: { emoji: '🐥', name: '金鸡青年' }, adult: { emoji: '✨', name: '金鸡', sellPrice: 500 } },
+    unlockLevel: 15, unlockMoney: 100000
+  },
+  'rainbow-cow': {
+    name: '彩虹牛', growthTime: 300, sellPrice: 800, buyPrice: 80000, emoji: '🌈',
+    product: '彩虹奶', productPrice: 150, harvestCooldown: 80,
+    stages: { baby: { emoji: '🐄', name: '彩虹犊' }, young: { emoji: '🌈', name: '彩虹牛青年' }, adult: { emoji: '🌈', name: '彩虹牛', sellPrice: 800 } },
+    unlockLevel: 18, unlockMoney: 150000
+  },
+  'phoenix': {
+    name: '凤凰', growthTime: 600, sellPrice: 2000, buyPrice: 200000, emoji: '🔥',
+    product: '凤凰羽', productPrice: 500, harvestCooldown: 120,
+    stages: { baby: { emoji: '🔥', name: '火雏' }, young: { emoji: '🔥', name: '凤凰青年' }, adult: { emoji: '🔥', name: '凤凰', sellPrice: 2000 } },
+    unlockLevel: 25, unlockMoney: 300000
+  }
+};
+
+// ========== 加工生产线系统 ==========
+// 加工配方配置
+const RECIPES = {
+  // 酒类
+  'wine': { name: '葡萄酒', input: { grape: 5 }, output: 1, outputItem: 'wine', sellPrice: 400, time: 180, emoji: '🍷', building: 'winery' },
+  'apple-wine': { name: '苹果酒', input: { apple: 3 }, output: 1, outputItem: 'apple-wine', sellPrice: 300, time: 120, emoji: '🍾', building: 'winery' },
+  // 奶制品
+  'cheese': { name: '奶酪', input: { milk: 10 }, output: 1, outputItem: 'cheese', sellPrice: 150, time: 60, emoji: '🧀', building: 'cheese_factory' },
+  'butter': { name: '黄油', input: { milk: 5 }, output: 1, outputItem: 'butter', sellPrice: 80, time: 30, emoji: '🧈', building: 'cheese_factory' },
+  // 加工品
+  'bread-batch': { name: '面包', input: { wheat: 10 }, output: 5, outputItem: 'bread', sellPrice: 25, time: 20, emoji: '🍞', building: 'bakery' },
+  'rice-batch': { name: '米饭', input: { rice: 5 }, output: 2, outputItem: 'rice', sellPrice: 15, time: 15, emoji: '🍚', building: 'bakery' },
+  'jam': { name: '草莓酱', input: { strawberry: 20 }, output: 1, outputItem: 'jam', sellPrice: 200, time: 90, emoji: '🍯', building: 'bakery' },
+  // 高端产品
+  'tea-set': { name: '茶礼盒', input: { tea: 10 }, output: 1, outputItem: 'tea-set', sellPrice: 350, time: 120, emoji: '🎁', building: 'luxury_shop' },
+  'truffle-oil': { name: '松露油', input: { truffle: 1 }, output: 1, outputItem: 'truffle-oil', sellPrice: 1000, time: 300, emoji: '🫒', building: 'luxury_shop' }
+};
+
+// 建筑配置
+const BUILDINGS = {
+  'winery': { name: '酿酒厂', price: 50000, emoji: '🏭', description: '加工葡萄、苹果为酒类', slots: 3, recipes: ['wine', 'apple-wine'] },
+  'cheese_factory': { name: '奶酪工坊', price: 30000, emoji: '🧀', description: '加工牛奶为奶酪、黄油', slots: 2, recipes: ['cheese', 'butter'] },
+  'bakery': { name: '面包房', price: 20000, emoji: '🍞', description: '加工谷物为面包、米饭', slots: 4, recipes: ['bread-batch', 'rice-batch', 'jam'] },
+  'luxury_shop': { name: '精品工坊', price: 80000, emoji: '✨', description: '制作高端礼品和松露油', slots: 2, recipes: ['tea-set', 'truffle-oil'] },
+  'auto_harvester': { name: '自动收割机', price: 150000, emoji: '🤖', description: '自动收获成熟作物', effect: 'auto_harvest', slots: 0 },
+  'auto_feeder': { name: '自动喂食器', price: 100000, emoji: '🥘', description: '自动喂养动物', effect: 'auto_feed', slots: 0 }
+};
+
+// 加工品配置（用于背包和出售）
+const PROCESSED_ITEMS = {
+  'wine': { name: '葡萄酒', emoji: '🍷', sellPrice: 400 },
+  'apple-wine': { name: '苹果酒', emoji: '🍾', sellPrice: 300 },
+  'cheese': { name: '奶酪', emoji: '🧀', sellPrice: 150 },
+  'butter': { name: '黄油', emoji: '🧈', sellPrice: 80 },
+  'bread': { name: '面包', emoji: '🍞', sellPrice: 25 },
+  'rice': { name: '米饭', emoji: '🍚', sellPrice: 15 },
+  'jam': { name: '草莓酱', emoji: '🍯', sellPrice: 200 },
+  'tea-set': { name: '茶礼盒', emoji: '🎁', sellPrice: 350 },
+  'truffle-oil': { name: '松露油', emoji: '🫒', sellPrice: 1000 }
+};
+
 // 食物配置（供农夫进食使用）
 const FARMER_FOODS = {
   'food-bread':     { name: '面包',   emoji: '🍞', price: 12,  satiety: 25 },
@@ -574,6 +647,25 @@ const SHOP_ITEMS = {
   'food-feast':     { type: 'farmer-food', name: '大餐',   emoji: '🍱', price: 35, satiety: 100, desc: '丰盛大餐，完全填饱！' },
   // 雇佣农夫（价格动态计算，此处为基础值占位）
   'hire-farmer':    { type: 'hire-farmer', name: '雇佣农夫', emoji: '👨‍🌾', price: 500, desc: '雇佣一名新农夫，价格随人数增加' },
+  // ========== 高端建筑 ==========
+  'building-winery': { type: 'building', building: 'winery', name: '酿酒厂', price: 50000, emoji: '🏭', desc: '加工葡萄、苹果为酒类' },
+  'building-cheese_factory': { type: 'building', building: 'cheese_factory', name: '奶酪工坊', price: 30000, emoji: '🧀', desc: '加工牛奶为奶酪、黄油' },
+  'building-bakery': { type: 'building', building: 'bakery', name: '面包房', price: 20000, emoji: '🍞', desc: '加工谷物为面包、米饭' },
+  'building-luxury_shop': { type: 'building', building: 'luxury_shop', name: '精品工坊', price: 80000, emoji: '✨', desc: '制作高端礼品和松露油' },
+  'building-auto_harvester': { type: 'building', building: 'auto_harvester', name: '自动收割机', price: 150000, emoji: '🤖', desc: '自动收获成熟作物' },
+  'building-auto_feeder': { type: 'building', building: 'auto_feeder', name: '自动喂食器', price: 100000, emoji: '🥘', desc: '自动喂养动物' },
+  // ========== 农场扩建 ==========
+  'expand-farm': { type: 'expand-farm', name: '扩建农场', price: 200000, emoji: '📐', desc: '扩大农场面积' },
+  'expand-pen': { type: 'expand-pen', name: '扩建动物栏', price: 50000, emoji: '🏠', desc: '增加6个动物栏位' },
+  // ========== 稀有作物种子 ==========
+  'seed-truffle': { type: 'seed', crop: 'truffle', name: '松露种子', price: 200, emoji: '🍄', isRare: true, unlockLevel: 20, unlockMoney: 100000 },
+  'seed-ganoderma': { type: 'seed', crop: 'ganoderma', name: '灵芝孢子', price: 100, emoji: '🍄', isRare: true, unlockLevel: 15, unlockMoney: 50000 },
+  'seed-golden-wheat': { type: 'seed', crop: 'golden-wheat', name: '黄金麦种', price: 30, emoji: '✨', isRare: true, unlockLevel: 10, unlockMoney: 20000 },
+  'seed-diamond-strawberry': { type: 'seed', crop: 'diamond-strawberry', name: '钻石草莓种', price: 40, emoji: '💎', isRare: true, unlockLevel: 12, unlockMoney: 30000 },
+  // ========== 神兽动物 ==========
+  'animal-golden-chicken': { type: 'animal', animal: 'golden-chicken', name: '金鸡', price: 50000, emoji: '✨', isLegendary: true, unlockLevel: 15, unlockMoney: 100000 },
+  'animal-rainbow-cow': { type: 'animal', animal: 'rainbow-cow', name: '彩虹牛', price: 80000, emoji: '🌈', isLegendary: true, unlockLevel: 18, unlockMoney: 150000 },
+  'animal-phoenix': { type: 'animal', animal: 'phoenix', name: '凤凰', price: 200000, emoji: '🔥', isLegendary: true, unlockLevel: 25, unlockMoney: 300000 },
 };
 
 // 地块类
@@ -1155,6 +1247,10 @@ class FarmGame {
     this.goldPrice = 1000;         // 当前金价（金币/克），初始值约等于人民币价格
     this.goldPriceHistory = [];    // 金价历史 [{time, price}]
     this.lastGoldPriceUpdate = 0;  // 上次更新时间
+
+    // ========== 建筑系统 ==========
+    this.ownedBuildings = {};      // 已拥有建筑 { buildingId: { purchasedAt, slots: [] } }
+    this.processingQueue = [];     // 加工队列 [{ recipeId, startTime, quantity, player, slot }]
 
     // 暴露动物配置，供 farmer.js 访问（避免循环 require）
     this.ANIMALS = ANIMALS;
@@ -3794,7 +3890,70 @@ ${farmersInfo}
       }
       // 更新动物位置（随机移动）
       this._updateAnimalPositions();
+
+      // 检查加工完成
+      this.checkProcessing();
+
+      // 自动化建筑效果（每10秒执行一次）
+      this._autoCounter = (this._autoCounter || 0) + 1;
+      if (this._autoCounter >= 10) {
+        this._autoCounter = 0;
+        this.runAutoBuildings();
+      }
     }, 1000)); // 每秒更新一次
+  }
+
+  // 自动化建筑效果
+  runAutoBuildings() {
+    // 自动收割机
+    if (this.ownedBuildings['auto_harvester']) {
+      let harvested = 0;
+      for (let y = 0; y < this.height; y++) {
+        for (let x = 0; x < this.width; x++) {
+          const plot = this.plots[y][x];
+          if (plot.crop && plot.growthStage >= 3) {
+            // 找到任意一个玩家来收获
+            let owner = null;
+            for (const [socketId, p] of this.players) {
+              owner = { socketId, player: p };
+              break;
+            }
+            if (owner) {
+              const crop = CROPS[plot.crop] || RARE_CROPS[plot.crop];
+              if (crop) {
+                // 直接收获放入背包
+                if (!owner.player.inventory[plot.crop]) {
+                  owner.player.inventory[plot.crop] = 0;
+                }
+                owner.player.inventory[plot.crop]++;
+                plot.crop = null;
+                plot.growthStage = 0;
+                plot.isWatered = false;
+                harvested++;
+              }
+            }
+          }
+        }
+      }
+      if (harvested > 0) {
+        this.addFarmLog(`🤖 自动收割机收获了 ${harvested} 个作物`, 'auto');
+      }
+    }
+
+    // 自动喂食器
+    if (this.ownedBuildings['auto_feeder']) {
+      let fed = 0;
+      for (const pen of this.animalPens) {
+        if (pen.animal && pen.hunger >= 60) {
+          // 自动喂养
+          pen.hunger = Math.max(0, pen.hunger - 40);
+          fed++;
+        }
+      }
+      if (fed > 0) {
+        this.addFarmLog(`🥘 自动喂食器喂养了 ${fed} 只动物`, 'auto');
+      }
+    }
   }
 
   // 玩家加入
@@ -4115,17 +4274,31 @@ ${farmersInfo}
   buyItem(socketId, itemId, quantity = 1) {
     const player = this.players.get(socketId);
     if (!player) return { success: false, message: '玩家不存在' };
-    
+
     const item = SHOP_ITEMS[itemId];
     if (!item) return { success: false, message: '物品不存在' };
-    
+
+    // 检查稀有物品解锁条件
+    if (item.isRare || item.isLegendary) {
+      const playerLevel = player.stats?.level || 1;
+      const totalXp = player.stats?.totalXp || 0;
+      const { level } = calculateLevelFromXp(totalXp);
+
+      if (item.unlockLevel && level < item.unlockLevel) {
+        return { success: false, message: `需要农场等级 ${item.unlockLevel} 才能购买` };
+      }
+      if (item.unlockMoney && this.sharedMoney < item.unlockMoney) {
+        return { success: false, message: `需要累计资产 ${item.unlockMoney} 金币才能购买` };
+      }
+    }
+
     const totalCost = item.price * quantity;
     if (this.sharedMoney < totalCost) {
       return { success: false, message: '金币不足' };
     }
-    
+
     this.sharedMoney -= totalCost;
-    
+
     if (item.type === 'seed') {
       // 种子直接放入背包
       if (!player.inventory[item.crop]) {
@@ -4138,27 +4311,363 @@ ${farmersInfo}
         player.items[itemId] = 0;
       }
       player.items[itemId] += quantity;
+    } else if (item.type === 'building') {
+      // 建筑购买
+      return this.buyBuilding(socketId, item.building);
+    } else if (item.type === 'expand-farm') {
+      // 扩建农场
+      return this.expandFarm(socketId);
+    } else if (item.type === 'expand-pen') {
+      // 扩建动物栏
+      return this.expandAnimalPen(socketId);
+    } else if (item.type === 'animal' && item.isLegendary) {
+      // 神兽动物购买
+      return this.buyLegendaryAnimal(socketId, item.animal);
     }
-    
+
     // 保存玩家数据
-    dataStore.savePlayer(socketId, { 
-      name: player.name, 
-      money: this.sharedMoney, 
-      color: player.color, 
+    dataStore.savePlayer(socketId, {
+      name: player.name,
+      money: this.sharedMoney,
+      color: player.color,
       position: player.position,
       inventory: player.inventory,
       items: player.items
     });
-    
+
     // 记录操作日志
     dataStore.logAction(socketId, player.name, 'buy', { itemId, quantity, cost: totalCost });
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       message: `购买 ${item.name} x${quantity} 花费 ${totalCost} 金币`,
       inventory: player.inventory,
       items: player.items
     };
+  }
+
+  // ========== 建筑系统方法 ==========
+
+  // 购买建筑
+  buyBuilding(socketId, buildingId) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    const building = BUILDINGS[buildingId];
+    if (!building) return { success: false, message: '建筑不存在' };
+
+    // 检查是否已拥有
+    if (this.ownedBuildings[buildingId]) {
+      return { success: false, message: '已经拥有该建筑' };
+    }
+
+    // 检查金币
+    if (this.sharedMoney < building.price) {
+      return { success: false, message: '金币不足' };
+    }
+
+    // 扣除金币
+    this.sharedMoney -= building.price;
+
+    // 添加建筑
+    this.ownedBuildings[buildingId] = {
+      purchasedAt: Date.now(),
+      slots: building.slots > 0 ? Array(building.slots).fill(null) : []
+    };
+
+    // 记录日志
+    this.addFarmLog(`购买了 ${building.emoji} ${building.name}`, 'building');
+    dataStore.logAction(socketId, player.name, 'buy_building', { buildingId, cost: building.price });
+
+    return {
+      success: true,
+      message: `成功购买 ${building.name}！`,
+      building: buildingId,
+      ownedBuildings: this.ownedBuildings
+    };
+  }
+
+  // 扩建农场
+  expandFarm(socketId) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    // 检查金币
+    if (this.sharedMoney < 200000) {
+      return { success: false, message: '金币不足，需要 200000 金币' };
+    }
+
+    // 检查最大尺寸
+    if (this.width >= 20 || this.height >= 20) {
+      return { success: false, message: '农场已达最大尺寸' };
+    }
+
+    // 扣除金币
+    this.sharedMoney -= 200000;
+
+    // 扩建
+    const newWidth = Math.min(20, this.width + 2);
+    const newHeight = Math.min(20, this.height + 2);
+
+    // 添加新地块
+    for (let y = this.height; y < newHeight; y++) {
+      const row = [];
+      for (let x = 0; x < newWidth; x++) {
+        row.push(new Plot(x, y));
+      }
+      this.plots.push(row);
+    }
+    // 扩展现有行
+    for (let y = 0; y < this.height; y++) {
+      for (let x = this.width; x < newWidth; x++) {
+        this.plots[y].push(new Plot(x, y));
+      }
+    }
+
+    this.width = newWidth;
+    this.height = newHeight;
+
+    this.addFarmLog(`农场扩建成功！当前 ${this.width}x${this.height}`, 'building');
+    dataStore.logAction(socketId, player.name, 'expand_farm', { newWidth, newHeight });
+
+    return {
+      success: true,
+      message: `农场扩建成功！当前 ${this.width}x${this.height}`,
+      width: this.width,
+      height: this.height
+    };
+  }
+
+  // 扩建动物栏
+  expandAnimalPen(socketId) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    // 检查金币
+    if (this.sharedMoney < 50000) {
+      return { success: false, message: '金币不足，需要 50000 金币' };
+    }
+
+    // 检查最大栏位
+    if (this.animalPens.length >= 30) {
+      return { success: false, message: '动物栏已达最大数量' };
+    }
+
+    // 扣除金币
+    this.sharedMoney -= 50000;
+
+    // 添加6个新栏位
+    const startIndex = this.animalPens.length;
+    for (let i = 0; i < 6; i++) {
+      this.animalPens.push(new AnimalPen(startIndex + i));
+    }
+
+    this.addFarmLog(`动物栏扩建成功！当前 ${this.animalPens.length} 个栏位`, 'building');
+    dataStore.logAction(socketId, player.name, 'expand_pen', { totalPens: this.animalPens.length });
+
+    return {
+      success: true,
+      message: `动物栏扩建成功！当前 ${this.animalPens.length} 个栏位`,
+      totalPens: this.animalPens.length
+    };
+  }
+
+  // 购买神兽动物
+  buyLegendaryAnimal(socketId, animalType) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    const animal = LEGENDARY_ANIMALS[animalType];
+    if (!animal) return { success: false, message: '未知神兽' };
+
+    // 检查解锁条件
+    const totalXp = player.stats?.totalXp || 0;
+    const { level } = calculateLevelFromXp(totalXp);
+
+    if (animal.unlockLevel && level < animal.unlockLevel) {
+      return { success: false, message: `需要农场等级 ${animal.unlockLevel} 才能购买` };
+    }
+    if (animal.unlockMoney && this.sharedMoney < animal.unlockMoney) {
+      return { success: false, message: `需要累计资产 ${animal.unlockMoney} 金币才能购买` };
+    }
+
+    // 检查金币
+    if (this.sharedMoney < animal.buyPrice) {
+      return { success: false, message: '金币不足' };
+    }
+
+    // 找空栏位
+    const emptyPen = this.animalPens.find(pen => !pen.animal);
+    if (!emptyPen) {
+      return { success: false, message: '动物栏已满' };
+    }
+
+    // 扣除金币
+    this.sharedMoney -= animal.buyPrice;
+
+    // 放置神兽
+    emptyPen.animal = animalType;
+    emptyPen.ownedAt = Date.now();
+    emptyPen.currentStage = 'baby';
+    emptyPen.stageStartedAt = Date.now();
+    emptyPen.owner = player.name;
+    emptyPen.isLegendary = true;
+
+    this.addFarmLog(`获得了神兽 ${animal.emoji} ${animal.name}！`, 'legendary');
+    dataStore.logAction(socketId, player.name, 'buy_legendary', { animalType, cost: animal.buyPrice });
+
+    return {
+      success: true,
+      message: `成功购买 ${animal.name}！`,
+      penIndex: emptyPen.index,
+      animalType
+    };
+  }
+
+  // ========== 加工系统方法 ==========
+
+  // 开始加工
+  startProcessing(socketId, recipeId, quantity = 1) {
+    const player = this.players.get(socketId);
+    if (!player) return { success: false, message: '玩家不存在' };
+
+    const recipe = RECIPES[recipeId];
+    if (!recipe) return { success: false, message: '配方不存在' };
+
+    // 检查是否拥有对应建筑
+    const building = this.ownedBuildings[recipe.building];
+    if (!building) {
+      return { success: false, message: `需要先建造 ${BUILDINGS[recipe.building].name}` };
+    }
+
+    // 检查建筑槽位
+    const usedSlots = this.processingQueue.filter(p => p.building === recipe.building).length;
+    const maxSlots = BUILDINGS[recipe.building].slots;
+    if (usedSlots >= maxSlots) {
+      return { success: false, message: '建筑加工队列已满' };
+    }
+
+    // 检查原料
+    for (const [inputItem, requiredQty] of Object.entries(recipe.input)) {
+      const totalRequired = requiredQty * quantity;
+      if (!player.inventory[inputItem] || player.inventory[inputItem] < totalRequired) {
+        const inputName = CROPS[inputItem]?.name || PROCESSED_ITEMS[inputItem]?.name || inputItem;
+        return { success: false, message: `原料不足：需要 ${totalRequired} 个 ${inputName}` };
+      }
+    }
+
+    // 扣除原料
+    for (const [inputItem, requiredQty] of Object.entries(recipe.input)) {
+      player.inventory[inputItem] -= requiredQty * quantity;
+      if (player.inventory[inputItem] <= 0) {
+        delete player.inventory[inputItem];
+      }
+    }
+
+    // 添加到加工队列
+    const processItem = {
+      recipeId,
+      building: recipe.building,
+      startTime: Date.now(),
+      quantity,
+      player: player.name,
+      totalTime: recipe.time * 1000 * quantity
+    };
+    this.processingQueue.push(processItem);
+
+    this.addFarmLog(`开始加工 ${recipe.emoji} ${recipe.name} x${quantity}`, 'process');
+
+    return {
+      success: true,
+      message: `开始加工 ${recipe.name} x${quantity}，预计 ${recipe.time * quantity} 秒完成`,
+      processId: this.processingQueue.length - 1
+    };
+  }
+
+  // 检查并完成加工
+  checkProcessing() {
+    const now = Date.now();
+    const completed = [];
+
+    for (let i = this.processingQueue.length - 1; i >= 0; i--) {
+      const process = this.processingQueue[i];
+      const elapsed = now - process.startTime;
+
+      if (elapsed >= process.totalTime) {
+        // 加工完成
+        const recipe = RECIPES[process.recipeId];
+        const outputItem = recipe.outputItem || process.recipeId;
+
+        // 找到玩家
+        let targetPlayer = null;
+        for (const [socketId, p] of this.players) {
+          if (p.name === process.player) {
+            targetPlayer = p;
+            break;
+          }
+        }
+
+        if (targetPlayer) {
+          // 添加加工品到背包
+          if (!targetPlayer.inventory[outputItem]) {
+            targetPlayer.inventory[outputItem] = 0;
+          }
+          targetPlayer.inventory[outputItem] += recipe.output * process.quantity;
+
+          completed.push({
+            recipeId: process.recipeId,
+            name: recipe.name,
+            quantity: recipe.output * process.quantity,
+            player: process.player
+          });
+
+          this.addFarmLog(`${recipe.emoji} ${recipe.name} 加工完成！`, 'process');
+        }
+
+        // 从队列移除
+        this.processingQueue.splice(i, 1);
+      }
+    }
+
+    return completed;
+  }
+
+  // 获取加工状态
+  getProcessingStatus() {
+    const now = Date.now();
+    return this.processingQueue.map((process, index) => {
+      const recipe = RECIPES[process.recipeId];
+      const elapsed = now - process.startTime;
+      const progress = Math.min(1, elapsed / process.totalTime);
+      const remaining = Math.max(0, process.totalTime - elapsed);
+
+      return {
+        id: index,
+        recipeId: process.recipeId,
+        name: recipe.name,
+        emoji: recipe.emoji,
+        quantity: process.quantity,
+        progress: Math.round(progress * 100),
+        remainingTime: Math.ceil(remaining / 1000),
+        player: process.player
+      };
+    });
+  }
+
+  // 获取建筑状态
+  getBuildingsState() {
+    const result = {};
+    for (const [buildingId, data] of Object.entries(this.ownedBuildings)) {
+      const building = BUILDINGS[buildingId];
+      result[buildingId] = {
+        ...data,
+        name: building.name,
+        emoji: building.emoji,
+        description: building.description,
+        recipes: building.recipes || []
+      };
+    }
+    return result;
   }
 
   // 出售物品
@@ -4170,11 +4679,39 @@ ${farmersInfo}
       return { success: false, message: '背包中没有足够的物品' };
     }
 
-    const crop = CROPS[cropType];
-    if (!crop) return { success: false, message: '未知作物' };
+    // 检查物品类型：普通作物、稀有作物、加工品
+    let basePrice = 0;
+    let itemName = cropType;
 
-    // 获取动态价格
-    const { finalPrice, priceModifier, eventMultiplier } = this.calculateCropPrice(cropType);
+    const crop = CROPS[cropType];
+    const rareCrop = RARE_CROPS[cropType];
+    const processedItem = PROCESSED_ITEMS[cropType];
+
+    if (crop) {
+      basePrice = crop.sellPrice;
+      itemName = crop.name;
+    } else if (rareCrop) {
+      basePrice = rareCrop.sellPrice;
+      itemName = rareCrop.name;
+    } else if (processedItem) {
+      basePrice = processedItem.sellPrice;
+      itemName = processedItem.name;
+    } else {
+      return { success: false, message: '未知物品' };
+    }
+
+    // 获取动态价格（只对普通作物应用）
+    let finalPrice = basePrice;
+    let priceModifier = 1;
+    let eventMultiplier = 1;
+
+    if (crop) {
+      const priceResult = this.calculateCropPrice(cropType);
+      finalPrice = priceResult.finalPrice;
+      priceModifier = priceResult.priceModifier;
+      eventMultiplier = priceResult.eventMultiplier;
+    }
+
     const totalReward = Math.floor(finalPrice * quantity);
 
     player.inventory[cropType] -= quantity;
@@ -4185,8 +4722,10 @@ ${farmersInfo}
 
     this.sharedMoney += totalReward;
 
-    // 更新市场状态
-    this.updateMarketOnSale(cropType, quantity);
+    // 更新市场状态（只对普通作物）
+    if (crop) {
+      this.updateMarketOnSale(cropType, quantity);
+    }
 
     // 更新任务进度（出售任务和赚取金币任务）
     this.updateTaskProgress(socketId, 'sell', quantity);
@@ -4743,7 +5282,15 @@ ${farmersInfo}
       salary: this.getSalaryInfo(),
       tax: this.getEstimatedTax(),
       // 农场日志（最新 40 条）
-      farmLog: this.farmLog
+      farmLog: this.farmLog,
+      // 建筑系统
+      buildings: this.getBuildingsState(),
+      processingQueue: this.getProcessingStatus(),
+      // 稀有作物和神兽配置
+      rareCrops: RARE_CROPS,
+      legendaryAnimals: LEGENDARY_ANIMALS,
+      recipes: RECIPES,
+      processedItems: PROCESSED_ITEMS
     };
   }
 
