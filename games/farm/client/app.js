@@ -1357,6 +1357,7 @@ function updateGameState(state) {
   renderFarmerChats();
   renderSalaryAndTax();
   updateFarmerSelect();
+  renderBuildingsPanel(); // 新增：渲染建筑状态面板
 
   // 更新当前玩家等级信息
   if (currentPlayer && gameState.players) {
@@ -1370,16 +1371,76 @@ function updateGameState(state) {
       updateLevelDisplay();
     }
   }
-  
+
   // 启动动物移动（如果还没启动）
   if (!animalMoveInterval) {
     startAnimalMovement();
   }
-  
+
   // 刷新好友列表（如果已连接）
   if (socket && socket.connected) {
     socket.emit('get-friends');
   }
+}
+
+// ========== 建筑状态面板 ==========
+function renderBuildingsPanel() {
+  const ownedContainer = document.getElementById('owned-buildings');
+  const queueContainer = document.getElementById('processing-queue');
+
+  if (!ownedContainer || !queueContainer || !gameState) return;
+
+  const buildings = gameState.buildings || {};
+  const processingQueue = gameState.processingQueue || [];
+
+  // 渲染已有建筑
+  if (Object.keys(buildings).length === 0) {
+    ownedContainer.innerHTML = '<div class="buildings-empty">暂无建筑 - 商店购买</div>';
+  } else {
+    ownedContainer.innerHTML = '';
+    for (const [buildingId, data] of Object.entries(buildings)) {
+      const card = document.createElement('div');
+      card.className = 'building-card';
+      card.innerHTML = `
+        <span class="building-emoji">${data.emoji}</span>
+        <div class="building-info">
+          <span class="building-name">${data.name}</span>
+          <span class="building-desc">${data.description || ''}</span>
+        </div>
+      `;
+      ownedContainer.appendChild(card);
+    }
+  }
+
+  // 渲染加工队列
+  if (processingQueue.length === 0) {
+    queueContainer.innerHTML = '<div class="buildings-empty">无加工任务</div>';
+  } else {
+    queueContainer.innerHTML = '';
+    processingQueue.forEach(process => {
+      const card = document.createElement('div');
+      card.className = 'process-card';
+      card.innerHTML = `
+        <span class="process-emoji">${process.emoji}</span>
+        <div class="process-info">
+          <span class="process-name">${process.name} x${process.quantity}</span>
+          <div class="process-progress-bar">
+            <div class="process-progress-fill" style="width: ${process.progress}%"></div>
+          </div>
+          <span class="process-time">⏱️ ${process.remainingTime}秒</span>
+        </div>
+      `;
+      queueContainer.appendChild(card);
+    });
+  }
+}
+
+// 折叠/展开建筑面板
+function toggleBuildingsPanel() {
+  const panel = document.getElementById('buildings-panel');
+  const toggle = document.getElementById('buildings-toggle');
+  const collapsed = panel.classList.toggle('buildings-collapsed');
+  toggle.textContent = collapsed ? '▼' : '▲';
 }
 
 // 更新游戏时间显示

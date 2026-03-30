@@ -89,6 +89,20 @@
           <div id="players-layer" class="players-layer"></div>
         </div>
 
+        <!-- 建筑状态面板 -->
+        <div id="buildings-panel" class="buildings-panel">
+          <div class="buildings-panel-header" onclick="toggleBuildingsPanel()">
+            <span class="buildings-title">🏗️ 建筑与加工</span>
+            <span class="buildings-toggle" id="buildings-toggle">▲</span>
+          </div>
+          <div class="buildings-panel-body" id="buildings-panel-body">
+            <!-- 已有建筑 -->
+            <div id="owned-buildings" class="owned-buildings"></div>
+            <!-- 加工队列 -->
+            <div id="processing-queue" class="processing-queue"></div>
+          </div>
+        </div>
+
         <!-- 农场日志 -->
         <div class="farm-log-panel" id="farm-log-panel">
           <div class="farm-log-header" onclick="toggleFarmLog()">
